@@ -171,6 +171,10 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 - **Don't `npm install` without `--legacy-peer-deps`.** `nuqs` has a stale `@remix-run/react` peer dep that blocks resolution otherwise.
 - **Don't read `process.env.DATABASE_URL` from app code.** Go through `src/lib/env.ts`. (Exceptions: `prisma.config.ts`, `prisma/seed.ts`.)
 - **Don't tRPC, GraphQL, microservices, Kubernetes, or message queues.** Out of scope for MVP.
+- **Don't put pure UI constants (status labels, tone maps) in server-only modules.** If a constant is needed in a `"use client"` component, put it in a `*.constants.ts` file with no server imports (no `db`, no `@/lib/auth/*`, no `next/headers`). See `src/modules/bookings/booking.constants.ts` as the canonical example. Importing from a server module into a client component drags `pg`/Prisma into the browser bundle and breaks the build.
+- **Don't use duplicate keys in Prisma `where` objects.** If you need two `OR` conditions, wrap them: `AND: [{ OR: [...] }, { OR: [...] }]`. Duplicate keys silently drop the first condition at runtime — TypeScript will now catch this as a compile error.
+- **Don't use `watch()` from `useForm()` in components.** Use `useWatch({ control, name })` instead — it subscribes only to the named field and is React Compiler-friendly.
+- **Don't export `parsePageParams` from a `"use client"` file** and call it from an RSC. Server-safe utilities must live in plain `.ts` files (e.g., `src/lib/utils/page-params.ts`) so Next 15 can call them during server render.
 
 ## 13. Where things live (quick reference)
 
@@ -192,5 +196,6 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 | Shared DataTable | [src/components/common/DataTable.tsx](src/components/common/DataTable.tsx) + [DataTableToolbar.tsx](src/components/common/DataTableToolbar.tsx) |
 | Shared form fields | [src/components/common/form/](src/components/common/form/) |
 | Status badge | [src/components/common/StatusBadge.tsx](src/components/common/StatusBadge.tsx) |
+| Booking status labels + helpers (client-safe) | [src/modules/bookings/booking.constants.ts](src/modules/bookings/booking.constants.ts) |
 | Admin shell | [src/app/(admin)/layout.tsx](src/app/(admin)/layout.tsx) + [_components/AdminShell.tsx](src/app/(admin)/_components/AdminShell.tsx) |
 | Sidebar nav config | [src/layout/AppSidebar.tsx](src/layout/AppSidebar.tsx) |

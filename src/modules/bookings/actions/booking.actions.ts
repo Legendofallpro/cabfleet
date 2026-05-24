@@ -7,6 +7,9 @@ import { z } from "zod";
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { db } from "@/lib/db";
+import { writeAudit } from "@/lib/audit";
+import { ok } from "@/lib/result";
 import {
   createBookingSchema,
   assignDriverSchema,
@@ -31,7 +34,10 @@ export const createBookingAction = action(
     const actor = await requirePermission(PERMISSIONS.BOOKING_CREATE);
     const result = await createBooking(input, { id: actor.profile.id });
     revalidatePath("/bookings");
-    return result;
+    // Return only the id — the full BookingDetail contains Prisma Decimal fields
+    // which React cannot serialize across the server→client boundary.
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
   },
 );
 
@@ -47,7 +53,8 @@ export const assignDriverAction = action(
     const result = await assignDriverToBooking(input, { id: actor.profile.id });
     revalidatePath("/bookings");
     revalidatePath(`/bookings/${input.bookingId}`);
-    return result;
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
   },
 );
 
@@ -63,7 +70,8 @@ export const cancelBookingAction = action(
     const result = await cancelBooking(input, { id: actor.profile.id });
     revalidatePath("/bookings");
     revalidatePath(`/bookings/${input.bookingId}`);
-    return result;
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
   },
 );
 
@@ -95,7 +103,8 @@ export const transitionBookingAction = action(
     );
     revalidatePath("/bookings");
     revalidatePath(`/bookings/${input.bookingId}`);
-    return result;
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
   },
 );
 
@@ -110,14 +119,10 @@ export const softDeleteBookingAction = action(
   idSchema,
   async ({ bookingId }) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_OVERRIDE);
-    const current = await import("@/lib/db").then(({ db }) =>
-      db.booking.findFirst({ where: { id: bookingId, deletedAt: null } }),
-    );
+    const current = await db.booking.findFirst({ where: { id: bookingId, deletedAt: null } });
     if (!current) {
       return { ok: false as const, error: { code: "NOT_FOUND", message: "Booking not found." } };
     }
-    const { db } = await import("@/lib/db");
-    const { writeAudit } = await import("@/lib/audit");
     await db.$transaction(async (tx) => {
       await tx.booking.update({
         where: { id: bookingId },

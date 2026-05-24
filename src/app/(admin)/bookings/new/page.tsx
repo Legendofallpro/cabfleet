@@ -22,6 +22,17 @@ export default async function NewBookingPage() {
         <h2 className="mb-6 text-base font-semibold text-gray-800 dark:text-white/90">
           Booking details
         </h2>
+
+        {bookingTypes.length === 0 && (
+          <div className="mb-6 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-800 dark:bg-warning-500/10 dark:text-warning-400">
+            <strong>No booking types found.</strong> Run{" "}
+            <code className="rounded bg-warning-100 px-1 font-mono text-xs dark:bg-warning-900">
+              npm run db:seed
+            </code>{" "}
+            to seed the default types, or create them in Settings.
+          </div>
+        )}
+
         <BookingCreateForm
           branches={branches}
           customers={customers.map((c) => ({
