@@ -54,6 +54,11 @@ const navItems: NavItem[] = [
     path: "/staff",
   },
   {
+    icon: <UserCircleIcon />,
+    name: "Customers",
+    path: "/customers",
+  },
+  {
     icon: <TimeIcon />,
     name: "Attendance",
     path: "/attendance",
@@ -79,7 +84,10 @@ const othersItems: NavItem[] = [
   {
     icon: <TableIcon />,
     name: "Settings",
-    path: "/settings",
+    subItems: [
+      { name: "Branches", path: "/settings/branches" },
+      { name: "General", path: "/settings" },
+    ],
   },
   {
     icon: <PlugInIcon />,

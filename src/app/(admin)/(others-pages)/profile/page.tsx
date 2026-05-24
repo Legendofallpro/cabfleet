@@ -1,27 +1,43 @@
-import UserAddressCard from "@/components/user-profile/UserAddressCard";
-import UserInfoCard from "@/components/user-profile/UserInfoCard";
-import UserMetaCard from "@/components/user-profile/UserMetaCard";
 import { Metadata } from "next";
-import React from "react";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Next.js Profile | TailAdmin - Next.js Dashboard Template",
-  description:
-    "This is Next.js Profile page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template",
-};
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { getSessionUser } from "@/lib/auth/session";
 
-export default function Profile() {
+export const metadata: Metadata = { title: "My Profile | CabFleet Admin" };
+
+export default async function ProfilePage() {
+  const session = await getSessionUser();
+  if (!session) redirect("/signin?redirectTo=/profile");
+
   return (
     <div>
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
-          Profile
-        </h3>
-        <div className="space-y-6">
-          <UserMetaCard />
-          <UserInfoCard />
-          <UserAddressCard />
-        </div>
+      <PageBreadcrumb pageTitle="My Profile" />
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <dt className="text-xs uppercase text-gray-500">Name</dt>
+            <dd className="mt-1 text-sm text-gray-800 dark:text-white/90">
+              {session.profile.fullName ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-gray-500">Email</dt>
+            <dd className="mt-1 text-sm text-gray-800 dark:text-white/90">{session.email}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-gray-500">Phone</dt>
+            <dd className="mt-1 text-sm text-gray-800 dark:text-white/90">
+              {session.profile.phone ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-gray-500">Role</dt>
+            <dd className="mt-1 text-sm text-gray-800 dark:text-white/90">
+              {session.profile.role}
+            </dd>
+          </div>
+        </dl>
       </div>
     </div>
   );

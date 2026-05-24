@@ -1,0 +1,481 @@
+// CabFleet Prisma schema
+// See plan: src/.cursor/plans/cabfleet_architecture_plan_*.plan.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =========================================================
+// Enums
+// =========================================================
+
+enum Role {
+  ADMIN
+  STAFF
+  DRIVER
+  CUSTOMER
+}
+
+enum DriverStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum DriverVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ON_TRIP
+  MAINTENANCE
+  INACTIVE
+}
+
+enum VehicleType {
+  SEDAN
+  SUV
+  HATCHBACK
+  MINIVAN
+  LUXURY
+  TEMPO
+  OTHER
+}
+
+enum StaffDesignation {
+  MANAGER
+  DISPATCHER
+  SUPPORT
+  ACCOUNTANT
+  OTHER
+}
+
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  STATUS_CHANGE
+  ASSIGN
+  UNASSIGN
+  CLAIM
+  CANCEL
+  COMPLETE
+}
+
+// Booking enums (Phase 2, defined now to avoid migrations later)
+enum BookingStatus {
+  PENDING
+  OPEN_FOR_CLAIM
+  CLAIMED
+  ASSIGNED
+  DRIVER_EN_ROUTE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
+  NO_SHOW
+}
+
+enum DispatchMode {
+  MANUAL
+  CLAIM
+  HYBRID
+}
+
+// =========================================================
+// Tenant scoping
+// =========================================================
+
+model Branch {
+  id              String       @id @default(cuid())
+  name            String
+  code            String       @unique
+  timezone        String       @default("UTC")
+  address         String?
+  phone           String?
+  email           String?
+  // Default dispatch mode for bookings in this branch (overridable per BookingType / rule)
+  defaultDispatch DispatchMode @default(MANUAL)
+  active          Boolean      @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  profiles      Profile[]
+  vehicles      Vehicle[]
+  bookings      Booking[]
+  pricingRules  PricingRule[]
+  dispatchRules DispatchRule[]
+  shifts        Shift[]
+
+  @@index([active])
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Identity
+// =========================================================
+
+// Mirrors Supabase auth.users 1:1. Synced via a Postgres trigger
+// (see prisma/sql/01_profile_sync.sql).
+model Profile {
+  // Equal to auth.users.id (Supabase UUID)
+  id        String  @id @db.Uuid
+  email     String  @unique
+  fullName  String?
+  phone     String?
+  avatarUrl String?
+  role      Role    @default(CUSTOMER)
+  branchId  String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branch    Branch?    @relation(fields: [branchId], references: [id])
+  driver    Driver?
+  staff     Staff?
+  customer  Customer?
+  auditLogs AuditLog[] @relation("AuditActor")
+
+  // Bookings/assignments created/owned by this profile
+  bookingsCreated   Booking[]           @relation("BookingCreatedBy")
+  bookingsAssigned  Booking[]           @relation("BookingAssignedBy")
+  assignmentHistory AssignmentHistory[]
+
+  @@index([role])
+  @@index([branchId])
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Driver
+// =========================================================
+
+model Driver {
+  id            String                   @id @default(cuid())
+  profileId     String                   @unique @db.Uuid
+  licenseNumber String                   @unique
+  licenseExpiry DateTime
+  status        DriverStatus             @default(ACTIVE)
+  verification  DriverVerificationStatus @default(UNVERIFIED)
+  rating        Float?
+  totalTrips    Int                      @default(0)
+  notes         String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  profile            Profile             @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  vehicleAssignments VehicleAssignment[]
+  claimedBookings    Booking[]           @relation("BookingClaimedBy")
+  assignedBookings   Booking[]           @relation("BookingAssignedDriver")
+
+  @@index([status])
+  @@index([verification])
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Staff
+// =========================================================
+
+model Staff {
+  id          String           @id @default(cuid())
+  profileId   String           @unique @db.Uuid
+  employeeId  String           @unique
+  designation StaffDesignation @default(SUPPORT)
+  status      StaffStatus      @default(ACTIVE)
+  hiredAt     DateTime         @default(now())
+  notes       String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  shifts  Shift[]
+
+  @@index([status])
+  @@index([designation])
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Customer
+// =========================================================
+
+model Customer {
+  id            String  @id @default(cuid())
+  profileId     String  @unique @db.Uuid
+  address       String?
+  defaultPickup String?
+  loyaltyTier   String?
+  totalBookings Int     @default(0)
+  totalSpend    Decimal @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  profile  Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Vehicles
+// =========================================================
+
+model Vehicle {
+  id                 String        @id @default(cuid())
+  branchId           String
+  registrationNumber String        @unique
+  make               String
+  model              String
+  year               Int
+  color              String?
+  type               VehicleType   @default(SEDAN)
+  capacity           Int           @default(4)
+  status             VehicleStatus @default(AVAILABLE)
+  insuranceExpiry    DateTime?
+  fitnessExpiry      DateTime?
+  pucExpiry          DateTime?
+  odometer           Int           @default(0)
+  notes              String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branch           Branch              @relation(fields: [branchId], references: [id])
+  assignments      VehicleAssignment[]
+  assignedBookings Booking[]           @relation("BookingAssignedVehicle")
+
+  @@index([branchId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model VehicleAssignment {
+  id        String    @id @default(cuid())
+  driverId  String
+  vehicleId String
+  validFrom DateTime  @default(now())
+  validTo   DateTime?
+
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([validTo])
+}
+
+// =========================================================
+// Bookings (Phase 2; schema seeded now for stability)
+// =========================================================
+
+model BookingType {
+  id                  String       @id @default(cuid())
+  name                String       @unique
+  description         String?
+  defaultDispatchMode DispatchMode @default(MANUAL)
+  active              Boolean      @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  pricingRules  PricingRule[]
+  dispatchRules DispatchRule[]
+  bookings      Booking[]
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  branchId      String
+  customerId    String
+  bookingTypeId String
+  status        BookingStatus @default(PENDING)
+  dispatchMode  DispatchMode  @default(MANUAL)
+
+  pickupAt      DateTime
+  pickupAddress String
+  dropAddress   String
+  distanceKm    Decimal? @db.Decimal(8, 2)
+  passengers    Int      @default(1)
+
+  // Claim
+  claimTimeoutAt    DateTime?
+  claimedAt         DateTime?
+  claimedByDriverId String?
+
+  // Assignment
+  assignedAt        DateTime?
+  assignedByStaffId String?   @db.Uuid
+  assignedDriverId  String?
+  assignedVehicleId String?
+
+  // Money
+  fareEstimate Decimal? @db.Decimal(10, 2)
+  fareFinal    Decimal? @db.Decimal(10, 2)
+
+  // Concurrency control (optimistic locking; incremented on every transition)
+  version Int @default(0)
+
+  createdById String? @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branch            Branch              @relation(fields: [branchId], references: [id])
+  customer          Customer            @relation(fields: [customerId], references: [id])
+  bookingType       BookingType         @relation(fields: [bookingTypeId], references: [id])
+  claimedBy         Driver?             @relation("BookingClaimedBy", fields: [claimedByDriverId], references: [id])
+  assignedDriver    Driver?             @relation("BookingAssignedDriver", fields: [assignedDriverId], references: [id])
+  assignedVehicle   Vehicle?            @relation("BookingAssignedVehicle", fields: [assignedVehicleId], references: [id])
+  assignedBy        Profile?            @relation("BookingAssignedBy", fields: [assignedByStaffId], references: [id])
+  createdBy         Profile?            @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  assignmentHistory AssignmentHistory[]
+
+  @@index([branchId])
+  @@index([customerId])
+  @@index([status])
+  @@index([pickupAt])
+  @@index([deletedAt])
+}
+
+model AssignmentHistory {
+  id          String      @id @default(cuid())
+  bookingId   String
+  driverId    String?
+  vehicleId   String?
+  action      AuditAction
+  byProfileId String?     @db.Uuid
+  reason      String?
+  at          DateTime    @default(now())
+
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  byProfile Profile? @relation(fields: [byProfileId], references: [id])
+
+  @@index([bookingId])
+  @@index([at])
+}
+
+// =========================================================
+// Pricing
+// =========================================================
+
+model PricingRule {
+  id            String    @id @default(cuid())
+  bookingTypeId String
+  branchId      String?
+  baseFare      Decimal   @default(0) @db.Decimal(10, 2)
+  perKm         Decimal   @default(0) @db.Decimal(10, 2)
+  perMin        Decimal   @default(0) @db.Decimal(10, 2)
+  surgeJson     Json?
+  validFrom     DateTime  @default(now())
+  validTo       DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  bookingType BookingType @relation(fields: [bookingTypeId], references: [id])
+  branch      Branch?     @relation(fields: [branchId], references: [id])
+
+  @@index([bookingTypeId])
+  @@index([branchId])
+  @@index([validFrom, validTo])
+}
+
+// =========================================================
+// Dispatch policy
+// =========================================================
+
+model DispatchRule {
+  id              String       @id @default(cuid())
+  priority        Int          @default(100) // lower = higher priority
+  branchId        String?
+  bookingTypeId   String?
+  customerSegment String? // free-form tag for now (e.g. "corporate", "loyalty:gold")
+  mode            DispatchMode
+  params          Json? // e.g. { "hybridTimeoutMins": 5 }
+  active          Boolean      @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branch      Branch?      @relation(fields: [branchId], references: [id])
+  bookingType BookingType? @relation(fields: [bookingTypeId], references: [id])
+
+  @@index([priority])
+  @@index([active])
+}
+
+// =========================================================
+// Operations (lightweight stubs - filled in Phase 6)
+// =========================================================
+
+model Shift {
+  id       String   @id @default(cuid())
+  branchId String
+  staffId  String?
+  startsAt DateTime
+  endsAt   DateTime
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  staff  Staff? @relation(fields: [staffId], references: [id])
+
+  @@index([branchId])
+  @@index([staffId])
+  @@index([startsAt])
+}
+
+// =========================================================
+// Audit log (immutable; written by every mutation service)
+// =========================================================
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  entity         String // "Booking", "Vehicle", ...
+  entityId       String
+  action         AuditAction
+  diff           Json?
+  byProfileId    String?     @db.Uuid
+  // If acting under an impersonation session, capture the real admin
+  impersonatorId String?     @db.Uuid
+  at             DateTime    @default(now())
+
+  byProfile Profile? @relation("AuditActor", fields: [byProfileId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([byProfileId])
+  @@index([at])
+}

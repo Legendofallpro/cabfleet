@@ -1,45 +1,78 @@
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Metadata } from "next";
-import React from "react";
+import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Vehicles | CabFleet Admin",
-  description: "Manage your fleet of vehicles",
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { DataTable, type Column } from "@/components/common/DataTable";
+import {
+  DataTableToolbar,
+  parsePageParams,
+} from "@/components/common/DataTableToolbar";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { listVehicles } from "@/modules/vehicles/queries/list";
+import type { Vehicle, VehicleStatus } from "@prisma/client";
+
+export const metadata: Metadata = { title: "Vehicles | CabFleet Admin" };
+
+type Row = Vehicle & { branch: { id: string; name: string; code: string } };
+
+const TONE: Record<VehicleStatus, "success" | "warning" | "info" | "neutral"> = {
+  AVAILABLE: "success",
+  ON_TRIP: "info",
+  MAINTENANCE: "warning",
+  INACTIVE: "neutral",
 };
 
-export default function VehiclesPage() {
+const columns: Column<Row>[] = [
+  {
+    header: "Vehicle",
+    cell: (v) => (
+      <div className="flex flex-col">
+        <Link
+          href={`/vehicles/${v.id}`}
+          className="font-medium text-gray-900 hover:text-brand-500 dark:text-white/90"
+        >
+          {v.registrationNumber}
+        </Link>
+        <span className="text-xs text-gray-500">
+          {v.make} {v.model} ({v.year})
+        </span>
+      </div>
+    ),
+  },
+  { header: "Branch", cell: (v) => v.branch.code },
+  { header: "Type", cell: (v) => v.type },
+  { header: "Capacity", cell: (v) => v.capacity },
+  {
+    header: "Status",
+    cell: (v) => <StatusBadge tone={TONE[v.status]}>{v.status.replaceAll("_", " ")}</StatusBadge>,
+  },
+];
+
+export default async function VehiclesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { q, page, pageSize } = parsePageParams(await searchParams);
+  const { rows, total } = await listVehicles({ q, page, pageSize });
+
   return (
     <div>
       <PageBreadcrumb pageTitle="Vehicles" />
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Total Vehicles", value: "—", color: "bg-brand-50 dark:bg-brand-500/10" },
-            { label: "On Trip", value: "—", color: "bg-success-50 dark:bg-success-500/10" },
-            { label: "Available", value: "—", color: "bg-warning-50 dark:bg-warning-500/10" },
-            { label: "In Maintenance", value: "—", color: "bg-error-50 dark:bg-error-500/10" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className={`rounded-2xl border border-gray-200 dark:border-gray-800 p-5 ${stat.color}`}
-            >
-              <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-              <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                {stat.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <ComponentCard
-          title="Fleet Vehicles"
-          desc="All registered vehicles will appear here once connected to a data source."
-        >
-          <div className="flex items-center justify-center py-16 text-gray-400 dark:text-gray-600">
-            <p className="text-sm">No data available — connect your vehicles data source.</p>
-          </div>
-        </ComponentCard>
+      <div className="space-y-4">
+        <DataTableToolbar
+          searchPlaceholder="Search by reg, make or model..."
+          total={total}
+          pageSize={pageSize}
+          createHref="/vehicles/new"
+          createLabel="Add vehicle"
+        />
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(v) => v.id}
+          empty="No vehicles yet. Add your first fleet vehicle to begin operations."
+        />
       </div>
     </div>
   );

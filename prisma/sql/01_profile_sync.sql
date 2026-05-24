@@ -1,0 +1,57 @@
+-- Sync Supabase auth.users -> public.Profile (1:1).
+-- Runs on insert and update of auth.users so app data tracks identity.
+-- Apply this in the Supabase SQL editor AFTER the first `prisma migrate deploy`
+-- has created the public."Profile" table.
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public."Profile" (id, email, "fullName", phone, role, "createdAt", "updatedAt")
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
+    coalesce(new.phone, new.raw_user_meta_data->>'phone'),
+    coalesce(
+      (new.raw_user_meta_data->>'role')::public."Role",
+      'CUSTOMER'
+    ),
+    now(),
+    now()
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    "updatedAt" = now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();
+
+-- Mirror email/phone changes (optional but cheap)
+create or replace function public.handle_auth_user_update()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public."Profile"
+     set email = new.email,
+         phone = coalesce(new.phone, phone),
+         "updatedAt" = now()
+   where id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_updated on auth.users;
+create trigger on_auth_user_updated
+  after update of email, phone on auth.users
+  for each row execute function public.handle_auth_user_update();

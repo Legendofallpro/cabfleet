@@ -1,12 +1,12 @@
-import SignUpForm from "@/components/auth/SignUpForm";
 import { Metadata } from "next";
 
+import SignUpForm from "@/components/auth/SignUpForm";
+
 export const metadata: Metadata = {
-  title: "Next.js SignUp Page | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js SignUp Page TailAdmin Dashboard Template",
-  // other metadata
+  title: "Sign Up | CabFleet",
+  description: "Create a CabFleet customer account.",
 };
 
-export default function SignUp() {
+export default function SignUpPage() {
   return <SignUpForm />;
 }
