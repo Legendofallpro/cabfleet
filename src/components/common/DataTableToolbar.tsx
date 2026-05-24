@@ -92,11 +92,7 @@ export function DataTableToolbar({
   );
 }
 
-export const DATA_TABLE_PAGE_SIZE = 20;
-
-export function parsePageParams(searchParams: Record<string, string | string[] | undefined>) {
-  const q = typeof searchParams.q === "string" ? searchParams.q : "";
-  const pageRaw = typeof searchParams.page === "string" ? parseInt(searchParams.page, 10) : 1;
-  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  return { q, page, pageSize: DATA_TABLE_PAGE_SIZE };
-}
+// Re-exported so any existing non-server imports keep working.
+// RSC pages must import directly from "@/lib/utils/page-params" — importing
+// from this "use client" file causes a server/client boundary error in Next 15.
+export { parsePageParams, DATA_TABLE_PAGE_SIZE } from "@/lib/utils/page-params";

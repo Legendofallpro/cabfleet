@@ -3,10 +3,8 @@ import Link from "next/link";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { DataTable, type Column } from "@/components/common/DataTable";
-import {
-  DataTableToolbar,
-  parsePageParams,
-} from "@/components/common/DataTableToolbar";
+import { DataTableToolbar } from "@/components/common/DataTableToolbar";
+import { parsePageParams } from "@/lib/utils/page-params";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { listStaff } from "@/modules/staff/queries/list";
 import type { StaffStatus } from "@prisma/client";

@@ -2,10 +2,8 @@ import { Metadata } from "next";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { DataTable, type Column } from "@/components/common/DataTable";
-import {
-  DataTableToolbar,
-  parsePageParams,
-} from "@/components/common/DataTableToolbar";
+import { DataTableToolbar } from "@/components/common/DataTableToolbar";
+import { parsePageParams } from "@/lib/utils/page-params";
 import { listCustomers } from "@/modules/customers/queries/list";
 
 export const metadata: Metadata = { title: "Customers | CabFleet Admin" };
