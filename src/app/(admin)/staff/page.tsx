@@ -1,44 +1,76 @@
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
 import { Metadata } from "next";
-import React from "react";
+import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Staff | CabFleet Admin",
-  description: "Manage admin and support staff",
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { DataTable, type Column } from "@/components/common/DataTable";
+import {
+  DataTableToolbar,
+  parsePageParams,
+} from "@/components/common/DataTableToolbar";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { listStaff } from "@/modules/staff/queries/list";
+import type { StaffStatus } from "@prisma/client";
+
+export const metadata: Metadata = { title: "Staff | CabFleet Admin" };
+
+type Row = Awaited<ReturnType<typeof listStaff>>["rows"][number];
+
+const TONE: Record<StaffStatus, "success" | "warning" | "neutral"> = {
+  ACTIVE: "success",
+  ON_LEAVE: "warning",
+  INACTIVE: "neutral",
 };
 
-export default function StaffPage() {
+const columns: Column<Row>[] = [
+  {
+    header: "Name",
+    cell: (s) => (
+      <div className="flex flex-col">
+        <Link
+          href={`/staff/${s.id}`}
+          className="font-medium text-gray-900 hover:text-brand-500 dark:text-white/90"
+        >
+          {s.profile.fullName ?? s.profile.email}
+        </Link>
+        <span className="text-xs text-gray-500">{s.profile.email}</span>
+      </div>
+    ),
+  },
+  { header: "Employee ID", cell: (s) => <span className="font-mono text-xs">{s.employeeId}</span> },
+  { header: "Designation", cell: (s) => s.designation },
+  { header: "Role", cell: (s) => s.profile.role },
+  { header: "Branch", cell: (s) => s.profile.branch?.code ?? "—" },
+  {
+    header: "Status",
+    cell: (s) => <StatusBadge tone={TONE[s.status]}>{s.status.replaceAll("_", " ")}</StatusBadge>,
+  },
+];
+
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { q, page, pageSize } = parsePageParams(await searchParams);
+  const { rows, total } = await listStaff({ q, page, pageSize });
+
   return (
     <div>
       <PageBreadcrumb pageTitle="Staff" />
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            { label: "Total Staff", value: "—", color: "bg-brand-50 dark:bg-brand-500/10" },
-            { label: "Active", value: "—", color: "bg-success-50 dark:bg-success-500/10" },
-            { label: "On Leave", value: "—", color: "bg-warning-50 dark:bg-warning-500/10" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className={`rounded-2xl border border-gray-200 dark:border-gray-800 p-5 ${stat.color}`}
-            >
-              <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-              <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                {stat.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <ComponentCard
-          title="Staff Members"
-          desc="All staff records will appear here once connected to a data source."
-        >
-          <div className="flex items-center justify-center py-16 text-gray-400 dark:text-gray-600">
-            <p className="text-sm">No data available — connect your staff data source.</p>
-          </div>
-        </ComponentCard>
+      <div className="space-y-4">
+        <DataTableToolbar
+          searchPlaceholder="Search by name, email or employee ID..."
+          total={total}
+          pageSize={pageSize}
+          createHref="/staff/new"
+          createLabel="Invite staff"
+        />
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(s) => s.id}
+          empty="No staff yet. Invite an admin or dispatcher to begin."
+        />
       </div>
     </div>
   );
