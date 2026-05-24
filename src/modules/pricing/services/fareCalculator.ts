@@ -30,14 +30,17 @@ export type FareResult = {
 export async function estimateFare(input: FareInput): Promise<FareResult | null> {
   const now = new Date();
 
-  // Find the most specific valid rule: branch-specific first, then global
+  // Find the most specific valid rule: branch-specific first, then global.
+  // Two OR conditions are combined with AND to avoid duplicate-key overwrite.
   const rule = await db.pricingRule.findFirst({
     where: {
       bookingTypeId: input.bookingTypeId,
       deletedAt: null,
-      OR: [{ branchId: input.branchId }, { branchId: null }],
       validFrom: { lte: now },
-      OR: [{ validTo: null }, { validTo: { gte: now } }],
+      AND: [
+        { OR: [{ branchId: input.branchId }, { branchId: null }] },
+        { OR: [{ validTo: null }, { validTo: { gte: now } }] },
+      ],
     },
     orderBy: [
       // Branch-specific rules (branchId is not null) sort first

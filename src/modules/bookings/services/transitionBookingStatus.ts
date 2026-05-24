@@ -10,13 +10,22 @@
  *
  * NEVER call db.booking.update({ status }) directly from anywhere else.
  */
-import { BookingStatus, DispatchMode, type AuditAction } from "@prisma/client";
+import { BookingStatus, type AuditAction } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
+
+// Pure constants live in booking.constants.ts (no server imports) so client
+// components can import them without pulling in the pg/Prisma bundle.
+export {
+  BOOKING_STATUS_LABEL,
+  DISPATCH_MODE_LABEL,
+  STAFF_MANUAL_TRANSITIONS,
+  isTerminalStatus,
+} from "@/modules/bookings/booking.constants";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // State machine definition
@@ -33,11 +42,7 @@ const ALLOWED_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
   IN_PROGRESS: [BookingStatus.COMPLETED, BookingStatus.FAILED],
 };
 
-/** Which statuses are terminal (no further transitions). */
-export function isTerminalStatus(status: BookingStatus): boolean {
-  return !(status in ALLOWED_TRANSITIONS);
-}
-
+/** canTransition is available for server-side logic checks. */
 export function canTransition(from: BookingStatus, to: BookingStatus): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
@@ -216,31 +221,5 @@ export const bookingDetailInclude = {
   },
 } as const;
 
-/** Shorthand: valid statuses that staff can transition to manually. */
-export const STAFF_MANUAL_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  PENDING: [BookingStatus.CANCELLED],
-  ASSIGNED: [BookingStatus.DRIVER_EN_ROUTE, BookingStatus.CANCELLED],
-  DRIVER_EN_ROUTE: [BookingStatus.IN_PROGRESS, BookingStatus.NO_SHOW],
-  IN_PROGRESS: [BookingStatus.COMPLETED, BookingStatus.FAILED],
-};
-
-/** Human-readable label for each status. */
-export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
-  PENDING: "Pending",
-  OPEN_FOR_CLAIM: "Open for Claim",
-  CLAIMED: "Claimed",
-  ASSIGNED: "Assigned",
-  DRIVER_EN_ROUTE: "Driver En Route",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-  CANCELLED: "Cancelled",
-  NO_SHOW: "No Show",
-  FAILED: "Failed",
-};
-
-/** Human-readable label for dispatch mode. */
-export const DISPATCH_MODE_LABEL: Record<DispatchMode, string> = {
-  MANUAL: "Manual",
-  CLAIM: "Claim",
-  HYBRID: "Hybrid",
-};
+// The canTransition helper below is used internally by this module only.
+// All exported constants live in booking.constants.ts.

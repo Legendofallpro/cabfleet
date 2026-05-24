@@ -8,7 +8,7 @@ import { DataTableToolbar } from "@/components/common/DataTableToolbar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { parsePageParams } from "@/lib/utils/page-params";
 import { listBookings } from "@/modules/bookings/queries/list";
-import { BOOKING_STATUS_LABEL } from "@/modules/bookings/services/transitionBookingStatus";
+import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
 import type { BookingListRow } from "@/modules/bookings/types";
 
 export const metadata: Metadata = { title: "Bookings | CabFleet Admin" };

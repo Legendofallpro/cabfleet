@@ -8,7 +8,9 @@ import { listCustomers } from "@/modules/customers/queries/list";
 
 export const metadata: Metadata = { title: "Customers | CabFleet Admin" };
 
-type Row = Awaited<ReturnType<typeof listCustomers>>["rows"][number];
+type RawRow = Awaited<ReturnType<typeof listCustomers>>["rows"][number];
+// Serialize Decimal → number so DataTable (client component) receives plain objects.
+type Row = Omit<RawRow, "totalSpend"> & { totalSpend: number };
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -33,7 +35,7 @@ const columns: Column<Row>[] = [
   { header: "Bookings", cell: (c) => c.totalBookings.toString() },
   {
     header: "Total spend",
-    cell: (c) => currency.format(Number(c.totalSpend)),
+    cell: (c) => currency.format(c.totalSpend),
   },
 ];
 
@@ -43,7 +45,8 @@ export default async function CustomersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { q, page, pageSize } = parsePageParams(await searchParams);
-  const { rows, total } = await listCustomers({ q, page, pageSize });
+  const { rows: rawRows, total } = await listCustomers({ q, page, pageSize });
+  const rows: Row[] = rawRows.map((c) => ({ ...c, totalSpend: Number(c.totalSpend) }));
 
   return (
     <div>

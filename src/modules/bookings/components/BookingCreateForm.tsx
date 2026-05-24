@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
     defaultValues: {
       branchId: branches[0]?.id ?? "",
       customerId: "",
-      bookingTypeId: bookingTypes[0]?.id ?? "",
+      bookingTypeId: "",
       dispatchMode: DispatchMode.MANUAL,
       pickupAt: defaultPickupAt(),
       pickupAddress: "",
@@ -56,11 +56,11 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
     handleSubmit,
     formState: { errors },
     setError,
-    watch,
+    control,
   } = form;
 
-  // Auto-set dispatch mode from booking type default
-  const bookingTypeId = watch("bookingTypeId");
+  // Subscribe to only this field; useWatch is compiler-friendly (no watch())
+  const bookingTypeId = useWatch({ control, name: "bookingTypeId" });
   const selectedType = bookingTypes.find((bt) => bt.id === bookingTypeId);
 
   const onSubmit = (values: CreateBookingFormValues) => {
@@ -110,6 +110,7 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
           label="Booking Type"
           required
           error={errors.bookingTypeId?.message}
+          placeholder="Select a booking type"
           options={bookingTypes.map((bt) => ({ value: bt.id, label: bt.name }))}
           {...register("bookingTypeId")}
         />
