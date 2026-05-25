@@ -102,6 +102,14 @@ export async function assignDriverToBooking(
   input: AssignDriverInput,
   actor: Actor,
 ): Promise<Result<BookingDetail>> {
+  const booking = await db.booking.findFirst({
+    where: { id: input.bookingId, deletedAt: null },
+    select: { id: true, branchId: true },
+  });
+  if (!booking) {
+    throw new AppError("NOT_FOUND", "Booking not found.");
+  }
+
   // Validate driver exists and is active
   const driver = await db.driver.findFirst({
     where: { id: input.driverId, deletedAt: null },
@@ -117,10 +125,16 @@ export async function assignDriverToBooking(
       fieldErrors: { driverId: ["Driver must be ACTIVE or ON_LEAVE to be assigned"] },
     });
   }
+  if (driver.profile.branchId !== booking.branchId) {
+    throw new AppError("VALIDATION", "Driver is not available for this booking.", {
+      fieldErrors: { driverId: ["Driver must belong to the booking branch"] },
+    });
+  }
 
   // Validate vehicle exists and is available
   const vehicle = await db.vehicle.findFirst({
     where: { id: input.vehicleId, deletedAt: null },
+    select: { id: true, branchId: true, status: true },
   });
   if (!vehicle) {
     throw new AppError("VALIDATION", "Vehicle not found.", {
@@ -130,6 +144,11 @@ export async function assignDriverToBooking(
   if (vehicle.status === VehicleStatus.MAINTENANCE || vehicle.status === VehicleStatus.INACTIVE) {
     throw new AppError("VALIDATION", "Vehicle is not available.", {
       fieldErrors: { vehicleId: ["Vehicle must be AVAILABLE or ON_TRIP"] },
+    });
+  }
+  if (vehicle.branchId !== booking.branchId) {
+    throw new AppError("VALIDATION", "Vehicle is not available for this booking.", {
+      fieldErrors: { vehicleId: ["Vehicle must belong to the booking branch"] },
     });
   }
 
