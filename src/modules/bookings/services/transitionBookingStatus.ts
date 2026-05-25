@@ -53,7 +53,12 @@ export function canTransition(from: BookingStatus, to: BookingStatus): boolean {
 
 export type TransitionOptions = {
   toStatus: BookingStatus;
-  byProfileId: string;
+  /**
+   * Profile ID of the actor triggering this transition.
+   * Pass null for system-initiated transitions (cron jobs, automated rules)
+   * so that the AuditLog row has no FK reference to a non-existent profile.
+   */
+  byProfileId: string | null;
   reason?: string;
   /** Set when transitioning to ASSIGNED with a driver. */
   assignedDriverId?: string | null;

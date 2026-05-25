@@ -44,18 +44,31 @@ export default async function TripDetailPage({
 
   const driver = await db.driver.findUnique({
     where: { profileId: session.profile.id },
-    select: { id: true },
+    select: { id: true, profile: { select: { branchId: true } } },
   });
+  if (!driver?.profile.branchId) {
+    redirect("/driver/trips/open");
+  }
 
-  const booking = await getDriverBookingDetail(id);
+  const booking = await getDriverBookingDetail(id, {
+    driverId: driver.id,
+    branchId: driver.profile.branchId,
+  });
   if (!booking) notFound();
 
+  const isOpenForClaim = booking.status === "OPEN_FOR_CLAIM";
   const isMyTrip =
-    booking.claimedByDriverId === driver?.id ||
-    booking.assignedDriverId === driver?.id;
+    booking.claimedByDriverId === driver.id ||
+    booking.assignedDriverId === driver.id;
+
+  // Authorization gate: only the owning driver may view non-open bookings.
+  // OPEN_FOR_CLAIM bookings are intentionally visible to all branch drivers
+  // (they need to read route details before deciding to claim).
+  if (!isOpenForClaim && !isMyTrip) {
+    redirect("/driver/trips/open");
+  }
 
   const nextActions = getNextActions(booking.status);
-  const isClaimed = booking.status === "CLAIMED" || booking.status === "OPEN_FOR_CLAIM";
 
   return (
     <div className="space-y-4">
@@ -126,7 +139,7 @@ export default async function TripDetailPage({
         </dl>
       </div>
 
-      {/* Customer info */}
+      {/* Customer info — only shown once the driver owns the trip */}
       {isMyTrip && (
         <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -148,7 +161,7 @@ export default async function TripDetailPage({
 
       {/* Actions */}
       <div className="space-y-2">
-        {booking.status === "OPEN_FOR_CLAIM" && <ClaimButton bookingId={booking.id} />}
+        {isOpenForClaim && <ClaimButton bookingId={booking.id} />}
         {isMyTrip &&
           nextActions.map((act) => (
             <TripActionButton key={act.toStatus} bookingId={booking.id} action={act} />

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BookingStatus, DispatchMode } from "@prisma/client";
+import { BookingStatus } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Create booking (staff)
@@ -9,7 +9,7 @@ export const createBookingSchema = z.object({
   branchId: z.string().min(1, "Branch is required"),
   customerId: z.string().min(1, "Customer is required"),
   bookingTypeId: z.string().min(1, "Booking type is required"),
-  dispatchMode: z.enum(DispatchMode).default(DispatchMode.MANUAL),
+  // dispatchMode is now resolved server-side by resolveDispatchPolicy.
   // datetime-local input sends a string; z.coerce.date() converts it
   pickupAt: z.coerce.date(),
   pickupAddress: z.string().min(1, "Pickup address is required").max(300),

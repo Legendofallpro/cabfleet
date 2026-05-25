@@ -60,7 +60,8 @@ export async function createBooking(
     return null;
   });
 
-  // Resolve dispatch policy to determine initial status + claimTimeoutAt
+  // Resolve dispatch policy — determines dispatchMode and initial status.
+  // The form no longer sends dispatchMode; it is always set by this resolver.
   const policy = await resolveDispatchPolicy({
     branchId: input.branchId,
     bookingTypeId: input.bookingTypeId,
