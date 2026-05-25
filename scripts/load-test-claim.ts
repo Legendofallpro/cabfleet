@@ -25,6 +25,8 @@ loadEnv({ path: ".env.local" });
 loadEnv();
 
 const CONCURRENCY = 50; // number of simultaneous claim attempts
+const TX_MAX_WAIT_MS = Number(process.env.LOAD_TEST_TX_MAX_WAIT_MS ?? "10000");
+const TX_TIMEOUT_MS = Number(process.env.LOAD_TEST_TX_TIMEOUT_MS ?? "15000");
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Inline claimBooking logic (mirrors the real service but uses the test db client)
@@ -37,55 +39,59 @@ async function claimBookingTest(
   bookingId: string,
   driverId: string,
   byProfileId: string,
+  attemptId: number,
 ): Promise<{ ok: true } | { ok: false; code: string }> {
   try {
-    await db.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<RawRow[]>`
-        SELECT id, status, version
-        FROM "Booking"
-        WHERE id = ${bookingId}
-          AND status = 'OPEN_FOR_CLAIM'
-          AND "deletedAt" IS NULL
-        FOR UPDATE SKIP LOCKED
-      `;
+    await db.$transaction(
+      async (tx) => {
+        const rows = await tx.$queryRaw<RawRow[]>`
+          SELECT id, status, version
+          FROM "Booking"
+          WHERE id = ${bookingId}
+            AND status = 'OPEN_FOR_CLAIM'
+            AND "deletedAt" IS NULL
+          FOR UPDATE SKIP LOCKED
+        `;
 
-      if (rows.length === 0) {
-        throw Object.assign(new Error("ALREADY_CLAIMED"), { code: "ALREADY_CLAIMED" });
-      }
+        if (rows.length === 0) {
+          throw Object.assign(new Error("ALREADY_CLAIMED"), { code: "ALREADY_CLAIMED" });
+        }
 
-      const locked = rows[0];
-      await tx.booking.update({
-        where: { id: bookingId, version: locked.version },
-        data: {
-          status: BookingStatus.CLAIMED,
-          claimedByDriverId: driverId,
-          claimedAt: new Date(),
-          version: { increment: 1 },
-          updatedAt: new Date(),
-        },
-      });
+        const locked = rows[0];
+        await tx.booking.update({
+          where: { id: bookingId, version: locked.version },
+          data: {
+            status: BookingStatus.CLAIMED,
+            claimedByDriverId: driverId,
+            claimedAt: new Date(),
+            version: { increment: 1 },
+            updatedAt: new Date(),
+          },
+        });
 
-      await tx.assignmentHistory.create({
-        data: {
-          bookingId,
-          driverId,
-          action: "CLAIM",
-          byProfileId,
-          reason: "[load-test] concurrent claim",
-          at: new Date(),
-        },
-      });
+        await tx.assignmentHistory.create({
+          data: {
+            bookingId,
+            driverId,
+            action: "CLAIM",
+            byProfileId,
+            reason: "[load-test] concurrent claim",
+            at: new Date(),
+          },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          entity: "Booking",
-          entityId: bookingId,
-          action: "CLAIM",
-          byProfileId,
-          diff: { test: true },
-        },
-      });
-    });
+        await tx.auditLog.create({
+          data: {
+            entity: "Booking",
+            entityId: bookingId,
+            action: "CLAIM",
+            byProfileId,
+            diff: { test: true },
+          },
+        });
+      },
+      { maxWait: TX_MAX_WAIT_MS, timeout: TX_TIMEOUT_MS },
+    );
     return { ok: true };
   } catch (e: unknown) {
     const code = (e as { code?: string }).code;
@@ -217,8 +223,8 @@ async function main() {
     const start = Date.now();
 
     const results = await Promise.all(
-      Array.from({ length: CONCURRENCY }, () =>
-        claimBookingTest(db, booking.id, driver.id, driverProfile.id),
+      Array.from({ length: CONCURRENCY }, (_, i) =>
+        claimBookingTest(db, booking.id, driver.id, driverProfile.id, i + 1),
       ),
     );
 
