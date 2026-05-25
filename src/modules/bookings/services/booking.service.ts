@@ -1,4 +1,4 @@
-import { BookingStatus, DriverStatus, VehicleStatus } from "@prisma/client";
+import { BookingStatus, DispatchMode, DriverStatus, VehicleStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
@@ -9,6 +9,7 @@ import {
   transitionBookingStatus,
   bookingDetailInclude,
 } from "@/modules/bookings/services/transitionBookingStatus";
+import { resolveDispatchPolicy } from "@/modules/dispatch/services/resolveDispatchPolicy";
 import type {
   CreateBookingInput,
   AssignDriverInput,
@@ -59,13 +60,30 @@ export async function createBooking(
     return null;
   });
 
+  // Resolve dispatch policy to determine initial status + claimTimeoutAt
+  const policy = await resolveDispatchPolicy({
+    branchId: input.branchId,
+    bookingTypeId: input.bookingTypeId,
+  }).catch((e) => {
+    logger.warn({ err: e }, "Dispatch policy resolution failed; defaulting to MANUAL");
+    return { mode: DispatchMode.MANUAL } as const;
+  });
+
+  const resolvedMode = policy.mode;
+
+  // Compute claimTimeoutAt for HYBRID mode
+  const claimTimeoutAt =
+    resolvedMode === DispatchMode.HYBRID && policy.hybridTimeoutMins
+      ? new Date(Date.now() + policy.hybridTimeoutMins * 60 * 1000)
+      : null;
+
   const booking = await db.$transaction(async (tx) => {
     const created = await tx.booking.create({
       data: {
         branchId: input.branchId,
         customerId: input.customerId,
         bookingTypeId: input.bookingTypeId,
-        dispatchMode: input.dispatchMode,
+        dispatchMode: resolvedMode,
         status: BookingStatus.PENDING,
         pickupAt: input.pickupAt,
         pickupAddress: input.pickupAddress,
@@ -73,6 +91,7 @@ export async function createBooking(
         distanceKm: input.distanceKm ?? null,
         passengers: input.passengers,
         fareEstimate: fare?.total ?? null,
+        claimTimeoutAt,
         createdById: actor.id,
         version: 0,
       },
@@ -84,13 +103,36 @@ export async function createBooking(
       entityId: created.id,
       action: "CREATE",
       byProfileId: actor.id,
-      diff: { after: { status: BookingStatus.PENDING, fareEstimate: fare?.total } },
+      diff: {
+        after: {
+          status: BookingStatus.PENDING,
+          dispatchMode: resolvedMode,
+          fareEstimate: fare?.total,
+          claimTimeoutAt,
+        },
+      },
     });
 
     return created as BookingDetail;
   });
 
-  logger.info({ bookingId: booking.id, by: actor.id }, "booking.create");
+  logger.info(
+    { bookingId: booking.id, by: actor.id, dispatchMode: resolvedMode },
+    "booking.create",
+  );
+
+  // For CLAIM mode, immediately open the booking for drivers to claim.
+  if (resolvedMode === DispatchMode.CLAIM) {
+    const transitioned = await transitionBookingStatus(booking.id, {
+      toStatus: BookingStatus.OPEN_FOR_CLAIM,
+      byProfileId: actor.id,
+      reason: "Auto-opened for driver claim (CLAIM dispatch mode)",
+    });
+    if (transitioned.ok) return ok(transitioned.data);
+    // If transition fails (race), return the PENDING booking — staff can promote manually.
+    logger.warn({ bookingId: booking.id }, "dispatch.claim.auto_open_failed");
+  }
+
   return ok(booking);
 }
 

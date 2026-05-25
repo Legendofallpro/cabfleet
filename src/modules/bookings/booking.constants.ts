@@ -45,10 +45,11 @@ export function isTerminalStatus(status: BookingStatus): boolean {
 /**
  * The subset of transitions that staff can trigger manually from the UI.
  * ASSIGNED transitions are handled by BookingAssignForm (dedicated action).
- * Phase 4 will add OPEN_FOR_CLAIM and CLAIMED paths.
+ * Phase 4: added PENDING→OPEN_FOR_CLAIM so staff can manually open a booking.
  */
 export const STAFF_MANUAL_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  PENDING: [BookingStatus.CANCELLED],
+  PENDING: [BookingStatus.OPEN_FOR_CLAIM, BookingStatus.CANCELLED],
+  OPEN_FOR_CLAIM: [BookingStatus.CANCELLED],
   ASSIGNED: [BookingStatus.DRIVER_EN_ROUTE, BookingStatus.CANCELLED],
   DRIVER_EN_ROUTE: [BookingStatus.IN_PROGRESS, BookingStatus.NO_SHOW],
   IN_PROGRESS: [BookingStatus.COMPLETED, BookingStatus.FAILED],
