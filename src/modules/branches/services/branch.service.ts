@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { ok, type Result } from "@/lib/result";
 import type { Branch } from "@prisma/client";
 import type { BranchInput } from "@/modules/branches/validators/branch";
@@ -76,17 +77,26 @@ export async function updateBranch(
 export async function softDeleteBranch(id: string, actor: Actor): Promise<Result<true>> {
   const current = await db.branch.findFirst({ where: { id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Branch not found.");
+  const deletedCode = tombstoneUniqueValue(current.code, current.id);
 
   await db.$transaction(async (tx) => {
     await tx.branch.update({
       where: { id },
-      data: { deletedAt: new Date(), active: false },
+      data: {
+        deletedAt: new Date(),
+        active: false,
+        code: deletedCode,
+      },
     });
     await writeAudit(tx, {
       entity: "Branch",
       entityId: id,
       action: "DELETE",
       byProfileId: actor.id,
+      diff: {
+        before: { code: current.code },
+        after: { code: deletedCode },
+      },
     });
   });
 

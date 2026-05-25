@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
+import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import type { Vehicle } from "@prisma/client";
 import type { VehicleInput } from "@/modules/vehicles/validators/vehicle";
 
@@ -91,17 +92,26 @@ export async function softDeleteVehicle(id: string, actor: Actor): Promise<Resul
     where: { id, deletedAt: null },
   });
   if (!current) throw new AppError("NOT_FOUND", "Vehicle not found.");
+  const deletedRegistrationNumber = tombstoneUniqueValue(current.registrationNumber, current.id);
 
   await db.$transaction(async (tx) => {
     await tx.vehicle.update({
       where: { id },
-      data: { deletedAt: new Date(), status: "INACTIVE" },
+      data: {
+        deletedAt: new Date(),
+        status: "INACTIVE",
+        registrationNumber: deletedRegistrationNumber,
+      },
     });
     await writeAudit(tx, {
       entity: "Vehicle",
       entityId: id,
       action: "DELETE",
       byProfileId: actor.id,
+      diff: {
+        before: { registrationNumber: current.registrationNumber },
+        after: { registrationNumber: deletedRegistrationNumber },
+      },
     });
   });
 

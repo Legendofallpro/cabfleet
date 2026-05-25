@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
+import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import type { Driver } from "@prisma/client";
@@ -170,17 +171,26 @@ export async function updateDriver(
 export async function softDeleteDriver(id: string, actor: Actor): Promise<Result<true>> {
   const current = await db.driver.findFirst({ where: { id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Driver not found.");
+  const deletedLicenseNumber = tombstoneUniqueValue(current.licenseNumber, current.id);
 
   await db.$transaction(async (tx) => {
     await tx.driver.update({
       where: { id },
-      data: { deletedAt: new Date(), status: "INACTIVE" },
+      data: {
+        deletedAt: new Date(),
+        status: "INACTIVE",
+        licenseNumber: deletedLicenseNumber,
+      },
     });
     await writeAudit(tx, {
       entity: "Driver",
       entityId: id,
       action: "DELETE",
       byProfileId: actor.id,
+      diff: {
+        before: { licenseNumber: current.licenseNumber },
+        after: { licenseNumber: deletedLicenseNumber },
+      },
     });
   });
 

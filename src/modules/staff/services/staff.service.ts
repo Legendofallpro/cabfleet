@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
+import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import type { Staff } from "@prisma/client";
@@ -152,17 +153,26 @@ export async function updateStaff(
 export async function softDeleteStaff(id: string, actor: Actor): Promise<Result<true>> {
   const current = await db.staff.findFirst({ where: { id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Staff not found.");
+  const deletedEmployeeId = tombstoneUniqueValue(current.employeeId, current.id);
 
   await db.$transaction(async (tx) => {
     await tx.staff.update({
       where: { id },
-      data: { deletedAt: new Date(), status: "INACTIVE" },
+      data: {
+        deletedAt: new Date(),
+        status: "INACTIVE",
+        employeeId: deletedEmployeeId,
+      },
     });
     await writeAudit(tx, {
       entity: "Staff",
       entityId: id,
       action: "DELETE",
       byProfileId: actor.id,
+      diff: {
+        before: { employeeId: current.employeeId },
+        after: { employeeId: deletedEmployeeId },
+      },
     });
   });
 
