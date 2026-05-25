@@ -6,7 +6,10 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getOrCreateCustomer, listCustomerBookings } from "@/modules/customers/queries/customer";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
+import { CancelBookingButton } from "@/modules/bookings/components/CancelBookingButton";
 import type { BookingStatus } from "@prisma/client";
+
+const CANCELLABLE_STATUSES = new Set<BookingStatus>(["PENDING", "OPEN_FOR_CLAIM"]);
 
 export const metadata: Metadata = { title: "My Bookings | CabFleet" };
 
@@ -110,7 +113,8 @@ export default async function MyBookingsPage() {
               </div>
 
               {/* Footer */}
-              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>{booking.bookingType.name}</span>
                 <span>·</span>
                 <span>{booking.passengers} passenger{booking.passengers !== 1 ? "s" : ""}</span>
@@ -128,6 +132,10 @@ export default async function MyBookingsPage() {
                     </span>
                   </>
                 )}
+              </div>
+              {CANCELLABLE_STATUSES.has(booking.status as BookingStatus) && (
+                <CancelBookingButton bookingId={booking.id} />
+              )}
               </div>
             </div>
           ))}
