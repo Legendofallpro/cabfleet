@@ -13,8 +13,8 @@ import {
   BOOKING_STATUS_LABEL,
   DISPATCH_MODE_LABEL,
 } from "@/modules/bookings/booking.constants";
-import { listDrivers } from "@/modules/drivers/queries/list";
-import { listVehicles } from "@/modules/vehicles/queries/list";
+import { listAssignableDrivers } from "@/modules/drivers/queries/list";
+import { listAssignableVehicles } from "@/modules/vehicles/queries/list";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
 
@@ -69,8 +69,8 @@ export default async function BookingDetailPage({
 
   const [{ rows: drivers }, { rows: vehicles }] = needsAssign
     ? await Promise.all([
-        listDrivers({ pageSize: 200 }),
-        listVehicles({ pageSize: 200, branchId: booking.branchId }),
+        listAssignableDrivers({ pageSize: 200, branchId: booking.branchId }),
+        listAssignableVehicles({ pageSize: 200, branchId: booking.branchId }),
       ])
     : [{ rows: [] }, { rows: [] }];
 
