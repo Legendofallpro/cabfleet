@@ -1,12 +1,44 @@
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { format } from "date-fns";
+import { getSessionUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import { listOpenForClaimBookings } from "@/modules/bookings/queries/driver";
 import { ClaimButton } from "@/app/(driver)/_components/ClaimButton";
 
 export const metadata: Metadata = { title: "Open Trips | CabFleet Driver" };
 
 export default async function OpenTripsPage() {
-  const bookings = await listOpenForClaimBookings();
+  const session = await getSessionUser();
+  if (!session) redirect("/signin");
+
+  // Resolve the driver's branch — required for scoping open trips
+  const driver = await db.driver.findUnique({
+    where: { profileId: session.profile.id },
+    select: { id: true, status: true, profile: { select: { branchId: true } } },
+  });
+
+  if (!driver || !driver.profile.branchId) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Your account is not assigned to a branch yet. Contact an administrator.
+        </p>
+      </div>
+    );
+  }
+
+  if (driver.status === "SUSPENDED" || driver.status === "INACTIVE") {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-900/40 dark:bg-red-900/20">
+        <p className="text-sm font-medium text-red-700 dark:text-red-400">
+          Your account is {driver.status.toLowerCase()}. You cannot claim new trips.
+        </p>
+      </div>
+    );
+  }
+
+  const bookings = await listOpenForClaimBookings(driver.profile.branchId);
 
   return (
     <div className="space-y-4">

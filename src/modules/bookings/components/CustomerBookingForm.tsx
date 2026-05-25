@@ -5,14 +5,12 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { DispatchMode } from "@prisma/client";
-
 import { TextField } from "@/components/common/form/TextField";
 import { TextareaField } from "@/components/common/form/TextareaField";
 import { createBookingSchema, type CreateBookingFormValues } from "@/modules/bookings/validators/booking";
 import { createBookingAction } from "@/modules/bookings/actions/booking.actions";
 
-type BookingType = { id: string; name: string; defaultDispatchMode: DispatchMode };
+type BookingType = { id: string; name: string; description?: string | null };
 
 type Props = {
   bookingTypes: BookingType[];
@@ -132,7 +130,7 @@ function Step1BookingType({
                   {bt.name}
                 </div>
                 <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {descriptions[bt.name] ?? bt.defaultDispatchMode}
+                  {descriptions[bt.name] ?? bt.description ?? ""}
                 </div>
               </div>
               {isSelected && (
@@ -312,7 +310,6 @@ export function CustomerBookingForm({
       branchId: defaultBranchId,
       customerId: defaultCustomerId,
       bookingTypeId: "",
-      dispatchMode: DispatchMode.MANUAL,
       pickupAt: defaultPickupAt(),
       pickupAddress: "",
       dropAddress: "",

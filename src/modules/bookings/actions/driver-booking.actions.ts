@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { BookingStatus } from "@prisma/client";
+import { BookingStatus, DriverStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { action } from "@/lib/actions";
@@ -17,11 +17,18 @@ import { claimBooking } from "@/modules/bookings/services/claimBooking";
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Resolves the Driver record for the currently signed-in profile. */
+/**
+ * Resolves the Driver record for the currently signed-in profile.
+ * Includes the profile's branchId so eligibility can be checked per-claim.
+ */
 async function getDriverForProfile(profileId: string) {
   const driver = await db.driver.findUnique({
     where: { profileId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      profile: { select: { branchId: true } },
+    },
   });
   if (!driver) {
     throw new AppError("FORBIDDEN", "No driver profile found for this account.");
@@ -41,6 +48,32 @@ export const claimBookingAction = action(
   async ({ bookingId }) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_CLAIM);
     const driver = await getDriverForProfile(actor.profile.id);
+
+    // Eligibility: only ACTIVE or ON_LEAVE drivers may claim
+    if (
+      driver.status === DriverStatus.SUSPENDED ||
+      driver.status === DriverStatus.INACTIVE
+    ) {
+      return err({
+        code: "FORBIDDEN",
+        message: "Your account is not eligible to claim trips.",
+      });
+    }
+
+    // Branch eligibility: driver's branch must match the booking's branch
+    const booking = await db.booking.findFirst({
+      where: { id: bookingId, deletedAt: null },
+      select: { branchId: true },
+    });
+    if (!booking) {
+      return err({ code: "NOT_FOUND", message: "Booking not found." });
+    }
+    if (driver.profile.branchId !== booking.branchId) {
+      return err({
+        code: "FORBIDDEN",
+        message: "You can only claim trips in your assigned branch.",
+      });
+    }
 
     const result = await claimBooking({
       bookingId,

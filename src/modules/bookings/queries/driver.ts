@@ -23,11 +23,15 @@ const driverListInclude = {
   },
 } as const;
 
-/** Bookings currently OPEN_FOR_CLAIM — visible to all eligible drivers. */
-export async function listOpenForClaimBookings() {
+/**
+ * Bookings currently OPEN_FOR_CLAIM — scoped to the driver's branch.
+ * Only drivers whose branch matches the booking's branch may see (and claim) them.
+ */
+export async function listOpenForClaimBookings(branchId: string) {
   return db.booking.findMany({
     where: {
       status: BookingStatus.OPEN_FOR_CLAIM,
+      branchId,
       deletedAt: null,
     },
     include: driverListInclude,
@@ -55,12 +59,29 @@ export async function listMyTrips(driverId: string) {
   });
 }
 
+type DriverBookingDetailAccess = {
+  driverId: string;
+  branchId: string;
+};
+
 /** Full booking detail for the driver trip-detail page. */
 export async function getDriverBookingDetail(
   bookingId: string,
+  access: DriverBookingDetailAccess,
 ): Promise<BookingDetail | null> {
   const booking = await db.booking.findFirst({
-    where: { id: bookingId, deletedAt: null },
+    where: {
+      id: bookingId,
+      deletedAt: null,
+      OR: [
+        {
+          status: BookingStatus.OPEN_FOR_CLAIM,
+          branchId: access.branchId,
+        },
+        { claimedByDriverId: access.driverId },
+        { assignedDriverId: access.driverId },
+      ],
+    },
     include: bookingDetailInclude,
   });
   return booking as BookingDetail | null;

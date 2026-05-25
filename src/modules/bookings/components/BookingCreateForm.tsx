@@ -5,7 +5,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { DispatchMode } from "@prisma/client";
 
 import { TextField } from "@/components/common/form/TextField";
 import { SelectField } from "@/components/common/form/SelectField";
@@ -16,7 +15,7 @@ import { createBookingAction } from "@/modules/bookings/actions/booking.actions"
 
 type Branch = { id: string; name: string; code: string };
 type Customer = { id: string; profile: { fullName: string | null; email: string } };
-type BookingType = { id: string; name: string; defaultDispatchMode: DispatchMode };
+type BookingType = { id: string; name: string };
 
 type Props = {
   branches: Branch[];
@@ -41,7 +40,6 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
       branchId: branches[0]?.id ?? "",
       customerId: "",
       bookingTypeId: "",
-      dispatchMode: DispatchMode.MANUAL,
       pickupAt: defaultPickupAt(),
       pickupAddress: "",
       dropAddress: "",
@@ -59,9 +57,8 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
     control,
   } = form;
 
-  // Subscribe to only this field; useWatch is compiler-friendly (no watch())
   const bookingTypeId = useWatch({ control, name: "bookingTypeId" });
-  const selectedType = bookingTypes.find((bt) => bt.id === bookingTypeId);
+  void bookingTypeId; // suppress unused warning; reserved for review/hint display
 
   const onSubmit = (values: CreateBookingFormValues) => {
     startTransition(async () => {
@@ -113,19 +110,6 @@ export function BookingCreateForm({ branches, customers, bookingTypes }: Props) 
           placeholder="Select a booking type"
           options={bookingTypes.map((bt) => ({ value: bt.id, label: bt.name }))}
           {...register("bookingTypeId")}
-        />
-
-        <SelectField
-          label="Dispatch Mode"
-          required
-          error={errors.dispatchMode?.message}
-          options={[
-            { value: DispatchMode.MANUAL, label: "Manual (staff assigns)" },
-            { value: DispatchMode.CLAIM, label: "Claim (drivers self-assign)" },
-            { value: DispatchMode.HYBRID, label: "Hybrid (claim with fallback)" },
-          ]}
-          hint={selectedType ? `Default for this type: ${selectedType.defaultDispatchMode}` : undefined}
-          {...register("dispatchMode")}
         />
 
         <TextField

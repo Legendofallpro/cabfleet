@@ -86,6 +86,7 @@ const othersItems: NavItem[] = [
     name: "Settings",
     subItems: [
       { name: "Branches", path: "/settings/branches" },
+      { name: "Dispatch Rules", path: "/settings/dispatch" },
       { name: "General", path: "/settings" },
     ],
   },

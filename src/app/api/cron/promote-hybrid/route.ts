@@ -17,8 +17,11 @@ import { db } from "@/lib/db";
 import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
 import { logger } from "@/lib/logger";
 
-/** System actor ID used in audit logs for cron-initiated transitions. */
-const CRON_ACTOR_ID = "00000000-0000-0000-0000-000000000000";
+/**
+ * Cron-initiated transitions use byProfileId: null so that the AuditLog row
+ * has no FK reference to a non-existent profile. The reason field identifies
+ * the source of the transition instead.
+ */
 
 export async function GET(req: NextRequest) {
   // Authenticate the cron caller
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
     expired.map((b) =>
       transitionBookingStatus(b.id, {
         toStatus: BookingStatus.OPEN_FOR_CLAIM,
-        byProfileId: CRON_ACTOR_ID,
+        byProfileId: null,
         reason: "Hybrid dispatch timeout — opened for driver claim",
       }),
     ),
