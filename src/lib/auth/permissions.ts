@@ -27,13 +27,15 @@ export const PERMISSIONS = {
   CUSTOMER_VIEW: "customer.view",
   CUSTOMER_MANAGE: "customer.manage",
 
-  // Bookings (Phase 2)
+  // Bookings (Phase 2+)
   BOOKING_VIEW: "booking.view",
   BOOKING_CREATE: "booking.create",
   BOOKING_ASSIGN: "booking.assign",
   BOOKING_REASSIGN: "booking.reassign",
   BOOKING_CANCEL: "booking.cancel",
   BOOKING_OVERRIDE: "booking.override",
+  /** Phase 4: driver claims an OPEN_FOR_CLAIM booking */
+  BOOKING_CLAIM: "booking.claim",
 
   // Pricing
   PRICING_VIEW: "pricing.view",
@@ -71,6 +73,7 @@ const STAFF_PERMISSIONS: Permission[] = [
 
 const DRIVER_PERMISSIONS: Permission[] = [
   PERMISSIONS.BOOKING_VIEW,
+  PERMISSIONS.BOOKING_CLAIM,
 ];
 
 const CUSTOMER_PERMISSIONS: Permission[] = [

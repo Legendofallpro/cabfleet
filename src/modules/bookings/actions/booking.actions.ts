@@ -79,7 +79,9 @@ export const cancelBookingAction = action(
 // Generic staff transition (en-route, in-progress, completed, failed, no-show)
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Phase 4: OPEN_FOR_CLAIM added so staff can manually open a PENDING booking.
 const staffTransitionStatuses = [
+  BookingStatus.OPEN_FOR_CLAIM,
   BookingStatus.DRIVER_EN_ROUTE,
   BookingStatus.IN_PROGRESS,
   BookingStatus.COMPLETED,
