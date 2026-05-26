@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { BookingStatus } from "@prisma/client";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { getRoleHome } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
@@ -54,7 +55,7 @@ export default async function CustomerBookingDetailPage({
   const { id } = await params;
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/bookings");
-  if (session.profile.role !== "CUSTOMER") redirect("/portal");
+  if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
   const booking = await db.booking.findFirst({
     where: { id, deletedAt: null },

@@ -4,6 +4,7 @@ import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
 import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import type { Staff } from "@prisma/client";
 import type {
@@ -36,7 +37,9 @@ export async function inviteStaff(
   }
 
   const supabase = getSupabaseAdminClient();
+  const inviteRedirectTo = new URL("/auth/callback?mode=invite", env.NEXT_PUBLIC_APP_URL).toString();
   const invite = await supabase.auth.admin.inviteUserByEmail(input.email, {
+    redirectTo: inviteRedirectTo,
     data: {
       full_name: input.fullName,
       role: input.role,

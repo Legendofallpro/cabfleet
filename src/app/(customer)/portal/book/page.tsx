@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { getRoleHome } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
 import { listBookingTypes } from "@/modules/bookings/queries/list";
 import { getOrCreateCustomer } from "@/modules/customers/queries/customer";
@@ -13,7 +14,7 @@ export default async function BookPage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/book");
 
-  if (session.profile.role !== "CUSTOMER") redirect("/portal");
+  if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
   const [customer, branch, bookingTypes] = await Promise.all([
     getOrCreateCustomer(session.profile.id),
