@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   db: {
-    driver: { findFirst: vi.fn() },
+    branch: { findFirst: vi.fn() },
+    driver: { findFirst: vi.fn(), findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -19,13 +20,75 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+  },
+}));
+
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { softDeleteDriver } from "./driver.service";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { inviteDriver, softDeleteDriver } from "./driver.service";
+
+const inviteUserByEmail = vi.fn();
+
+describe("inviteDriver", () => {
+  const tx = {
+    profile: { upsert: vi.fn() },
+    driver: { create: vi.fn(), update: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.branch.findFirst).mockResolvedValue({ id: "branch-1" } as never);
+    vi.mocked(db.driver.findUnique).mockResolvedValue(null);
+    vi.mocked(getSupabaseAdminClient).mockReturnValue({
+      auth: {
+        admin: {
+          inviteUserByEmail,
+        },
+      },
+    } as never);
+    inviteUserByEmail.mockResolvedValue({
+      data: { user: { id: "auth-user-1" } },
+      error: null,
+    });
+    tx.driver.create.mockResolvedValue({ id: "driver-1" } as never);
+    vi.mocked(db.$transaction).mockImplementation(
+      async (fn: Parameters<typeof db.$transaction>[0]) => fn(tx as never),
+    );
+  });
+
+  it("passes the auth callback URL when inviting drivers", async () => {
+    await inviteDriver(
+      {
+        email: "driver@example.com",
+        fullName: "Driver Example",
+        phone: "9876543210",
+        branchId: "branch-1",
+        licenseNumber: "DL-12345",
+        licenseExpiry: new Date("2030-01-01"),
+        status: "ACTIVE",
+        verification: "PENDING",
+        notes: null,
+      },
+      { id: "actor-1" },
+    );
+
+    expect(inviteUserByEmail).toHaveBeenCalledWith(
+      "driver@example.com",
+      expect.objectContaining({
+        redirectTo: "http://localhost:3000/auth/callback?mode=invite",
+      }),
+    );
+  });
+});
 
 describe("softDeleteDriver", () => {
   const tx = {
-    driver: { update: vi.fn() },
+    profile: { upsert: vi.fn() },
+    driver: { create: vi.fn(), update: vi.fn() },
   };
 
   beforeEach(() => {

@@ -1,18 +1,10 @@
 import React from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { signOutAction } from "@/lib/auth/sign-out";
 
 export const dynamic = "force-dynamic";
-
-async function signOutAction() {
-  "use server";
-  const supabase = await getSupabaseServerClient();
-  await supabase.auth.signOut();
-  redirect("/signin");
-}
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionUser();

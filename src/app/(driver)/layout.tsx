@@ -2,13 +2,14 @@ import React from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth/session";
+import { getRoleHome } from "@/lib/auth/redirects";
 
 export const dynamic = "force-dynamic";
 
 export default async function DriverLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/driver");
-  if (session.profile.role !== "DRIVER") redirect("/");
+  if (session.profile.role !== "DRIVER") redirect(getRoleHome(session.profile.role));
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
