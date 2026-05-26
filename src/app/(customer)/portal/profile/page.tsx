@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { getRoleHome } from "@/lib/auth/redirects";
 import { getOrCreateCustomer } from "@/modules/customers/queries/customer";
 
 export const metadata: Metadata = { title: "Profile | CabFleet" };
@@ -23,7 +24,7 @@ export default async function ProfilePage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/profile");
 
-  if (session.profile.role !== "CUSTOMER") redirect("/portal");
+  if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
   const customer = await getOrCreateCustomer(session.profile.id);
 

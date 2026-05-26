@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { getRoleHome } from "@/lib/auth/redirects";
 import { getOrCreateCustomer, listCustomerBookings } from "@/modules/customers/queries/customer";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
@@ -39,7 +40,7 @@ export default async function MyBookingsPage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/bookings");
 
-  if (session.profile.role !== "CUSTOMER") redirect("/portal");
+  if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
   const customer = await getOrCreateCustomer(session.profile.id);
   const { rows, total } = await listCustomerBookings(customer.id, { pageSize: 50 });
