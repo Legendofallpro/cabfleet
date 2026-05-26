@@ -63,7 +63,7 @@ export async function voidInvoiceAction(invoiceId: string) {
     await db.$transaction(async (tx) => {
       await tx.invoice.update({
         where: { id: invoiceId },
-        data: { status: "VOID", updatedAt: new Date() },
+        data: { status: "VOID", pdfUrl: null, updatedAt: new Date() },
       });
       await tx.auditLog.create({
         data: {
@@ -78,6 +78,8 @@ export async function voidInvoiceAction(invoiceId: string) {
 
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${invoiceId}`);
+    revalidatePath(`/bookings/${invoice.bookingId}`);
+    revalidatePath(`/portal/bookings/${invoice.bookingId}`);
 
     return ok(invoiceId);
   } catch (e) {

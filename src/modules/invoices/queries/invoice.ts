@@ -57,8 +57,9 @@ export async function getInvoice(id: string) {
 }
 
 export async function getInvoiceForBooking(bookingId: string) {
-  return db.invoice.findFirst({
-    where: { bookingId, deletedAt: null },
+  const invoice = await db.invoice.findFirst({
+    where: { bookingId, deletedAt: null, status: { not: "VOID" } },
     select: invoiceSelect,
   });
+  return invoice;
 }

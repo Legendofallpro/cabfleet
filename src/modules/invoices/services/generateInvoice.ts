@@ -6,7 +6,6 @@
  * Server-only: never import from a "use client" component.
  */
 import React from "react";
-import type { Prisma } from "@prisma/client";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
@@ -42,10 +41,13 @@ function getInvoiceNumberPrefix(at = new Date()): string {
 
 async function nextInvoiceNumber(
   prefix: string,
-  countExistingInvoices: (lockedPrefix: string) => Promise<number>,
+  getLatestInvoiceNumber: (lockedPrefix: string) => Promise<string | null>,
 ): Promise<string> {
-  const count = await countExistingInvoices(prefix);
-  return `${prefix}-${String(count + 1).padStart(5, "0")}`;
+  const latestInvoiceNumber = await getLatestInvoiceNumber(prefix);
+  const nextSequence = latestInvoiceNumber
+    ? Number(latestInvoiceNumber.slice(prefix.length + 1)) + 1
+    : 1;
+  return `${prefix}-${String(nextSequence).padStart(5, "0")}`;
 }
 
 export async function generateInvoice(
@@ -62,15 +64,19 @@ export async function generateInvoice(
           profile: { select: { fullName: true, email: true, phone: true } },
         },
       },
-      invoice: { select: { id: true, deletedAt: true } },
+      invoice: { select: { id: true, status: true, deletedAt: true } },
     },
   });
 
   if (!booking) {
     throw new AppError("NOT_FOUND", "Booking not found.");
   }
+  const voidInvoiceId =
+    booking.invoice && !booking.invoice.deletedAt && booking.invoice.status === "VOID"
+      ? booking.invoice.id
+      : null;
 
-  if (booking.invoice && !booking.invoice.deletedAt) {
+  if (booking.invoice && !booking.invoice.deletedAt && booking.invoice.status !== "VOID") {
     throw new AppError("CONFLICT", "An invoice already exists for this booking.");
   }
 
@@ -79,30 +85,46 @@ export async function generateInvoice(
   // 6. Write Invoice row + AuditLog in a single transaction
   let invoiceNumber = "";
   let storagePath = "";
-  const invoice = await db.$transaction(async (tx: Prisma.TransactionClient) => {
+  const invoice = await db.$transaction(async (tx) => {
     const prefix = getInvoiceNumberPrefix();
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
 
     const activeInvoice = await tx.invoice.findFirst({
-      where: { bookingId: input.bookingId, deletedAt: null },
+      where: { bookingId: input.bookingId, deletedAt: null, status: { not: "VOID" } },
       select: { id: true },
     });
     if (activeInvoice) {
       throw new AppError("CONFLICT", "An invoice already exists for this booking.");
     }
 
+    const existingVoidInvoice = voidInvoiceId
+      ? await tx.invoice.findFirst({
+          where: {
+            id: voidInvoiceId,
+            bookingId: input.bookingId,
+            deletedAt: null,
+            status: "VOID",
+          },
+        })
+      : null;
+
     invoiceNumber = await nextInvoiceNumber(
       prefix,
       (lockedPrefix) =>
-        tx.invoice.count({
-          where: { number: { startsWith: lockedPrefix } },
-        }),
+        tx.invoice
+          .findFirst({
+            where: { number: { startsWith: lockedPrefix } },
+            orderBy: { number: "desc" },
+            select: { number: true },
+          })
+          .then((row) => row?.number ?? null),
     );
 
     // 2. Build PDF data
+    const issuedAt = new Date();
     const pdfData: InvoicePDFData = {
       invoiceNumber,
-      issuedAt: new Date(),
+      issuedAt,
       dueAt: input.dueAt ?? null,
       customerName: booking.customer.profile.fullName ?? booking.customer.profile.email,
       customerEmail: booking.customer.profile.email,
@@ -152,12 +174,51 @@ export async function generateInvoice(
 
     const pdfUrl = signedData.signedUrl;
 
+    if (existingVoidInvoice) {
+      const updated = await tx.invoice.update({
+        where: { id: existingVoidInvoice.id },
+        data: {
+          number: invoiceNumber,
+          pdfUrl,
+          issuedAt,
+          dueAt: input.dueAt ?? null,
+          status: "ISSUED",
+          updatedAt: new Date(),
+        },
+      });
+
+      await writeAudit(tx, {
+        entity: "Invoice",
+        entityId: updated.id,
+        action: "UPDATE",
+        byProfileId: actor.id,
+        diff: {
+          before: {
+            number: existingVoidInvoice.number,
+            pdfUrl: existingVoidInvoice.pdfUrl,
+            issuedAt: existingVoidInvoice.issuedAt,
+            dueAt: existingVoidInvoice.dueAt,
+            status: existingVoidInvoice.status,
+          },
+          after: {
+            number: updated.number,
+            pdfUrl: updated.pdfUrl,
+            issuedAt: updated.issuedAt,
+            dueAt: updated.dueAt,
+            status: updated.status,
+          },
+        },
+      });
+
+      return updated;
+    }
+
     const created = await tx.invoice.create({
       data: {
         bookingId: input.bookingId,
         number: invoiceNumber,
         pdfUrl,
-        issuedAt: new Date(),
+        issuedAt,
         dueAt: input.dueAt ?? null,
         status: "ISSUED",
       },
