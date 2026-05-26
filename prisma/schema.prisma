@@ -160,6 +160,8 @@ model Profile {
   bookingsAssigned  Booking[]           @relation("BookingAssignedBy")
   assignmentHistory AssignmentHistory[]
   paymentsCreated   Payment[]           @relation("PaymentCreatedBy")
+  attendance        Attendance[]
+  expenses          Expense[]
 
   @@index([role])
   @@index([branchId])
@@ -189,6 +191,7 @@ model Driver {
   vehicleAssignments VehicleAssignment[]
   claimedBookings    Booking[]           @relation("BookingClaimedBy")
   assignedBookings   Booking[]           @relation("BookingAssignedDriver")
+  fuelLogs           FuelLog[]
 
   @@index([status])
   @@index([verification])
@@ -271,6 +274,9 @@ model Vehicle {
   branch           Branch              @relation(fields: [branchId], references: [id])
   assignments      VehicleAssignment[]
   assignedBookings Booking[]           @relation("BookingAssignedVehicle")
+  fuelLogs         FuelLog[]
+  expenses         Expense[]
+  maintenanceLogs  MaintenanceLog[]
 
   @@index([branchId])
   @@index([status])
@@ -503,8 +509,33 @@ model Invoice {
 }
 
 // =========================================================
-// Operations (lightweight stubs - filled in Phase 6)
+// Operations (Phase 6)
 // =========================================================
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  profileId String           @db.Uuid
+  date      DateTime         @db.Date
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    AttendanceStatus @default(PRESENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, date])
+  @@index([profileId])
+  @@index([date])
+}
 
 model Shift {
   id       String   @id @default(cuid())
@@ -523,6 +554,67 @@ model Shift {
   @@index([branchId])
   @@index([staffId])
   @@index([startsAt])
+}
+
+model FuelLog {
+  id        String   @id @default(cuid())
+  vehicleId String
+  driverId  String?
+  litres    Decimal  @db.Decimal(8, 2)
+  amount    Decimal  @db.Decimal(10, 2)
+  odometer  Int
+  notes     String?
+  at        DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  driver  Driver? @relation(fields: [driverId], references: [id])
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([at])
+}
+
+model Expense {
+  id         String   @id @default(cuid())
+  profileId  String?  @db.Uuid
+  vehicleId  String?
+  category   String   // e.g. "MAINTENANCE", "FUEL", "TOLL", "MISC"
+  amount     Decimal  @db.Decimal(10, 2)
+  receiptUrl String?
+  notes      String?
+  at         DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile? @relation(fields: [profileId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  @@index([profileId])
+  @@index([vehicleId])
+  @@index([at])
+}
+
+model MaintenanceLog {
+  id              String   @id @default(cuid())
+  vehicleId       String
+  type            String   // e.g. "SERVICE", "TYRE", "OIL_CHANGE", "REPAIR"
+  cost            Decimal  @db.Decimal(10, 2)
+  odometer        Int
+  nextDueOdometer Int?
+  notes           String?
+  at              DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+  @@index([at])
 }
 
 // =========================================================
