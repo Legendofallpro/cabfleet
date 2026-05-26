@@ -45,6 +45,14 @@ export const PERMISSIONS = {
   DISPATCH_VIEW: "dispatch.view",
   DISPATCH_MANAGE: "dispatch.manage",
 
+  // Payments (Phase 5)
+  PAYMENT_VIEW: "payment.view",
+  PAYMENT_MANAGE: "payment.manage",
+
+  // Invoices (Phase 5)
+  INVOICE_VIEW: "invoice.view",
+  INVOICE_MANAGE: "invoice.manage",
+
   // Audit
   AUDIT_VIEW: "audit.view",
 } as const;
@@ -69,6 +77,10 @@ const STAFF_PERMISSIONS: Permission[] = [
   PERMISSIONS.BOOKING_CANCEL,
   PERMISSIONS.PRICING_VIEW,
   PERMISSIONS.DISPATCH_VIEW,
+  PERMISSIONS.PAYMENT_VIEW,
+  PERMISSIONS.PAYMENT_MANAGE,
+  PERMISSIONS.INVOICE_VIEW,
+  PERMISSIONS.INVOICE_MANAGE,
 ];
 
 const DRIVER_PERMISSIONS: Permission[] = [

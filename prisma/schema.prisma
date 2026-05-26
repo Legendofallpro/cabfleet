@@ -159,6 +159,7 @@ model Profile {
   bookingsCreated   Booking[]           @relation("BookingCreatedBy")
   bookingsAssigned  Booking[]           @relation("BookingAssignedBy")
   assignmentHistory AssignmentHistory[]
+  paymentsCreated   Payment[]           @relation("PaymentCreatedBy")
 
   @@index([role])
   @@index([branchId])
@@ -358,6 +359,8 @@ model Booking {
   assignedBy        Profile?            @relation("BookingAssignedBy", fields: [assignedByStaffId], references: [id])
   createdBy         Profile?            @relation("BookingCreatedBy", fields: [createdById], references: [id])
   assignmentHistory AssignmentHistory[]
+  payments          Payment[]
+  invoice           Invoice?
 
   @@index([branchId])
   @@index([customerId])
@@ -433,6 +436,70 @@ model DispatchRule {
 
   @@index([priority])
   @@index([active])
+}
+
+// =========================================================
+// Payments (Phase 5)
+// =========================================================
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  bookingId   String
+  amount      Decimal       @db.Decimal(10, 2)
+  method      String        // e.g. "CASH", "CARD", "UPI"
+  status      PaymentStatus @default(PENDING)
+  txnRef      String?
+  capturedAt  DateTime?
+  createdById String?       @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  createdBy Profile? @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// =========================================================
+// Invoices (Phase 5)
+// =========================================================
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOID
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  number    String        @unique
+  pdfUrl    String?
+  issuedAt  DateTime      @default(now())
+  dueAt     DateTime?
+  status    InvoiceStatus @default(DRAFT)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([status])
+  @@index([issuedAt])
+  @@index([deletedAt])
 }
 
 // =========================================================
