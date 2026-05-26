@@ -15,6 +15,9 @@ import {
 } from "@/modules/bookings/booking.constants";
 import { listAssignableDrivers } from "@/modules/drivers/queries/list";
 import { listAssignableVehicles } from "@/modules/vehicles/queries/list";
+import { getInvoiceForBooking } from "@/modules/invoices/queries/invoice";
+import { listPaymentsForBooking } from "@/modules/payments/queries/payment";
+import { GenerateInvoiceButton } from "@/modules/invoices/components/GenerateInvoiceButton";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
 
@@ -72,7 +75,12 @@ export default async function BookingDetailPage({
         listAssignableDrivers({ pageSize: 200, branchId: booking.branchId }),
         listAssignableVehicles({ pageSize: 200, branchId: booking.branchId }),
       ])
-    : [{ rows: [] }, { rows: [] }];
+    : [{ rows: [] as Awaited<ReturnType<typeof listAssignableDrivers>>["rows"] }, { rows: [] as Awaited<ReturnType<typeof listAssignableVehicles>>["rows"] }];
+
+  const [invoice, payments] = await Promise.all([
+    getInvoiceForBooking(booking.id),
+    listPaymentsForBooking(booking.id),
+  ]);
 
   const bookingRef = booking.id.slice(-8).toUpperCase();
 
@@ -209,6 +217,86 @@ export default async function BookingDetailPage({
               />
             </section>
           )}
+          {/* Invoice section */}
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Invoice
+              </h3>
+              {!invoice && (
+                <GenerateInvoiceButton bookingId={booking.id} />
+              )}
+            </div>
+            {invoice ? (
+              <dl className="divide-y divide-gray-100 dark:divide-gray-800">
+                <DetailRow
+                  label="Invoice #"
+                  value={
+                    <Link
+                      href={`/invoices/${invoice.id}`}
+                      className="text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      {invoice.number}
+                    </Link>
+                  }
+                />
+                <DetailRow label="Status" value={invoice.status} />
+                {invoice.pdfUrl && (
+                  <DetailRow
+                    label="PDF"
+                    value={
+                      <a
+                        href={invoice.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-600 hover:underline dark:text-brand-400"
+                      >
+                        Download
+                      </a>
+                    }
+                  />
+                )}
+              </dl>
+            ) : (
+              <p className="text-xs text-gray-400 dark:text-gray-600">
+                No invoice generated yet.
+              </p>
+            )}
+          </section>
+
+          {/* Payments section */}
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Payments
+              </h3>
+              <Link
+                href={`/payments/new?bookingId=${booking.id}&amount=${booking.fareFinal ?? booking.fareEstimate ?? ""}`}
+                className="text-xs text-brand-600 hover:underline dark:text-brand-400"
+              >
+                + Record payment
+              </Link>
+            </div>
+            {payments.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-gray-600">No payments recorded.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                {payments.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between py-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {p.method} · {p.status}
+                    </span>
+                    <Link
+                      href={`/payments/${p.id}`}
+                      className="text-xs font-medium text-gray-800 hover:underline dark:text-white/80"
+                    >
+                      {currency.format(Number(p.amount))}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
         {/* ── Right column: timeline ── */}

@@ -87,9 +87,12 @@ export default async function MyBookingsPage() {
               {/* Header row */}
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <Link
+                    href={`/portal/bookings/${booking.id}`}
+                    className="font-mono text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
                     #{booking.id.slice(-8).toUpperCase()}
-                  </span>
+                  </Link>
                   <StatusBadge tone={STATUS_TONE[booking.status as BookingStatus]}>
                     {BOOKING_STATUS_LABEL[booking.status as BookingStatus]}
                   </StatusBadge>
