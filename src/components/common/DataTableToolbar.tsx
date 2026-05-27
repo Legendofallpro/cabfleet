@@ -8,7 +8,6 @@ type Props = {
   searchPlaceholder?: string;
   total: number;
   pageSize?: number;
-  /** Optional link the "Create" button points to. */
   createHref?: string;
   createLabel?: string;
 };
@@ -51,10 +50,10 @@ export function DataTableToolbar({
         value={state.q}
         onChange={(e) => update({ q: e.target.value, page: 1 })}
         placeholder={searchPlaceholder}
-        className="h-10 w-full max-w-xs rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+        className="h-10 w-full max-w-xs rounded-lg border border-default bg-surface-elevated px-3 text-sm text-default placeholder:text-muted focus:border-primary focus:outline-none focus:ring-3 focus:ring-focus"
       />
       <div className="flex items-center gap-3">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-muted">
           {total} {total === 1 ? "result" : "results"}
           {pending && " ..."}
         </span>
@@ -63,18 +62,18 @@ export function DataTableToolbar({
             type="button"
             onClick={() => update({ page: page - 1 })}
             disabled={page <= 1}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900"
+            className="h-9 rounded-lg border border-default bg-surface-elevated px-3 text-sm disabled:opacity-50"
           >
             Prev
           </button>
-          <span className="px-2 text-xs text-gray-500">
+          <span className="px-2 text-xs text-muted">
             {page} / {totalPages}
           </span>
           <button
             type="button"
             onClick={() => update({ page: page + 1 })}
             disabled={page >= totalPages}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900"
+            className="h-9 rounded-lg border border-default bg-surface-elevated px-3 text-sm disabled:opacity-50"
           >
             Next
           </button>
@@ -82,7 +81,7 @@ export function DataTableToolbar({
         {createHref && (
           <Link
             href={createHref}
-            className="inline-flex h-9 items-center rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600"
+            className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
           >
             {createLabel}
           </Link>
@@ -92,7 +91,4 @@ export function DataTableToolbar({
   );
 }
 
-// Re-exported so any existing non-server imports keep working.
-// RSC pages must import directly from "@/lib/utils/page-params" — importing
-// from this "use client" file causes a server/client boundary error in Next 15.
 export { parsePageParams, DATA_TABLE_PAGE_SIZE } from "@/lib/utils/page-params";

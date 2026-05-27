@@ -16,14 +16,14 @@ export function FormActions({
     <div className="flex items-center justify-end gap-3 pt-4">
       <Link
         href={cancelHref}
-        className="inline-flex h-10 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+        className="inline-flex h-10 items-center rounded-lg border border-default bg-surface-elevated px-4 text-sm text-default hover:bg-surface-inset"
       >
         Cancel
       </Link>
       <button
         type="submit"
         disabled={submitting}
-        className="inline-flex h-10 items-center rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+        className="inline-flex h-10 items-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
       >
         {submitting ? "Saving..." : submitLabel}
       </button>

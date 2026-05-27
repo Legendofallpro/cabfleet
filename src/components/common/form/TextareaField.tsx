@@ -1,7 +1,7 @@
 "use client";
 
 import React, { forwardRef } from "react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "@/lib/cn";
 
 type Props = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label?: React.ReactNode;
@@ -21,10 +21,10 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, Props>(function Tex
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 dark:text-gray-400"
+          className="block text-sm font-medium text-default"
         >
           {label}
-          {required && <span className="text-error-500"> *</span>}
+          {required && <span className="text-error"> *</span>}
         </label>
       )}
       <textarea
@@ -32,17 +32,17 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, Props>(function Tex
         id={inputId}
         rows={3}
         aria-invalid={error ? "true" : undefined}
-        className={twMerge(
-          "w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90",
+        className={cn(
+          "w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-muted focus:outline-hidden focus:ring-3",
           error
-            ? "border-error-500 focus:border-error-500 focus:ring-error-500/10"
-            : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800",
+            ? "border-error focus:border-error focus:ring-error/10"
+            : "border-default focus:border-primary focus:ring-focus",
           className,
         )}
         {...rest}
       />
       {(error || hint) && (
-        <p className={`text-xs ${error ? "text-error-500" : "text-gray-500"}`}>
+        <p className={cn("text-xs", error ? "text-error" : "text-muted")}>
           {error ?? hint}
         </p>
       )}

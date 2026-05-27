@@ -1,31 +1,33 @@
 import React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/cn";
 
-type Tone = "neutral" | "success" | "warning" | "error" | "info";
+export type StatusTone = "neutral" | "success" | "warning" | "error" | "info";
 
-const TONE_CLASS: Record<Tone, string> = {
-  neutral:
-    "bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300",
-  success:
-    "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400",
-  warning:
-    "bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400",
-  error:
-    "bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400",
-  info:
-    "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400",
-};
+const statusBadgeVariants = cva(
+  "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+  {
+    variants: {
+      tone: {
+        neutral: "bg-surface-inset text-default dark:bg-white/[0.06] dark:text-muted",
+        success: "bg-success-subtle text-on-success-subtle",
+        warning: "bg-warning-subtle text-on-warning-subtle",
+        error:   "bg-error-subtle text-on-error-subtle",
+        info:    "bg-primary-subtle text-on-primary-subtle",
+      },
+    },
+    defaultVariants: { tone: "neutral" },
+  },
+);
 
-export function StatusBadge({
-  tone = "neutral",
-  children,
-}: {
-  tone?: Tone;
+interface StatusBadgeProps extends VariantProps<typeof statusBadgeVariants> {
   children: React.ReactNode;
-}) {
+  className?: string;
+}
+
+export function StatusBadge({ tone, children, className }: StatusBadgeProps) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${TONE_CLASS[tone]}`}
-    >
+    <span className={cn(statusBadgeVariants({ tone }), className)}>
       {children}
     </span>
   );
