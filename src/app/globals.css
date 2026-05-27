@@ -270,6 +270,7 @@
   --color-text-on-warning-subtle: var(--color-warning-400);
   --color-error-subtle: rgba(240, 68, 56, 0.15);
   --color-text-on-error-subtle: var(--color-error-400);
+}
 
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
