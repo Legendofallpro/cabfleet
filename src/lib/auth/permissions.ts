@@ -53,6 +53,27 @@ export const PERMISSIONS = {
   INVOICE_VIEW: "invoice.view",
   INVOICE_MANAGE: "invoice.manage",
 
+  // Attendance (Phase 6)
+  ATTENDANCE_VIEW: "attendance.view",
+  ATTENDANCE_MANAGE: "attendance.manage",
+  /** Driver viewing/editing their own attendance record */
+  ATTENDANCE_SELF: "attendance.self",
+
+  // Fuel (Phase 6)
+  FUEL_VIEW: "fuel.view",
+  FUEL_MANAGE: "fuel.manage",
+
+  // Expenses (Phase 6)
+  EXPENSE_VIEW: "expense.view",
+  EXPENSE_MANAGE: "expense.manage",
+
+  // Maintenance (Phase 6)
+  MAINTENANCE_VIEW: "maintenance.view",
+  MAINTENANCE_MANAGE: "maintenance.manage",
+
+  // Reports (Phase 6)
+  REPORT_VIEW: "report.view",
+
   // Audit
   AUDIT_VIEW: "audit.view",
 } as const;
@@ -81,11 +102,21 @@ const STAFF_PERMISSIONS: Permission[] = [
   PERMISSIONS.PAYMENT_MANAGE,
   PERMISSIONS.INVOICE_VIEW,
   PERMISSIONS.INVOICE_MANAGE,
+  PERMISSIONS.ATTENDANCE_VIEW,
+  PERMISSIONS.ATTENDANCE_MANAGE,
+  PERMISSIONS.FUEL_VIEW,
+  PERMISSIONS.FUEL_MANAGE,
+  PERMISSIONS.EXPENSE_VIEW,
+  PERMISSIONS.EXPENSE_MANAGE,
+  PERMISSIONS.MAINTENANCE_VIEW,
+  PERMISSIONS.MAINTENANCE_MANAGE,
+  PERMISSIONS.REPORT_VIEW,
 ];
 
 const DRIVER_PERMISSIONS: Permission[] = [
   PERMISSIONS.BOOKING_VIEW,
   PERMISSIONS.BOOKING_CLAIM,
+  PERMISSIONS.ATTENDANCE_SELF,
 ];
 
 const CUSTOMER_PERMISSIONS: Permission[] = [
