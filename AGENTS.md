@@ -176,7 +176,74 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 - **Don't use `watch()` from `useForm()` in components.** Use `useWatch({ control, name })` instead — it subscribes only to the named field and is React Compiler-friendly.
 - **Don't export `parsePageParams` from a `"use client"` file** and call it from an RSC. Server-safe utilities must live in plain `.ts` files (e.g., `src/lib/utils/page-params.ts`) so Next 15 can call them during server render.
 
-## 13. Where things live (quick reference)
+## 13. UI & theming — **read before writing any JSX**
+
+Full reference: [docs/ui-styling.md](docs/ui-styling.md)
+
+### AI styling directive
+
+> **Never** use arbitrary Tailwind values (e.g. `w-[100px]`, `text-[13px]`, `rounded-[17px]`) or raw palette colors (e.g. `bg-brand-500`, `text-gray-700`, `bg-blue-500/10`, `dark:bg-success-500/15`) in `src/app/**` or `src/modules/**`. Use only semantic tokens and shared components from `src/components/common/**` and `src/components/ui/**`. Status UI **must** use `<StatusBadge tone={...}>` with a `StatusTone` union — never local `STATUS_COLOR` maps.
+
+### Styling layer model (summary)
+
+| Layer | Path | Palette allowed? |
+|-------|------|-----------------|
+| Theme | `src/app/globals.css` | Yes — defines all tokens |
+| UI primitives | `src/components/ui/*` | Yes — only long-term palette-aware layer |
+| Common components | `src/components/common/*` | **No** — semantic tokens only |
+| Feature code | `src/app/*`, `src/modules/*/components/*` | **Forbidden** |
+
+### Quick migration cheat sheet
+
+| Legacy (do not use in feature code) | Semantic replacement |
+|-------------------------------------|----------------------|
+| `bg-brand-50`, `bg-brand-500/10` | `bg-primary-subtle` |
+| `text-brand-500`, `text-brand-700` | `text-primary` or `text-on-primary-subtle` |
+| `bg-brand-500` | `bg-primary` |
+| `hover:bg-brand-600` | `hover:bg-primary-hover` |
+| `bg-white dark:bg-white/[0.03]` | `bg-surface-elevated` |
+| `bg-gray-50` (page bg) | `bg-surface` |
+| `border-gray-200 dark:border-gray-800` | `border-default` |
+| `text-gray-800 dark:text-white/90` | `text-default` |
+| `text-gray-500 dark:text-gray-400` | `text-muted` |
+| `bg-success-50 dark:bg-success-500/15` | `bg-success-subtle` |
+| `bg-error-50 dark:bg-error-500/15` | `bg-error-subtle` |
+| `text-success-700 dark:text-success-400` | `text-on-success-subtle` |
+| `text-[13px]`, `text-theme-sm` | `text-caption` |
+| `rounded-[17px]` | `rounded-lg` |
+
+### Status badge rule
+
+```ts
+// Allowed — status → tone → StatusBadge
+import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
+
+const ATTENDANCE_TONE: Record<string, StatusTone> = {
+  PRESENT: "success",
+  HALF_DAY: "warning",
+  ABSENT: "error",
+  ON_LEAVE: "info",
+};
+
+<StatusBadge tone={ATTENDANCE_TONE[status] ?? "neutral"}>{label}</StatusBadge>
+```
+
+```ts
+// Forbidden — never do this
+const STATUS_COLOR = { PRESENT: "bg-success-100 text-success-700" };
+<span className={STATUS_COLOR[status]}>Present</span>
+```
+
+### What NOT to do (UI additions)
+
+- **Don't write `bg-brand-*`, `text-gray-*`, `border-gray-*`** in `src/app/**` or `src/modules/**`.
+- **Don't use opacity palette hacks** (`bg-brand-500/10`, `dark:bg-success-500/15`). Use `bg-primary-subtle` etc.
+- **Don't use arbitrary Tailwind values** (`w-[372px]`, `text-[13px]`) in feature code.
+- **Don't create local `STATUS_COLOR` maps** — use `<StatusBadge>`.
+- **Don't copy-paste stat card or filter bar markup** into new pages — use `StatCard` / `DateRangeFilterBar` from `src/components/common/`.
+- **Don't expose `className` on common components for color overrides** — it breaks the token boundary.
+
+## 14. Where things live (quick reference)
 
 | Concern | File / dir |
 |---|---|
@@ -199,3 +266,5 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 | Booking status labels + helpers (client-safe) | [src/modules/bookings/booking.constants.ts](src/modules/bookings/booking.constants.ts) |
 | Admin shell | [src/app/(admin)/layout.tsx](src/app/(admin)/layout.tsx) + [_components/AdminShell.tsx](src/app/(admin)/_components/AdminShell.tsx) |
 | Sidebar nav config | [src/layout/AppSidebar.tsx](src/layout/AppSidebar.tsx) |
+| UI styling guide | [docs/ui-styling.md](docs/ui-styling.md) |
+| `cn()` class helper | [src/lib/cn.ts](src/lib/cn.ts) |
