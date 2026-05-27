@@ -72,7 +72,12 @@ export async function GET(request: NextRequest) {
   if (passwordMode) {
     // Invite or recovery flow: check if the Profile row exists so we can give
     // a meaningful error instead of silently failing later.
-    const session = await getSessionUser();
+    let session: Awaited<ReturnType<typeof getSessionUser>> = null;
+    try {
+      session = await getSessionUser();
+    } catch (dbErr) {
+      logger.error({ err: dbErr, authUserId: rawUser.id, passwordMode }, "Auth callback: DB error during profile check");
+    }
     if (!session) {
       // Auth verified but Profile row is missing — provisioning hasn't fired.
       logger.warn({ authUserId: rawUser.id, type }, "Auth callback: profile not yet provisioned");
