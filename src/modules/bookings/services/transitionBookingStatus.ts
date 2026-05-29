@@ -17,6 +17,7 @@ import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
+import { notifyOnTransition } from "@/modules/notifications/services/notifyOnTransition";
 
 // Pure constants live in booking.constants.ts (no server imports) so client
 // components can import them without pulling in the pg/Prisma bundle.
@@ -167,6 +168,19 @@ export async function transitionBookingStatus(
         after: { status: toStatus, version: current.version + 1 },
         reason: opts.reason,
       },
+    });
+
+    // Phase 7 W2: enqueue notification (if any) inside the same transaction
+    // so notifications are atomic with the business state change. The cron
+    // at /api/cron/drain-notifications is the only caller that hits
+    // providers. Errors here would roll back the booking update — keep this
+    // write trivial (no provider IO, no profile lookups beyond the
+    // already-loaded BookingDetail).
+    await notifyOnTransition(tx, {
+      prev: current.status,
+      next: toStatus,
+      booking: updated as BookingDetail,
+      reason: opts.reason,
     });
 
     return updated as BookingDetail;

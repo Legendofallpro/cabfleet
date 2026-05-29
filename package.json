@@ -37,6 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.3.0",
+    "libphonenumber-js": "^1.13.3",
     "next": "^16.1.6",
     "nuqs": "^2.8.9",
     "pg": "^8.21.0",
@@ -48,6 +49,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0",
     "tailwind-variants": "^3.2.2",
+    "twilio": "^6.0.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

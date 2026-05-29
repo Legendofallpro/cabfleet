@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/promote-hybrid",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/drain-notifications",
+      "schedule": "* * * * *"
     }
   ]
 }

@@ -93,6 +93,20 @@ enum BookingStatus {
   NO_SHOW
 }
 
+// Notifications (Phase 7 W2)
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD_LETTER
+}
+
 enum DispatchMode {
   MANUAL
   CLAIM
@@ -116,26 +130,28 @@ model Organization {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  branches           Branch[]
-  profiles           Profile[]
-  drivers            Driver[]
-  staff              Staff[]
-  customers          Customer[]
-  vehicles           Vehicle[]
-  vehicleAssignments VehicleAssignment[]
-  bookingTypes       BookingType[]
-  bookings           Booking[]
-  pricingRules       PricingRule[]
-  dispatchRules      DispatchRule[]
-  payments           Payment[]
-  invoices           Invoice[]
-  shifts             Shift[]
-  attendance         Attendance[]
-  fuelLogs           FuelLog[]
-  expenses           Expense[]
-  maintenanceLogs    MaintenanceLog[]
-  assignmentHistory  AssignmentHistory[]
-  auditLogs          AuditLog[]
+  branches            Branch[]
+  profiles            Profile[]
+  drivers             Driver[]
+  staff               Staff[]
+  customers           Customer[]
+  vehicles            Vehicle[]
+  vehicleAssignments  VehicleAssignment[]
+  bookingTypes        BookingType[]
+  bookings            Booking[]
+  pricingRules        PricingRule[]
+  dispatchRules       DispatchRule[]
+  payments            Payment[]
+  invoices            Invoice[]
+  shifts              Shift[]
+  attendance          Attendance[]
+  fuelLogs            FuelLog[]
+  expenses            Expense[]
+  maintenanceLogs     MaintenanceLog[]
+  assignmentHistory   AssignmentHistory[]
+  auditLogs           AuditLog[]
+  notificationOutbox  NotificationOutbox[]
+  notificationLogs    NotificationLog[]
 
   @@index([deletedAt])
 }
@@ -188,6 +204,13 @@ model Profile {
   avatarUrl String?
   role      Role    @default(CUSTOMER)
   branchId  String?
+  // Notification preferences (Phase 7 W2). Free-form JSON so the shape can
+  // evolve without a migration. Defaults applied in NotificationService when
+  // unset. Expected keys: { whatsapp: boolean, email: boolean,
+  // quietHoursStart: "HH:MM", quietHoursEnd: "HH:MM", timezone: string }.
+  notificationPrefs Json?
+  // BCP-47 locale used to pick localized templates. v1 only ships en-IN.
+  locale    String  @default("en-IN")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -724,6 +747,63 @@ model MaintenanceLog {
 // =========================================================
 // Audit log (immutable; written by every mutation service)
 // =========================================================
+
+// =========================================================
+// Notifications (Phase 7 W2)
+// =========================================================
+
+// Outbox row written inside the booking-mutation transaction. A 1-minute
+// Vercel Cron at /api/cron/drain-notifications drains rows whose
+// nextAttemptAt has passed, with exponential backoff (1m -> 5m -> 30m -> 2h)
+// and a final DEAD_LETTER status after 4 failed attempts.
+model NotificationOutbox {
+  id            String                   @id @default(cuid())
+  orgId         String?
+  bookingId     String?
+  templateId    String
+  channel       NotificationChannel
+  recipient     String
+  // Shape: { variables: Record<string,string|number>, locale: string,
+  //          urgent?: boolean }
+  payload       Json
+  status        NotificationOutboxStatus @default(PENDING)
+  attempts      Int                      @default(0)
+  nextAttemptAt DateTime                 @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  org           Organization?            @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@index([status, nextAttemptAt])
+  @@index([bookingId])
+}
+
+// Permanent record of dispatch outcomes (one row per provider send attempt
+// that produced a definitive SENT or FAILED result). The outbox row is what
+// the cron drains; this is the audit trail surfaced in the admin viewer.
+model NotificationLog {
+  id                String              @id @default(cuid())
+  orgId             String?
+  bookingId         String?
+  channel           NotificationChannel
+  templateId        String
+  recipient         String
+  // "SENT" | "FAILED"
+  status            String
+  providerMessageId String?
+  errorMessage      String?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+
+  org               Organization?       @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, status])
+  @@index([bookingId])
+  @@index([createdAt])
+}
 
 model AuditLog {
   id             String      @id @default(cuid())
