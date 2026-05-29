@@ -14,6 +14,7 @@ datasource db {
 // =========================================================
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   STAFF
   DRIVER
@@ -102,8 +103,46 @@ enum DispatchMode {
 // Tenant scoping
 // =========================================================
 
+// Top-level tenant. Every tenant-scoped row carries `orgId` and is filtered by
+// the Prisma extension in src/lib/db.ts. Profile.orgId is intentionally nullable
+// so SUPER_ADMIN profiles can act across orgs (enforced via a CHECK constraint
+// added in the W1 migration). See [docs/architecture.md] §13 Phase 7 and the
+// W1 section of the Phase 7 plan.
+model Organization {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branches           Branch[]
+  profiles           Profile[]
+  drivers            Driver[]
+  staff              Staff[]
+  customers          Customer[]
+  vehicles           Vehicle[]
+  vehicleAssignments VehicleAssignment[]
+  bookingTypes       BookingType[]
+  bookings           Booking[]
+  pricingRules       PricingRule[]
+  dispatchRules      DispatchRule[]
+  payments           Payment[]
+  invoices           Invoice[]
+  shifts             Shift[]
+  attendance         Attendance[]
+  fuelLogs           FuelLog[]
+  expenses           Expense[]
+  maintenanceLogs    MaintenanceLog[]
+  assignmentHistory  AssignmentHistory[]
+  auditLogs          AuditLog[]
+
+  @@index([deletedAt])
+}
+
 model Branch {
   id              String       @id @default(cuid())
+  orgId           String?
   name            String
   code            String       @unique
   timezone        String       @default("UTC")
@@ -118,6 +157,7 @@ model Branch {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  org           Organization?  @relation(fields: [orgId], references: [id])
   profiles      Profile[]
   vehicles      Vehicle[]
   bookings      Booking[]
@@ -125,6 +165,7 @@ model Branch {
   dispatchRules DispatchRule[]
   shifts        Shift[]
 
+  @@index([orgId])
   @@index([active])
   @@index([deletedAt])
 }
@@ -138,6 +179,9 @@ model Branch {
 model Profile {
   // Equal to auth.users.id (Supabase UUID)
   id        String  @id @db.Uuid
+  // Null only for SUPER_ADMIN (cross-org platform admins). Enforced by a CHECK
+  // constraint added in the W1 migration: orgId IS NOT NULL OR role = 'SUPER_ADMIN'.
+  orgId     String?
   email     String  @unique
   fullName  String?
   phone     String?
@@ -149,11 +193,12 @@ model Profile {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  branch    Branch?    @relation(fields: [branchId], references: [id])
+  org       Organization? @relation(fields: [orgId], references: [id])
+  branch    Branch?       @relation(fields: [branchId], references: [id])
   driver    Driver?
   staff     Staff?
   customer  Customer?
-  auditLogs AuditLog[] @relation("AuditActor")
+  auditLogs AuditLog[]    @relation("AuditActor")
 
   // Bookings/assignments created/owned by this profile
   bookingsCreated   Booking[]           @relation("BookingCreatedBy")
@@ -163,6 +208,7 @@ model Profile {
   attendance        Attendance[]
   expenses          Expense[]
 
+  @@index([orgId])
   @@index([role])
   @@index([branchId])
   @@index([deletedAt])
@@ -174,6 +220,7 @@ model Profile {
 
 model Driver {
   id            String                   @id @default(cuid())
+  orgId         String?
   profileId     String                   @unique @db.Uuid
   licenseNumber String                   @unique
   licenseExpiry DateTime
@@ -187,12 +234,14 @@ model Driver {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  org                Organization?       @relation(fields: [orgId], references: [id])
   profile            Profile             @relation(fields: [profileId], references: [id], onDelete: Cascade)
   vehicleAssignments VehicleAssignment[]
   claimedBookings    Booking[]           @relation("BookingClaimedBy")
   assignedBookings   Booking[]           @relation("BookingAssignedDriver")
   fuelLogs           FuelLog[]
 
+  @@index([orgId])
   @@index([status])
   @@index([verification])
   @@index([deletedAt])
@@ -204,6 +253,7 @@ model Driver {
 
 model Staff {
   id          String           @id @default(cuid())
+  orgId       String?
   profileId   String           @unique @db.Uuid
   employeeId  String           @unique
   designation StaffDesignation @default(SUPPORT)
@@ -215,9 +265,11 @@ model Staff {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  org     Organization? @relation(fields: [orgId], references: [id])
+  profile Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
   shifts  Shift[]
 
+  @@index([orgId])
   @@index([status])
   @@index([designation])
   @@index([deletedAt])
@@ -229,6 +281,7 @@ model Staff {
 
 model Customer {
   id            String  @id @default(cuid())
+  orgId         String?
   profileId     String  @unique @db.Uuid
   address       String?
   defaultPickup String?
@@ -240,9 +293,11 @@ model Customer {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  profile  Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  org      Organization? @relation(fields: [orgId], references: [id])
+  profile  Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
   bookings Booking[]
 
+  @@index([orgId])
   @@index([deletedAt])
 }
 
@@ -252,6 +307,7 @@ model Customer {
 
 model Vehicle {
   id                 String        @id @default(cuid())
+  orgId              String?
   branchId           String
   registrationNumber String        @unique
   make               String
@@ -271,6 +327,7 @@ model Vehicle {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  org              Organization?       @relation(fields: [orgId], references: [id])
   branch           Branch              @relation(fields: [branchId], references: [id])
   assignments      VehicleAssignment[]
   assignedBookings Booking[]           @relation("BookingAssignedVehicle")
@@ -278,6 +335,7 @@ model Vehicle {
   expenses         Expense[]
   maintenanceLogs  MaintenanceLog[]
 
+  @@index([orgId])
   @@index([branchId])
   @@index([status])
   @@index([deletedAt])
@@ -285,14 +343,17 @@ model Vehicle {
 
 model VehicleAssignment {
   id        String    @id @default(cuid())
+  orgId     String?
   driverId  String
   vehicleId String
   validFrom DateTime  @default(now())
   validTo   DateTime?
 
-  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  org     Organization? @relation(fields: [orgId], references: [id])
+  driver  Driver        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
+  @@index([orgId])
   @@index([driverId])
   @@index([vehicleId])
   @@index([validTo])
@@ -304,6 +365,7 @@ model VehicleAssignment {
 
 model BookingType {
   id                  String       @id @default(cuid())
+  orgId               String?
   name                String       @unique
   description         String?
   defaultDispatchMode DispatchMode @default(MANUAL)
@@ -313,13 +375,17 @@ model BookingType {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  org           Organization?  @relation(fields: [orgId], references: [id])
   pricingRules  PricingRule[]
   dispatchRules DispatchRule[]
   bookings      Booking[]
+
+  @@index([orgId])
 }
 
 model Booking {
   id            String        @id @default(cuid())
+  orgId         String?
   branchId      String
   customerId    String
   bookingTypeId String
@@ -329,6 +395,12 @@ model Booking {
   pickupAt      DateTime
   pickupAddress String
   dropAddress   String
+  // Geocoded coordinates. Added in W1 (cheaper to ship now than a second
+  // migration in W5). Populated by GeocodingService in W5.
+  pickupLat     Decimal? @db.Decimal(9, 6)
+  pickupLng     Decimal? @db.Decimal(9, 6)
+  dropLat       Decimal? @db.Decimal(9, 6)
+  dropLng       Decimal? @db.Decimal(9, 6)
   distanceKm    Decimal? @db.Decimal(8, 2)
   passengers    Int      @default(1)
 
@@ -356,6 +428,7 @@ model Booking {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  org               Organization?       @relation(fields: [orgId], references: [id])
   branch            Branch              @relation(fields: [branchId], references: [id])
   customer          Customer            @relation(fields: [customerId], references: [id])
   bookingType       BookingType         @relation(fields: [bookingTypeId], references: [id])
@@ -368,6 +441,7 @@ model Booking {
   payments          Payment[]
   invoice           Invoice?
 
+  @@index([orgId])
   @@index([branchId])
   @@index([customerId])
   @@index([status])
@@ -377,6 +451,7 @@ model Booking {
 
 model AssignmentHistory {
   id          String      @id @default(cuid())
+  orgId       String?
   bookingId   String
   driverId    String?
   vehicleId   String?
@@ -385,9 +460,11 @@ model AssignmentHistory {
   reason      String?
   at          DateTime    @default(now())
 
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  byProfile Profile? @relation(fields: [byProfileId], references: [id])
+  org       Organization? @relation(fields: [orgId], references: [id])
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  byProfile Profile?      @relation(fields: [byProfileId], references: [id])
 
+  @@index([orgId])
   @@index([bookingId])
   @@index([at])
 }
@@ -398,6 +475,7 @@ model AssignmentHistory {
 
 model PricingRule {
   id            String    @id @default(cuid())
+  orgId         String?
   bookingTypeId String
   branchId      String?
   baseFare      Decimal   @default(0) @db.Decimal(10, 2)
@@ -411,9 +489,11 @@ model PricingRule {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  bookingType BookingType @relation(fields: [bookingTypeId], references: [id])
-  branch      Branch?     @relation(fields: [branchId], references: [id])
+  org         Organization? @relation(fields: [orgId], references: [id])
+  bookingType BookingType   @relation(fields: [bookingTypeId], references: [id])
+  branch      Branch?       @relation(fields: [branchId], references: [id])
 
+  @@index([orgId])
   @@index([bookingTypeId])
   @@index([branchId])
   @@index([validFrom, validTo])
@@ -425,6 +505,7 @@ model PricingRule {
 
 model DispatchRule {
   id              String       @id @default(cuid())
+  orgId           String?
   priority        Int          @default(100) // lower = higher priority
   branchId        String?
   bookingTypeId   String?
@@ -437,9 +518,11 @@ model DispatchRule {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  branch      Branch?      @relation(fields: [branchId], references: [id])
-  bookingType BookingType? @relation(fields: [bookingTypeId], references: [id])
+  org         Organization? @relation(fields: [orgId], references: [id])
+  branch      Branch?       @relation(fields: [branchId], references: [id])
+  bookingType BookingType?  @relation(fields: [bookingTypeId], references: [id])
 
+  @@index([orgId])
   @@index([priority])
   @@index([active])
 }
@@ -457,6 +540,7 @@ enum PaymentStatus {
 
 model Payment {
   id          String        @id @default(cuid())
+  orgId       String?
   bookingId   String
   amount      Decimal       @db.Decimal(10, 2)
   method      String        // e.g. "CASH", "CARD", "UPI"
@@ -469,9 +553,11 @@ model Payment {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  booking   Booking  @relation(fields: [bookingId], references: [id])
-  createdBy Profile? @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  org       Organization? @relation(fields: [orgId], references: [id])
+  booking   Booking       @relation(fields: [bookingId], references: [id])
+  createdBy Profile?      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
 
+  @@index([orgId])
   @@index([bookingId])
   @@index([status])
   @@index([deletedAt])
@@ -490,6 +576,7 @@ enum InvoiceStatus {
 
 model Invoice {
   id        String        @id @default(cuid())
+  orgId     String?
   bookingId String        @unique
   number    String        @unique
   pdfUrl    String?
@@ -501,8 +588,10 @@ model Invoice {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  org     Organization? @relation(fields: [orgId], references: [id])
+  booking Booking       @relation(fields: [bookingId], references: [id])
 
+  @@index([orgId])
   @@index([status])
   @@index([issuedAt])
   @@index([deletedAt])
@@ -521,6 +610,7 @@ enum AttendanceStatus {
 
 model Attendance {
   id        String           @id @default(cuid())
+  orgId     String?
   profileId String           @db.Uuid
   date      DateTime         @db.Date
   checkIn   DateTime?
@@ -530,15 +620,18 @@ model Attendance {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  org     Organization? @relation(fields: [orgId], references: [id])
+  profile Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@unique([profileId, date])
+  @@index([orgId])
   @@index([profileId])
   @@index([date])
 }
 
 model Shift {
   id       String   @id @default(cuid())
+  orgId    String?
   branchId String
   staffId  String?
   startsAt DateTime
@@ -548,9 +641,11 @@ model Shift {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  branch Branch @relation(fields: [branchId], references: [id])
-  staff  Staff? @relation(fields: [staffId], references: [id])
+  org    Organization? @relation(fields: [orgId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+  staff  Staff?        @relation(fields: [staffId], references: [id])
 
+  @@index([orgId])
   @@index([branchId])
   @@index([staffId])
   @@index([startsAt])
@@ -558,6 +653,7 @@ model Shift {
 
 model FuelLog {
   id        String   @id @default(cuid())
+  orgId     String?
   vehicleId String
   driverId  String?
   litres    Decimal  @db.Decimal(8, 2)
@@ -569,9 +665,11 @@ model FuelLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
-  driver  Driver? @relation(fields: [driverId], references: [id])
+  org     Organization? @relation(fields: [orgId], references: [id])
+  vehicle Vehicle       @relation(fields: [vehicleId], references: [id])
+  driver  Driver?       @relation(fields: [driverId], references: [id])
 
+  @@index([orgId])
   @@index([vehicleId])
   @@index([driverId])
   @@index([at])
@@ -579,6 +677,7 @@ model FuelLog {
 
 model Expense {
   id         String   @id @default(cuid())
+  orgId      String?
   profileId  String?  @db.Uuid
   vehicleId  String?
   category   String   // e.g. "MAINTENANCE", "FUEL", "TOLL", "MISC"
@@ -590,9 +689,11 @@ model Expense {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile Profile? @relation(fields: [profileId], references: [id])
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  org     Organization? @relation(fields: [orgId], references: [id])
+  profile Profile?      @relation(fields: [profileId], references: [id])
+  vehicle Vehicle?      @relation(fields: [vehicleId], references: [id])
 
+  @@index([orgId])
   @@index([profileId])
   @@index([vehicleId])
   @@index([at])
@@ -600,6 +701,7 @@ model Expense {
 
 model MaintenanceLog {
   id              String   @id @default(cuid())
+  orgId           String?
   vehicleId       String
   type            String   // e.g. "SERVICE", "TYRE", "OIL_CHANGE", "REPAIR"
   cost            Decimal  @db.Decimal(10, 2)
@@ -611,8 +713,10 @@ model MaintenanceLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  org     Organization? @relation(fields: [orgId], references: [id])
+  vehicle Vehicle       @relation(fields: [vehicleId], references: [id])
 
+  @@index([orgId])
   @@index([vehicleId])
   @@index([at])
 }
@@ -623,6 +727,7 @@ model MaintenanceLog {
 
 model AuditLog {
   id             String      @id @default(cuid())
+  orgId          String?
   entity         String // "Booking", "Vehicle", ...
   entityId       String
   action         AuditAction
@@ -632,8 +737,10 @@ model AuditLog {
   impersonatorId String?     @db.Uuid
   at             DateTime    @default(now())
 
-  byProfile Profile? @relation("AuditActor", fields: [byProfileId], references: [id])
+  org       Organization? @relation(fields: [orgId], references: [id])
+  byProfile Profile?      @relation("AuditActor", fields: [byProfileId], references: [id])
 
+  @@index([orgId])
   @@index([entity, entityId])
   @@index([byProfileId])
   @@index([at])

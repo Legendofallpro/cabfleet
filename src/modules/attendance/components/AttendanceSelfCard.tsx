@@ -36,7 +36,7 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
     return;
    }
    toast.success("Checked in successfully.");
-   setCurrent(result.data as AttendanceRow);
+   setCurrent(result.data as unknown as AttendanceRow);
   });
  };
 
@@ -53,7 +53,7 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
     return;
    }
    toast.success("Checked out successfully.");
-   setCurrent(result.data as AttendanceRow);
+   setCurrent(result.data as unknown as AttendanceRow);
   });
  };
 

@@ -28,16 +28,28 @@ const adapter = new PrismaPg({ connectionString });
 const db = new PrismaClient({ adapter });
 
 async function main() {
+  console.log("Seeding default Organization...");
+  const org = await db.organization.upsert({
+    where: { slug: "default" },
+    update: { name: "Default Organization" },
+    create: {
+      slug: "default",
+      name: "Default Organization",
+    },
+  });
+  console.log(`  -> Organization ${org.slug} (${org.id})`);
+
   console.log("Seeding default Branch...");
   const branch = await db.branch.upsert({
     where: { code: "HQ" },
-    update: {},
+    update: { orgId: org.id },
     create: {
       code: "HQ",
       name: "Headquarters",
       timezone: "Asia/Kolkata",
       defaultDispatch: DispatchMode.MANUAL,
       active: true,
+      orgId: org.id,
     },
   });
   console.log(`  -> Branch ${branch.code} (${branch.id})`);
@@ -56,8 +68,9 @@ async function main() {
       update: {
         description: bt.description,
         defaultDispatchMode: bt.defaultDispatchMode,
+        orgId: org.id,
       },
-      create: { ...bt, active: true },
+      create: { ...bt, active: true, orgId: org.id },
     });
     console.log(`  -> BookingType ${created.name} (${created.id})`);
 
@@ -72,6 +85,7 @@ async function main() {
           baseFare: 50,
           perKm: 14,
           perMin: 1,
+          orgId: org.id,
         },
       });
       console.log(`     pricing rule created`);
@@ -93,6 +107,7 @@ async function main() {
         priority: 1000,
         mode: DispatchMode.MANUAL,
         active: true,
+        orgId: org.id,
       },
     });
     console.log("  -> Created");
