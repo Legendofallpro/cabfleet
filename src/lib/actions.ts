@@ -4,6 +4,7 @@ import { err, type AppErrorPayload, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
 import { checkLimit, LIMITS } from "@/lib/rate-limit";
 import { getSessionUser } from "@/lib/auth/session";
+import { runWithOrg, runWithoutOrg } from "@/lib/org-context";
 
 /**
  * Wraps a server-action body so it:
@@ -27,8 +28,12 @@ export function action<Schema extends z.ZodTypeAny, T>(
     // Per-actor rate limit. Falls back to "anon" when no session (covers
     // public actions). Limits are per-action-name + actor to avoid one
     // hot action starving the others.
+    //
+    // We also reuse the resolved session below to bind org context (W1) so
+    // the Prisma extension filters tenant-scoped queries automatically.
+    let session: Awaited<ReturnType<typeof getSessionUser>> = null;
     try {
-      const session = await getSessionUser();
+      session = await getSessionUser();
       const actorKey = session?.profile.id ?? "anon";
       const limit = checkLimit(`action:${name}:${actorKey}`, LIMITS.action);
       if (!limit.success) {
@@ -59,15 +64,30 @@ export function action<Schema extends z.ZodTypeAny, T>(
       });
     }
 
-    try {
-      return await fn(parsed.data);
-    } catch (e) {
-      if (!(e instanceof AppError)) {
-        logger.error({ action: name, err: e }, "Unhandled action error");
-      } else if (e.code === "INTERNAL") {
-        logger.error({ action: name, err: e }, e.message);
+    const run = async () => {
+      try {
+        return await fn(parsed.data);
+      } catch (e) {
+        if (!(e instanceof AppError)) {
+          logger.error({ action: name, err: e }, "Unhandled action error");
+        } else if (e.code === "INTERNAL") {
+          logger.error({ action: name, err: e }, e.message);
+        }
+        return err(toAppErrorPayload(e));
       }
-      return err(toAppErrorPayload(e));
+    };
+
+    // Bind tenancy context so the Prisma extension filters queries to the
+    // caller's org. SUPER_ADMIN profiles (orgId IS NULL) run in BYPASS mode.
+    // Anonymous callers (public actions like signup) run with no context;
+    // those services are expected to operate without tenant filtering.
+    if (!session) {
+      return run();
     }
+    const orgId = session.profile.orgId;
+    if (orgId) {
+      return runWithOrg(orgId, run);
+    }
+    return runWithoutOrg(`action:${name}:super_admin`, run);
   };
 }

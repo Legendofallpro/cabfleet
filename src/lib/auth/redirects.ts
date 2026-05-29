@@ -10,6 +10,7 @@ const AUTH_PATH_PREFIXES = [
 
 export function getRoleHome(role: Role): string {
   switch (role) {
+    case "SUPER_ADMIN":
     case "ADMIN":
     case "STAFF":
       return "/";
@@ -45,6 +46,7 @@ function isRedirectAllowedForRole(redirectTo: string, role: Role): boolean {
       return redirectTo === "/" || isSegmentMatch(redirectTo, "/portal");
     case "DRIVER":
       return redirectTo === "/" || isSegmentMatch(redirectTo, "/driver");
+    case "SUPER_ADMIN":
     case "ADMIN":
     case "STAFF":
       return !isSegmentMatch(redirectTo, "/portal") && !isSegmentMatch(redirectTo, "/driver");

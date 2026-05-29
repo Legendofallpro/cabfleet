@@ -135,6 +135,10 @@ const CUSTOMER_PERMISSIONS_LIST: Permission[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
+  // SUPER_ADMIN is the cross-org platform operator (Phase 7 W1). It inherits
+  // every permission so org-specific routes work when impersonating, but the
+  // semantic difference is org scope (orgId IS NULL → no tenant filter).
+  SUPER_ADMIN: ALL_PERMISSIONS,
   ADMIN: ALL_PERMISSIONS,
   STAFF: STAFF_PERMISSIONS,
   DRIVER: DRIVER_PERMISSIONS_LIST,
