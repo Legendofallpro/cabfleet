@@ -1,49 +1,6 @@
 import { db } from "@/lib/db";
-
-export type CustomerRow = {
-  id: string;
-  profileId: string;
-  loyaltyTier: string | null;
-  totalBookings: number;
-  totalSpend: number;
-  createdAt: Date;
-};
-
-/**
- * Returns the Customer extension record for a Profile, or creates it lazily.
- * Handles customers who signed up before Phase 3 (no Customer row yet).
- */
-export async function getOrCreateCustomer(profileId: string): Promise<CustomerRow> {
-  const existing = await db.customer.findFirst({
-    where: { profileId, deletedAt: null },
-    select: {
-      id: true,
-      profileId: true,
-      loyaltyTier: true,
-      totalBookings: true,
-      totalSpend: true,
-      createdAt: true,
-    },
-  });
-
-  if (existing) {
-    return { ...existing, totalSpend: Number(existing.totalSpend) };
-  }
-
-  const created = await db.customer.create({
-    data: { profileId },
-    select: {
-      id: true,
-      profileId: true,
-      loyaltyTier: true,
-      totalBookings: true,
-      totalSpend: true,
-      createdAt: true,
-    },
-  });
-
-  return { ...created, totalSpend: Number(created.totalSpend) };
-}
+// getOrCreateCustomer performs a write — it lives in services/ not here.
+export type { CustomerRow } from "@/modules/customers/services/customer.service";
 
 export type CustomerBookingRow = {
   id: string;

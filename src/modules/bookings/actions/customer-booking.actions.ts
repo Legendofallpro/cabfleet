@@ -7,7 +7,7 @@ import { action } from "@/lib/actions";
 import { requireRole } from "@/lib/auth/requireRole";
 import { ok, err } from "@/lib/result";
 import { db } from "@/lib/db";
-import { getOrCreateCustomer } from "@/modules/customers/queries/customer";
+import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import { cancelBooking } from "@/modules/bookings/services/booking.service";
 
 // ──────────────────────────────────────────────────────────────────────────────
