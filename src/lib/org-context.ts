@@ -35,6 +35,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   "PricingRule",
   "DispatchRule",
   "Payment",
+  "Refund",
   "Invoice",
   "Shift",
   "Attendance",

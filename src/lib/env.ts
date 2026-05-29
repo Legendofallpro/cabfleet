@@ -55,6 +55,28 @@ export const env = createEnv({
     TWILIO_WHATSAPP_FROM: z.string().min(1).optional(),
     /** §7.4 S8: pages on-call when daily Twilio spend exceeds this USD ceiling. */
     TWILIO_DAILY_SPEND_THRESHOLD_USD: z.coerce.number().positive().default(50),
+    /**
+     * §7.4 S8: ISO-3166-1 alpha-2 country allow-list for WhatsApp sends.
+     * Comma-separated. Defaults to "IN" (India only). Empty string disables
+     * the check — intended for explicit "yes, multi-country" deployments.
+     */
+    TWILIO_ALLOWED_COUNTRIES: z.string().default("IN"),
+    /**
+     * §7.4 S8: per-recipient WhatsApp send cap (count / window). Format:
+     * "max:windowSeconds". Default "10:3600" = 10 sends per recipient per
+     * hour. Cheap defence against template loops + spam.
+     */
+    TWILIO_PER_RECIPIENT_LIMIT: z.string().default("10:3600"),
+    /** §7.4 S8: HMAC secret used to verify the Twilio spend-alarm webhook. */
+    TWILIO_AUTH_TOKEN_WEBHOOK: z.string().optional(),
+    /**
+     * §6.5 S14: how long to keep NotificationLog rows before pruning.
+     * Default 90 days — long enough for "did the customer get the SMS?"
+     * audit, short enough to stay within DPDP minimisation guidance.
+     */
+    NOTIFICATION_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
+    /** §6.5 S14: cap on DEAD_LETTER outbox rows kept around for forensics. */
+    NOTIFICATION_DEADLETTER_RETENTION_DAYS: z.coerce.number().int().positive().default(180),
 
     // ── Phase 7 W3: Razorpay ─────────────────────────────────────────────
     RAZORPAY_KEY_ID: z.string().min(1).optional(),
@@ -101,6 +123,11 @@ export const env = createEnv({
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     TWILIO_DAILY_SPEND_THRESHOLD_USD: process.env.TWILIO_DAILY_SPEND_THRESHOLD_USD,
+    TWILIO_ALLOWED_COUNTRIES: process.env.TWILIO_ALLOWED_COUNTRIES,
+    TWILIO_PER_RECIPIENT_LIMIT: process.env.TWILIO_PER_RECIPIENT_LIMIT,
+    TWILIO_AUTH_TOKEN_WEBHOOK: process.env.TWILIO_AUTH_TOKEN_WEBHOOK,
+    NOTIFICATION_LOG_RETENTION_DAYS: process.env.NOTIFICATION_LOG_RETENTION_DAYS,
+    NOTIFICATION_DEADLETTER_RETENTION_DAYS: process.env.NOTIFICATION_DEADLETTER_RETENTION_DAYS,
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
     RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,

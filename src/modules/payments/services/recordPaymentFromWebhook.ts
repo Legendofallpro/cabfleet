@@ -165,11 +165,15 @@ async function applyFailed(event: RazorpayEvent): Promise<WebhookOutcome> {
 }
 
 async function applyRefunded(event: RazorpayEvent): Promise<WebhookOutcome> {
-  // S12 (refund 4-eyes + partial-refund accounting) is deferred to its own
-  // follow-up — that PR will add a `Refund` table and replace this branch
-  // with a row-write-per-refund. For now, treat the (rare) gateway-initiated
-  // refund as a full refund and flip the Payment.
+  // S12 four-eyes flow shipped: Refund rows are the source of truth.
+  // - If we find a matching Refund (by providerRefundId), flip it to
+  //   SUCCEEDED and update the parent Payment iff the cumulative refunded
+  //   amount equals the captured amount (then Payment.status = REFUNDED).
+  // - If no Refund row exists, the refund was initiated outside our flow
+  //   (Razorpay dashboard / manual ops). We treat it as a full refund and
+  //   flip the Payment status; the audit row records the gap.
   const refundEntity = event.payload.refund?.entity;
+  const providerRefundId = refundEntity?.id;
   const paymentProviderId = refundEntity?.payment_id;
   if (!paymentProviderId) {
     return { kind: "noop", reason: "missing_payment_id" };
@@ -177,32 +181,76 @@ async function applyRefunded(event: RazorpayEvent): Promise<WebhookOutcome> {
 
   const payment = await db.payment.findFirst({
     where: { txnRef: paymentProviderId, deletedAt: null },
-    select: { id: true, status: true },
+    select: { id: true, status: true, amount: true },
   });
   if (!payment) {
     return { kind: "noop", reason: "payment_not_found_for_refund" };
   }
-  if (payment.status === "REFUNDED") {
-    return { kind: "noop", reason: "already_refunded" };
-  }
+
+  // Look up the Refund by providerRefundId first — that's the four-eyes
+  // path. Falls back to a "no row" branch for off-platform refunds.
+  const refundRow = providerRefundId
+    ? await db.refund.findFirst({
+        where: { providerRefundId },
+        select: { id: true, status: true, amount: true, paymentId: true },
+      })
+    : null;
 
   await db.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: { status: "REFUNDED" },
+    if (refundRow && refundRow.status !== "SUCCEEDED") {
+      await tx.refund.update({
+        where: { id: refundRow.id },
+        data: {
+          status: "SUCCEEDED",
+          processedAt: new Date(),
+        },
+      });
+      await writeAudit(tx, {
+        entity: "Refund",
+        entityId: refundRow.id,
+        action: "STATUS_CHANGE",
+        byProfileId: null,
+        diff: {
+          before: { status: refundRow.status },
+          after: { status: "SUCCEEDED" },
+          source: "razorpay.webhook.refund.processed",
+        },
+      });
+    }
+
+    // Decide whether the Payment should flip to REFUNDED. Sum SUCCEEDED
+    // refunds (including the one we just wrote above) and compare to the
+    // captured amount within 1 paisa.
+    const successful = await tx.refund.findMany({
+      where: { paymentId: payment.id, status: "SUCCEEDED" },
+      select: { amount: true },
     });
-    await writeAudit(tx, {
-      entity: "Payment",
-      entityId: payment.id,
-      action: "STATUS_CHANGE",
-      byProfileId: null,
-      diff: {
-        before: { status: payment.status },
-        after: { status: "REFUNDED" },
-        source: "razorpay.webhook.refund.processed",
-        refundId: refundEntity.id,
-      },
-    });
+    const refundedTotal = successful.reduce((s, r) => s + Number(r.amount), 0);
+    // If no Refund row at all, the webhook represents an off-platform full
+    // refund — treat it as such.
+    const isFullRefund =
+      (!refundRow && refundEntity) ||
+      Math.abs(refundedTotal - Number(payment.amount)) < 0.005;
+
+    if (isFullRefund && payment.status !== "REFUNDED") {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: "REFUNDED" },
+      });
+      await writeAudit(tx, {
+        entity: "Payment",
+        entityId: payment.id,
+        action: "STATUS_CHANGE",
+        byProfileId: null,
+        diff: {
+          before: { status: payment.status },
+          after: { status: "REFUNDED" },
+          source: "razorpay.webhook.refund.processed",
+          refundId: providerRefundId,
+          offPlatform: !refundRow,
+        },
+      });
+    }
   });
 
   return { kind: "applied", paymentId: payment.id, newStatus: "REFUNDED" };

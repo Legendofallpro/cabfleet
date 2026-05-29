@@ -4,9 +4,12 @@ import { notFound } from "next/navigation";
 import { PaymentStatus } from "@prisma/client";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { StatusBadge, type StatusTone as RefundStatusTone } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getPayment } from "@/modules/payments/queries/payment";
+import { listRefundsForPayment } from "@/modules/payments/queries/refund";
+import { RefundRequestForm } from "@/modules/payments/components/RefundRequestForm";
+import type { RefundStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Payment Detail | CabFleet Admin" };
@@ -52,6 +55,21 @@ export default async function PaymentDetailPage({
  const payment = await getPayment(id);
  if (!payment) notFound();
 
+ const refunds = await listRefundsForPayment(payment.id);
+ const refundedTotal = refunds
+  .filter((r) => r.status === "SUCCEEDED" || r.status === "PROCESSING" || r.status === "REQUESTED")
+  .reduce((sum, r) => sum + Number(r.amount), 0);
+ const remaining = Math.max(0, Number(payment.amount) - refundedTotal);
+ const refundable = payment.status === "CAPTURED" && remaining > 0.005;
+
+ const REFUND_STATUS_TONE: Record<RefundStatus, RefundStatusTone> = {
+  REQUESTED: "warning",
+  PROCESSING: "info",
+  SUCCEEDED: "success",
+  FAILED: "error",
+  REJECTED: "neutral",
+ };
+
  return (
   <div>
    <PageBreadcrumb pageTitle="Payment Detail" />
@@ -86,10 +104,46 @@ export default async function PaymentDetailPage({
        value={payment.capturedAt ? dtFmt.format(new Date(payment.capturedAt)) : null}
       />
       <DetailRow label="Recorded at" value={dtFmt.format(new Date(payment.createdAt))} />
-      <DetailRow label="Recorded by" value={payment.createdBy?.fullName ?? payment.createdBy?.email} />
-     </dl>
-    </SurfaceCard>
-   </div>
+     <DetailRow label="Recorded by" value={payment.createdBy?.fullName ?? payment.createdBy?.email} />
+    </dl>
+   </SurfaceCard>
+
+   {refunds.length > 0 && (
+    <div className="mt-6">
+     <SurfaceCard title={<span className="text-base font-semibold">Refunds</span>}>
+      <ul className="divide-y divide-default">
+       {refunds.map((r) => (
+        <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
+         <StatusBadge tone={REFUND_STATUS_TONE[r.status]}>{r.status}</StatusBadge>
+         <span className="text-default text-sm">{currency.format(Number(r.amount))}</span>
+         <span className="text-caption text-muted">{r.reason}</span>
+         <span className="ml-auto text-caption text-muted">
+          requested by {r.requestedBy?.fullName ?? r.requestedBy?.email}
+          {r.approvedBy ? ` · ${r.status === "REJECTED" ? "rejected" : "approved"} by ${r.approvedBy.fullName ?? r.approvedBy.email}` : ""}
+         </span>
+        </li>
+       ))}
+      </ul>
+     </SurfaceCard>
+    </div>
+   )}
+
+   {refundable && (
+    <div className="mt-6">
+     <SurfaceCard title={<span className="text-base font-semibold">Request a refund</span>}>
+      <RefundRequestForm
+       paymentId={payment.id}
+       capturedAmount={Number(payment.amount)}
+       remainingAmount={remaining}
+      />
+      <p className="mt-3 text-caption text-muted">
+       The refund is queued in REQUESTED state. A different admin must approve it from
+       <Link href="/payments/refunds" className="ml-1 text-primary hover:underline">/payments/refunds</Link>.
+      </p>
+     </SurfaceCard>
+    </div>
+   )}
   </div>
+ </div>
  );
 }

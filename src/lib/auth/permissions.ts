@@ -3,6 +3,7 @@ import { BOOKING_PERMISSIONS } from "@/modules/bookings/permissions";
 import { DRIVER_PERMISSIONS } from "@/modules/drivers/permissions";
 import { VEHICLE_PERMISSIONS } from "@/modules/vehicles/permissions";
 import { ATTENDANCE_PERMISSIONS } from "@/modules/attendance/permissions";
+import { ORG_PERMISSIONS } from "@/modules/orgs/permissions";
 
 /**
  * Fine-grained permission strings. The convention is "<entity>.<action>".
@@ -84,11 +85,27 @@ export const PERMISSIONS = {
 
   // Audit
   AUDIT_VIEW: "audit.view",
+
+  // Orgs (Phase 7 W1) — SUPER_ADMIN only
+  ORG_VIEW: ORG_PERMISSIONS.VIEW,
+  ORG_MANAGE: ORG_PERMISSIONS.MANAGE,
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 const ALL_PERMISSIONS = Object.values(PERMISSIONS);
+
+// SUPER_ADMIN-only permissions — explicitly excluded from tenant ADMIN
+// (and below) so cross-org operations require the platform role. The /admin/orgs
+// action layer also belt-and-braces with `requireRole([SUPER_ADMIN])`.
+const SUPER_ADMIN_ONLY: Permission[] = [
+  PERMISSIONS.ORG_VIEW,
+  PERMISSIONS.ORG_MANAGE,
+];
+
+const ADMIN_PERMISSIONS: Permission[] = ALL_PERMISSIONS.filter(
+  (p): p is Permission => !SUPER_ADMIN_ONLY.includes(p as Permission),
+);
 
 const STAFF_PERMISSIONS: Permission[] = [
   PERMISSIONS.BRANCH_VIEW,
@@ -136,10 +153,10 @@ const CUSTOMER_PERMISSIONS_LIST: Permission[] = [
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   // SUPER_ADMIN is the cross-org platform operator (Phase 7 W1). It inherits
-  // every permission so org-specific routes work when impersonating, but the
-  // semantic difference is org scope (orgId IS NULL → no tenant filter).
+  // every permission so org-specific routes work when impersonating, plus
+  // the SUPER_ADMIN_ONLY permissions (ORG_*) that tenant ADMIN does not get.
   SUPER_ADMIN: ALL_PERMISSIONS,
-  ADMIN: ALL_PERMISSIONS,
+  ADMIN: ADMIN_PERMISSIONS,
   STAFF: STAFF_PERMISSIONS,
   DRIVER: DRIVER_PERMISSIONS_LIST,
   CUSTOMER: CUSTOMER_PERMISSIONS_LIST,
