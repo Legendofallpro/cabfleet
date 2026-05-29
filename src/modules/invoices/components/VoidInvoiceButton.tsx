@@ -17,7 +17,7 @@ export function VoidInvoiceButton({ invoiceId }: Props) {
     if (!confirm("Void this invoice? This cannot be undone.")) return;
     setLoading(true);
     try {
-      const result = await voidInvoiceAction(invoiceId);
+      const result = await voidInvoiceAction({ invoiceId });
       if (!result.ok) {
         toast.error(result.error.message);
         return;

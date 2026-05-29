@@ -22,8 +22,8 @@ import { claimBooking } from "@/modules/bookings/services/claimBooking";
  * Includes the profile's branchId so eligibility can be checked per-claim.
  */
 async function getDriverForProfile(profileId: string) {
-  const driver = await db.driver.findUnique({
-    where: { profileId },
+  const driver = await db.driver.findFirst({
+    where: { profileId, deletedAt: null },
     select: {
       id: true,
       status: true,

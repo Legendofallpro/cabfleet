@@ -10,6 +10,7 @@ import { TextField } from "@/components/common/form/TextField";
 import Button from "@/components/ui/button/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearPasswordSetupProof } from "@/lib/auth/password-completion";
+import { sanitizeRedirectTo } from "@/lib/auth/redirects";
 import {
   setPasswordSchema,
   type SetPasswordFormValues,
@@ -56,7 +57,7 @@ export function SetPasswordForm({ mode, postPasswordRedirect }: Props) {
     const { error } = await supabase.auth.updateUser({ password: values.password });
 
     if (error) {
-      toast.error(error.message);
+      toast.error("Could not update your password. Please try again.");
       return;
     }
 
@@ -65,7 +66,10 @@ export function SetPasswordForm({ mode, postPasswordRedirect }: Props) {
     await clearPasswordSetupProof();
 
     toast.success(copy.success);
-    router.push(postPasswordRedirect);
+    // Re-sanitize the redirect at submit time. The cookie value was validated
+    // server-side when issued, but defense-in-depth here is cheap.
+    const safeRedirect = sanitizeRedirectTo(postPasswordRedirect) ?? "/";
+    router.push(safeRedirect);
     router.refresh();
   }
 

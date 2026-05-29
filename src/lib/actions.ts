@@ -2,6 +2,8 @@ import { z } from "zod";
 import { AppError, toAppErrorPayload } from "@/lib/errors";
 import { err, type AppErrorPayload, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
+import { checkLimit, LIMITS } from "@/lib/rate-limit";
+import { getSessionUser } from "@/lib/auth/session";
 
 /**
  * Wraps a server-action body so it:
@@ -22,6 +24,28 @@ export function action<Schema extends z.ZodTypeAny, T>(
   fn: (input: z.infer<Schema>) => Promise<Result<T>>,
 ) {
   return async (raw: unknown): Promise<Result<T, AppErrorPayload>> => {
+    // Per-actor rate limit. Falls back to "anon" when no session (covers
+    // public actions). Limits are per-action-name + actor to avoid one
+    // hot action starving the others.
+    try {
+      const session = await getSessionUser();
+      const actorKey = session?.profile.id ?? "anon";
+      const limit = checkLimit(`action:${name}:${actorKey}`, LIMITS.action);
+      if (!limit.success) {
+        logger.warn(
+          { action: name, actorKey, resetAt: limit.resetAt },
+          "action.rate_limited",
+        );
+        return err({
+          code: "RATE_LIMITED",
+          message: "You're doing that too often. Please slow down.",
+        });
+      }
+    } catch (limitErr) {
+      // Never let the limiter itself block legitimate traffic.
+      logger.error({ err: limitErr }, "rate_limit.check_failed");
+    }
+
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       const fieldErrors = z.flattenError(parsed.error).fieldErrors as Record<

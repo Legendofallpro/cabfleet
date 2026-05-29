@@ -3,15 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
-import Checkbox from "@/components/form/input/Checkbox";
-import Input from "@/components/form/input/InputField";
-import Label from "@/components/form/Label";
+import { TextField } from "@/components/common/form/TextField";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import { sanitizeRedirectTo } from "@/lib/auth/redirects";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { signInSchema, type SignInValues } from "@/lib/auth/validators";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -19,29 +20,29 @@ export default function SignInForm() {
   const redirectTo = sanitizeRedirectTo(searchParams.get("redirectTo")) ?? "/";
 
   const [showPassword, setShowPassword] = useState(false);
-  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignInValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-    setSubmitting(true);
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Signed in.");
-      router.push(redirectTo);
-      router.refresh();
-    } finally {
-      setSubmitting(false);
+  async function onSubmit(values: SignInValues) {
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+    if (error) {
+      toast.error("Invalid email or password.");
+      return;
     }
+    toast.success("Signed in.");
+    router.push(redirectTo);
+    router.refresh();
   }
 
   return (
@@ -65,62 +66,50 @@ export default function SignInForm() {
               Enter your email and password to sign in.
             </p>
           </div>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-6">
-              <div>
-                <Label>
-                  Email <span className="text-error-500">*</span>
-                </Label>
-                <Input
-                  type="email"
-                  placeholder="you@cabfleet.com"
-                  defaultValue={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>
-                  Password <span className="text-error-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    defaultValue={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <span
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                  >
-                    {showPassword ? (
-                      <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
-                    ) : (
-                      <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
-                    )}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Checkbox checked={keepLoggedIn} onChange={setKeepLoggedIn} />
-                  <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                    Keep me logged in
-                  </span>
-                </div>
-                <Link
-                  href="/reset-password"
-                  className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div>
-                <Button className="w-full" size="sm" disabled={submitting}>
-                  {submitting ? "Signing in..." : "Sign in"}
-                </Button>
-              </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+            <TextField
+              label="Email"
+              type="email"
+              required
+              placeholder="you@cabfleet.com"
+              autoComplete="email"
+              {...register("email")}
+              error={errors.email?.message}
+            />
+            <div className="relative">
+              <TextField
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                {...register("password")}
+                error={errors.password?.message}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute z-30 top-9 right-4 cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
+                ) : (
+                  <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
+                )}
+              </button>
             </div>
+            <div className="flex items-center justify-end">
+              <Link
+                href="/reset-password"
+                className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <Button className="w-full" size="sm" disabled={isSubmitting}>
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </Button>
           </form>
 
           <div className="mt-5">

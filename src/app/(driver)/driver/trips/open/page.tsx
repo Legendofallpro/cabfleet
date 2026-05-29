@@ -13,8 +13,8 @@ export default async function OpenTripsPage() {
   if (!session) redirect("/signin");
 
   // Resolve the driver's branch — required for scoping open trips
-  const driver = await db.driver.findUnique({
-    where: { profileId: session.profile.id },
+  const driver = await db.driver.findFirst({
+    where: { profileId: session.profile.id, deletedAt: null },
     select: { id: true, status: true, profile: { select: { branchId: true } } },
   });
 

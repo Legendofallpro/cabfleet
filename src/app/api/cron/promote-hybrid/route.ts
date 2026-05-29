@@ -23,14 +23,18 @@ import { logger } from "@/lib/logger";
  * the source of the transition instead.
  */
 
-export async function GET(req: NextRequest) {
-  // Authenticate the cron caller
+async function handler(req: NextRequest) {
+  // Authenticate the cron caller. CRON_SECRET is required in production (see
+  // src/lib/env.ts). In other environments we still require the header so a
+  // missing secret means "endpoint disabled" rather than "open to the world".
+  if (!env.CRON_SECRET) {
+    logger.warn({ path: "/api/cron/promote-hybrid" }, "cron.disabled.no_secret");
+    return NextResponse.json({ error: "Cron disabled" }, { status: 503 });
+  }
   const authHeader = req.headers.get("authorization");
-  if (env.CRON_SECRET) {
-    if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-      logger.warn({ path: "/api/cron/promote-hybrid" }, "cron.unauthorized");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
+    logger.warn({ path: "/api/cron/promote-hybrid" }, "cron.unauthorized");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const now = new Date();
@@ -76,3 +80,7 @@ export async function GET(req: NextRequest) {
   logger.info({ promoted, failed, total: expired.length }, "cron.promote_hybrid.done");
   return NextResponse.json({ promoted, failed });
 }
+
+// Accept POST (state-changing) and GET (Vercel Cron uses GET with bearer).
+export const POST = handler;
+export const GET = handler;

@@ -3,55 +3,53 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import Checkbox from "@/components/form/input/Checkbox";
-import Input from "@/components/form/input/InputField";
-import Label from "@/components/form/Label";
+import { TextField } from "@/components/common/form/TextField";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { signUpSchema, type SignUpValues } from "@/lib/auth/validators";
 
 export default function SignUpForm() {
   const router = useRouter();
-
   const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
-    if (!agreed) {
-      toast.error("Please accept the terms to continue.");
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm<SignUpValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      agreed: false as unknown as true,
+    },
+  });
+
+  async function onSubmit(values: SignUpValues) {
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        data: {
+          full_name: `${values.firstName} ${values.lastName}`.trim(),
+        },
+      },
+    });
+    if (error) {
+      toast.error("Unable to create your account. Please try again.");
       return;
     }
-
-    setSubmitting(true);
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: `${firstName} ${lastName}`.trim(),
-            role: "CUSTOMER",
-          },
-        },
-      });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Account created. Check your email to confirm.");
-      router.push("/signin");
-    } finally {
-      setSubmitting(false);
-    }
+    toast.success("Account created. Check your email to confirm.");
+    router.push("/signin");
   }
 
   return (
@@ -75,97 +73,88 @@ export default function SignUpForm() {
               Create a customer account to book rides.
             </p>
           </div>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <div className="sm:col-span-1">
-                  <Label>
-                    First Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    id="fname"
-                    name="fname"
-                    placeholder="Enter your first name"
-                    defaultValue={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-1">
-                  <Label>
-                    Last Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    id="lname"
-                    name="lname"
-                    placeholder="Enter your last name"
-                    defaultValue={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>
-                  Email<span className="text-error-500">*</span>
-                </Label>
-                <Input
-                  type="email"
-                  id="email"
-                  name="email"
-                  placeholder="Enter your email"
-                  defaultValue={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>
-                  Password<span className="text-error-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    placeholder="At least 8 characters"
-                    type={showPassword ? "text" : "password"}
-                    defaultValue={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <span
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                  >
-                    {showPassword ? (
-                      <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
-                    ) : (
-                      <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
-                    )}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  className="w-5 h-5"
-                  checked={agreed}
-                  onChange={setAgreed}
-                />
-                <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
-                  By creating an account you agree to the{" "}
-                  <span className="text-gray-800 dark:text-white/90">
-                    Terms and Conditions
-                  </span>{" "}
-                  and{" "}
-                  <span className="text-gray-800 dark:text-white">Privacy Policy</span>.
-                </p>
-              </div>
-              <div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50"
-                >
-                  {submitting ? "Creating account..." : "Sign Up"}
-                </button>
-              </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <TextField
+                label="First name"
+                required
+                placeholder="Enter your first name"
+                autoComplete="given-name"
+                {...register("firstName")}
+                error={errors.firstName?.message}
+              />
+              <TextField
+                label="Last name"
+                required
+                placeholder="Enter your last name"
+                autoComplete="family-name"
+                {...register("lastName")}
+                error={errors.lastName?.message}
+              />
             </div>
+            <TextField
+              label="Email"
+              type="email"
+              required
+              placeholder="Enter your email"
+              autoComplete="email"
+              {...register("email")}
+              error={errors.email?.message}
+            />
+            <div className="relative">
+              <TextField
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                {...register("password")}
+                error={errors.password?.message}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute z-30 top-9 right-4 cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
+                ) : (
+                  <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
+                )}
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <Controller
+                control={control}
+                name="agreed"
+                render={({ field }) => (
+                  <Checkbox
+                    className="w-5 h-5"
+                    checked={Boolean(field.value)}
+                    onChange={(v) => field.onChange(v)}
+                  />
+                )}
+              />
+              <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
+                By creating an account you agree to the{" "}
+                <span className="text-gray-800 dark:text-white/90">
+                  Terms and Conditions
+                </span>{" "}
+                and{" "}
+                <span className="text-gray-800 dark:text-white">Privacy Policy</span>.
+              </p>
+            </div>
+            {errors.agreed && (
+              <p className="text-xs text-error-500">{errors.agreed.message}</p>
+            )}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50"
+            >
+              {isSubmitting ? "Creating account..." : "Sign Up"}
+            </button>
           </form>
 
           <div className="mt-5">

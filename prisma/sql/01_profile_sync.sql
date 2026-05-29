@@ -2,6 +2,12 @@
 -- Runs on insert and update of auth.users so app data tracks identity.
 -- Apply this in the Supabase SQL editor AFTER the first `prisma migrate deploy`
 -- has created the public."Profile" table.
+--
+-- SECURITY NOTE: `raw_user_meta_data->>'role'` is fully client-controllable
+-- at signup. Trusting it here permits privilege escalation. The trigger
+-- below is the original (kept for history); apply 02_profile_sync_lock_role.sql
+-- AFTER this one to hardcode `role = 'CUSTOMER'`. Driver/Staff invites
+-- override the role via an upsert inside their service transactions.
 
 create or replace function public.handle_new_auth_user()
 returns trigger

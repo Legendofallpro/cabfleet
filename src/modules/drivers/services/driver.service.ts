@@ -60,8 +60,8 @@ export async function inviteDriver(
   });
 
   if (invite.error || !invite.data.user) {
-    logger.error({ err: invite.error }, "Supabase invite failed");
-    throw new AppError("INTERNAL", invite.error?.message ?? "Failed to invite driver.");
+    logger.error({ err: invite.error }, "driver.invite.supabase_failed");
+    throw new AppError("INTERNAL", "Failed to invite driver. Please try again.");
   }
 
   const userId = invite.data.user.id;

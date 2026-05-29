@@ -35,7 +35,11 @@ export default function ResetPasswordRequestForm() {
     });
 
     if (error) {
-      toast.error(error.message);
+      // Do not surface upstream text — it can disclose account existence.
+      toast.error(
+        "If an account exists for that email, a reset link has been sent.",
+      );
+      router.push("/signin");
       return;
     }
 
