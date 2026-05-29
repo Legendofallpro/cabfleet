@@ -38,17 +38,17 @@ export default function SettingsPage() {
         {settingsSections.map((section) => (
           <div
             key={section.title}
-            className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] px-6 py-5 flex items-center justify-between"
+            className="rounded-2xl border border-default bg-surface-elevated px-6 py-5 flex items-center justify-between"
           >
             <div>
-              <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+              <h3 className="text-base font-medium text-default">
                 {section.title}
               </h3>
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-sm text-muted">
                 {section.description}
               </p>
             </div>
-            <span className="text-sm text-brand-500 cursor-pointer hover:underline">
+            <span className="text-sm text-primary cursor-pointer hover:underline">
               Configure
             </span>
           </div>

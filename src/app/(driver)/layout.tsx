@@ -14,8 +14,8 @@ export default async function DriverLayout({ children }: { children: React.React
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
-        <h1 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+      <header className="sticky top-0 z-30 border-b border-default bg-surface-elevated px-4 py-3">
+        <h1 className="text-lg font-semibold text-default">
           CabFleet Driver
         </h1>
       </header>
@@ -24,7 +24,7 @@ export default async function DriverLayout({ children }: { children: React.React
       <main className="mx-auto w-full max-w-2xl flex-1 p-4 pb-24">{children}</main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-default bg-surface-elevated">
         <div className="mx-auto flex max-w-2xl">
           <NavItem href="/driver/trips/open" label="Open Trips" icon={<TripIcon />} />
           <NavItem href="/driver/trips/my" label="My Trips" icon={<MyTripsIcon />} />
@@ -48,7 +48,7 @@ function NavItem({
   return (
     <Link
       href={href}
-      className="flex flex-1 flex-col items-center gap-1 py-3 text-xs text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
+      className="flex flex-1 flex-col items-center gap-1 py-3 text-xs text-muted hover:text-primary"
     >
       {icon}
       {label}

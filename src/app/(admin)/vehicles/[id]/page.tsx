@@ -9,8 +9,10 @@ import { listBranches } from "@/modules/branches/queries/list";
 import { listDrivers } from "@/modules/drivers/queries/list";
 import { listFuelLogs } from "@/modules/fuel/queries/fuel";
 import { listMaintenanceLogs } from "@/modules/maintenance/queries/maintenance";
+import { listExpenses } from "@/modules/expenses/queries/expense";
 import { FuelLogForm } from "@/modules/fuel/components/FuelLogForm";
 import { MaintenanceLogForm } from "@/modules/maintenance/components/MaintenanceLogForm";
+import { ExpenseForm } from "@/modules/expenses/components/ExpenseForm";
 
 export const metadata: Metadata = { title: "Edit Vehicle | CabFleet Admin" };
 
@@ -21,13 +23,14 @@ export default async function EditVehiclePage({
 }) {
   const { id } = await params;
 
-  const [vehicle, { rows: branches }, { rows: drivers }, { rows: fuelLogs }, { rows: maintenanceLogs }] =
+  const [vehicle, { rows: branches }, { rows: drivers }, { rows: fuelLogs }, { rows: maintenanceLogs }, { rows: expenses }] =
     await Promise.all([
       getVehicle(id),
       listBranches({ pageSize: 100 }),
       listDrivers({ pageSize: 200 }),
       listFuelLogs({ vehicleId: id, pageSize: 20 }),
       listMaintenanceLogs({ vehicleId: id, pageSize: 20 }),
+      listExpenses({ vehicleId: id, pageSize: 20 }),
     ]);
 
   if (!vehicle) notFound();
@@ -162,6 +165,45 @@ export default async function EditVehiclePage({
                     <td className="py-2 text-gray-500 dark:text-gray-400">
                       {log.nextDueOdometer ? `${log.nextDueOdometer.toLocaleString()} km` : "—"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ComponentCard>
+
+      {/* Expenses */}
+      <ComponentCard title="Expenses" desc="Operational expenses linked to this vehicle.">
+        <div className="mb-6 border-b border-default pb-6">
+          <p className="mb-3 text-sm font-medium text-default">Add Expense</p>
+          <ExpenseForm vehicleId={id} />
+        </div>
+
+        {expenses.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted">No expenses recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-default">
+                  <th className="py-2 pr-4 font-medium text-muted">Date</th>
+                  <th className="py-2 pr-4 font-medium text-muted">Category</th>
+                  <th className="py-2 pr-4 font-medium text-muted">Amount</th>
+                  <th className="py-2 font-medium text-muted">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((exp) => (
+                  <tr key={exp.id} className="border-b border-default last:border-0">
+                    <td className="py-2 pr-4 text-muted">
+                      {new Date(exp.at).toLocaleDateString()}
+                    </td>
+                    <td className="py-2 pr-4 text-default">{exp.category.replace(/_/g, " ")}</td>
+                    <td className="py-2 pr-4 font-medium text-on-error-subtle">
+                      ₹{Number(exp.amount).toFixed(2)}
+                    </td>
+                    <td className="max-w-xs truncate py-2 text-muted">{exp.notes ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

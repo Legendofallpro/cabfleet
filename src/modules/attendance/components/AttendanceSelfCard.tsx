@@ -3,7 +3,15 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { checkInAction, checkOutAction } from "@/modules/attendance/actions/attendance.actions";
+import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
 import type { AttendanceRow } from "@/modules/attendance/queries/attendance";
+
+const ATTENDANCE_TONE: Record<string, StatusTone> = {
+  PRESENT: "success",
+  HALF_DAY: "warning",
+  ABSENT: "error",
+  ON_LEAVE: "info",
+};
 
 interface Props {
   profileId: string;
@@ -52,21 +60,26 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
   const hasCheckedIn = !!current?.checkIn;
   const hasCheckedOut = !!current?.checkOut;
 
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-      <h2 className="mb-4 text-base font-semibold text-gray-800 dark:text-white/90">
-        Today&apos;s Attendance
-      </h2>
+  const ATTENDANCE_LABEL: Record<string, string> = {
+    PRESENT: "Present",
+    HALF_DAY: "Half Day",
+    ABSENT: "Absent",
+    ON_LEAVE: "On Leave",
+  };
 
-      <div className="mb-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+  return (
+    <div className="rounded-2xl border border-default bg-surface-elevated p-5">
+      <h2 className="mb-4 text-base font-semibold text-default">Today&apos;s Attendance</h2>
+
+      <div className="mb-4 space-y-2 text-sm text-muted">
         <div className="flex justify-between">
           <span>Date</span>
-          <span className="font-medium text-gray-800 dark:text-white/80">{today}</span>
+          <span className="font-medium text-default">{today}</span>
         </div>
         {current?.checkIn && (
           <div className="flex justify-between">
             <span>Check-in</span>
-            <span className="font-medium text-success-600 dark:text-success-400">
+            <span className="font-medium text-on-success-subtle">
               {new Date(current.checkIn).toLocaleTimeString()}
             </span>
           </div>
@@ -74,7 +87,7 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
         {current?.checkOut && (
           <div className="flex justify-between">
             <span>Check-out</span>
-            <span className="font-medium text-gray-800 dark:text-white/80">
+            <span className="font-medium text-default">
               {new Date(current.checkOut).toLocaleTimeString()}
             </span>
           </div>
@@ -82,7 +95,9 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
         {current?.status && (
           <div className="flex justify-between">
             <span>Status</span>
-            <StatusBadge status={current.status} />
+            <StatusBadge tone={ATTENDANCE_TONE[current.status] ?? "neutral"}>
+              {ATTENDANCE_LABEL[current.status] ?? current.status}
+            </StatusBadge>
           </div>
         )}
       </div>
@@ -103,37 +118,17 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
             type="button"
             onClick={handleCheckOut}
             disabled={isPending}
-            className="flex-1 rounded-lg bg-brand-500 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
           >
             {isPending ? "Please wait…" : "Check Out"}
           </button>
         )}
         {hasCheckedIn && hasCheckedOut && (
-          <div className="flex-1 rounded-lg bg-gray-100 py-3 text-center text-sm font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+          <div className="flex-1 rounded-lg bg-surface-inset py-3 text-center text-sm font-medium text-muted">
             Attendance recorded
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PRESENT: "bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400",
-    HALF_DAY: "bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400",
-    ABSENT: "bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400",
-    ON_LEAVE: "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400",
-  };
-  const label: Record<string, string> = {
-    PRESENT: "Present",
-    HALF_DAY: "Half Day",
-    ABSENT: "Absent",
-    ON_LEAVE: "On Leave",
-  };
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${map[status] ?? ""}`}>
-      {label[status] ?? status}
-    </span>
   );
 }

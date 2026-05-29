@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { claimBookingAction } from "@/modules/bookings/actions/driver-booking.actions";
 
 export function ClaimButton({ bookingId }: { bookingId: string }) {
@@ -12,7 +13,7 @@ export function ClaimButton({ bookingId }: { bookingId: string }) {
     startTransition(async () => {
       const result = await claimBookingAction({ bookingId });
       if (!result.ok) {
-        alert(result.error.message);
+        toast.error(result.error.message);
         return;
       }
       router.push(`/driver/trips/${bookingId}`);
@@ -23,7 +24,7 @@ export function ClaimButton({ bookingId }: { bookingId: string }) {
     <button
       onClick={handleClaim}
       disabled={isPending}
-      className="w-full rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 active:scale-95 disabled:opacity-60"
+      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary-hover active:scale-95 disabled:opacity-60"
     >
       {isPending ? "Claiming…" : "Claim Trip"}
     </button>
