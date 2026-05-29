@@ -130,28 +130,29 @@ model Organization {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  branches            Branch[]
-  profiles            Profile[]
-  drivers             Driver[]
-  staff               Staff[]
-  customers           Customer[]
-  vehicles            Vehicle[]
-  vehicleAssignments  VehicleAssignment[]
-  bookingTypes        BookingType[]
-  bookings            Booking[]
-  pricingRules        PricingRule[]
-  dispatchRules       DispatchRule[]
-  payments            Payment[]
-  invoices            Invoice[]
-  shifts              Shift[]
-  attendance          Attendance[]
-  fuelLogs            FuelLog[]
-  expenses            Expense[]
-  maintenanceLogs     MaintenanceLog[]
-  assignmentHistory   AssignmentHistory[]
-  auditLogs           AuditLog[]
-  notificationOutbox  NotificationOutbox[]
-  notificationLogs    NotificationLog[]
+  branches           Branch[]
+  profiles           Profile[]
+  drivers            Driver[]
+  staff              Staff[]
+  customers          Customer[]
+  vehicles           Vehicle[]
+  vehicleAssignments VehicleAssignment[]
+  bookingTypes       BookingType[]
+  bookings           Booking[]
+  pricingRules       PricingRule[]
+  dispatchRules      DispatchRule[]
+  payments           Payment[]
+  refunds            Refund[]
+  invoices           Invoice[]
+  shifts             Shift[]
+  attendance         Attendance[]
+  fuelLogs           FuelLog[]
+  expenses           Expense[]
+  maintenanceLogs    MaintenanceLog[]
+  assignmentHistory  AssignmentHistory[]
+  auditLogs          AuditLog[]
+  notificationOutbox NotificationOutbox[]
+  notificationLogs   NotificationLog[]
 
   @@index([deletedAt])
 }
@@ -194,23 +195,23 @@ model Branch {
 // (see prisma/sql/01_profile_sync.sql).
 model Profile {
   // Equal to auth.users.id (Supabase UUID)
-  id        String  @id @db.Uuid
+  id                String  @id @db.Uuid
   // Null only for SUPER_ADMIN (cross-org platform admins). Enforced by a CHECK
   // constraint added in the W1 migration: orgId IS NOT NULL OR role = 'SUPER_ADMIN'.
-  orgId     String?
-  email     String  @unique
-  fullName  String?
-  phone     String?
-  avatarUrl String?
-  role      Role    @default(CUSTOMER)
-  branchId  String?
+  orgId             String?
+  email             String  @unique
+  fullName          String?
+  phone             String?
+  avatarUrl         String?
+  role              Role    @default(CUSTOMER)
+  branchId          String?
   // Notification preferences (Phase 7 W2). Free-form JSON so the shape can
   // evolve without a migration. Defaults applied in NotificationService when
   // unset. Expected keys: { whatsapp: boolean, email: boolean,
   // quietHoursStart: "HH:MM", quietHoursEnd: "HH:MM", timezone: string }.
   notificationPrefs Json?
   // BCP-47 locale used to pick localized templates. v1 only ships en-IN.
-  locale    String  @default("en-IN")
+  locale            String  @default("en-IN")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -228,6 +229,8 @@ model Profile {
   bookingsAssigned  Booking[]           @relation("BookingAssignedBy")
   assignmentHistory AssignmentHistory[]
   paymentsCreated   Payment[]           @relation("PaymentCreatedBy")
+  refundsRequested  Refund[]            @relation("RefundRequestedBy")
+  refundsApproved   Refund[]            @relation("RefundApprovedBy")
   attendance        Attendance[]
   expenses          Expense[]
 
@@ -566,7 +569,7 @@ model Payment {
   orgId           String?
   bookingId       String
   amount          Decimal       @db.Decimal(10, 2)
-  method          String        // e.g. "CASH", "CARD", "UPI"
+  method          String // e.g. "CASH", "CARD", "UPI"
   status          PaymentStatus @default(PENDING)
   // Phase 7 W3: provider's Order id (Razorpay creates an Order, then a Payment
   // against that Order). Set on charge(); webhook updates Payment.txnRef with
@@ -583,12 +586,63 @@ model Payment {
   org       Organization? @relation(fields: [orgId], references: [id])
   booking   Booking       @relation(fields: [bookingId], references: [id])
   createdBy Profile?      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  refunds   Refund[]
 
   @@index([orgId])
   @@index([bookingId])
   @@index([status])
   @@index([deletedAt])
   @@index([providerOrderId])
+}
+
+// Refund — Phase 7 W3 §7.5 S12.
+//
+// Refunds follow a four-eyes flow: one ADMIN (or SUPER_ADMIN) calls
+// `requestRefund` to create a row in REQUESTED state; a DIFFERENT ADMIN
+// calls `approveRefund` which actually triggers the provider refund + flips
+// the row to PROCESSING / SUCCEEDED. The original Payment row is untouched
+// (refunds are linked siblings, not in-place mutations) so the audit trail
+// stays clean and reconcile cron can pair provider events to refund rows.
+enum RefundStatus {
+  REQUESTED
+  REJECTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+model Refund {
+  id               String       @id @default(cuid())
+  orgId            String?
+  paymentId        String
+  amount           Decimal      @db.Decimal(10, 2)
+  reason           String
+  status           RefundStatus @default(REQUESTED)
+  // Provider's refund id (e.g. rfnd_XYZ for Razorpay). Set when status
+  // moves to PROCESSING. Used by the webhook handler to bind a refund.*
+  // event back to this row.
+  providerRefundId String?
+  // Four-eyes audit columns. requestedById must NOT equal approvedById —
+  // enforced by `approveRefund` service.
+  requestedById    String       @db.Uuid
+  approvedById     String?      @db.Uuid
+  // Set when status transitions to SUCCEEDED via webhook.
+  processedAt      DateTime?
+  // Captures rejection reason or provider failure for forensics.
+  failureReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org         Organization? @relation(fields: [orgId], references: [id])
+  payment     Payment       @relation(fields: [paymentId], references: [id])
+  requestedBy Profile       @relation("RefundRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  Profile?      @relation("RefundApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([orgId])
+  @@index([paymentId])
+  @@index([status])
+  @@index([providerRefundId])
 }
 
 // Webhook idempotency store (Phase 7 W3).
@@ -724,7 +778,7 @@ model Expense {
   orgId      String?
   profileId  String?  @db.Uuid
   vehicleId  String?
-  category   String   // e.g. "MAINTENANCE", "FUEL", "TOLL", "MISC"
+  category   String // e.g. "MAINTENANCE", "FUEL", "TOLL", "MISC"
   amount     Decimal  @db.Decimal(10, 2)
   receiptUrl String?
   notes      String?
@@ -747,7 +801,7 @@ model MaintenanceLog {
   id              String   @id @default(cuid())
   orgId           String?
   vehicleId       String
-  type            String   // e.g. "SERVICE", "TYRE", "OIL_CHANGE", "REPAIR"
+  type            String // e.g. "SERVICE", "TYRE", "OIL_CHANGE", "REPAIR"
   cost            Decimal  @db.Decimal(10, 2)
   odometer        Int
   nextDueOdometer Int?
@@ -795,7 +849,7 @@ model NotificationOutbox {
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
 
-  org           Organization?            @relation(fields: [orgId], references: [id])
+  org Organization? @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
   @@index([status, nextAttemptAt])
@@ -819,7 +873,7 @@ model NotificationLog {
   sentAt            DateTime?
   createdAt         DateTime            @default(now())
 
-  org               Organization?       @relation(fields: [orgId], references: [id])
+  org Organization? @relation(fields: [orgId], references: [id])
 
   @@index([orgId, status])
   @@index([bookingId])

@@ -97,6 +97,9 @@ const othersItems: NavItem[] = [
       { name: "Branches", path: "/settings/branches" },
       { name: "Dispatch Rules", path: "/settings/dispatch" },
       { name: "General", path: "/settings" },
+      // Phase 7 W1: SUPER_ADMIN-only — tenant ADMINs who click the link
+      // are bounced by the page-level role check.
+      { name: "Organizations", path: "/orgs" },
     ],
   },
 ];

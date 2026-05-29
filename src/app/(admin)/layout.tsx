@@ -22,6 +22,7 @@ export default async function AdminLayout({
  if (!session) redirect("/signin?redirectTo=/");
 
  switch (session.profile.role) {
+  case "SUPER_ADMIN":
   case "ADMIN":
   case "STAFF":
    return <AdminShell>{children}</AdminShell>;

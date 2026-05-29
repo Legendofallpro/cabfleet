@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/drain-notifications",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/prune-notifications",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-payments",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
