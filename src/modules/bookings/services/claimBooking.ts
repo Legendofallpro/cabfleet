@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { err, ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
+import { notifyOnTransition } from "@/modules/notifications/services/notifyOnTransition";
 
 type ClaimBookingInput = {
   bookingId: string;
@@ -133,6 +134,16 @@ export async function claimBooking(
             },
           },
         },
+      });
+
+      // Phase 7 W2: queue the BOOKING_CLAIMED notification atomically with
+      // the claim. transitionBookingStatus is NOT called on this path (raw
+      // SQL lock + direct update), so we emit the outbox row here directly.
+      await notifyOnTransition(tx, {
+        prev: BookingStatus.OPEN_FOR_CLAIM,
+        next: BookingStatus.CLAIMED,
+        booking: updated as BookingDetail,
+        reason: "Driver claimed open booking",
       });
 
       return ok(updated as BookingDetail);
