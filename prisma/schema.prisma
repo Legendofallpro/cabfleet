@@ -562,15 +562,19 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  orgId       String?
-  bookingId   String
-  amount      Decimal       @db.Decimal(10, 2)
-  method      String        // e.g. "CASH", "CARD", "UPI"
-  status      PaymentStatus @default(PENDING)
-  txnRef      String?
-  capturedAt  DateTime?
-  createdById String?       @db.Uuid
+  id              String        @id @default(cuid())
+  orgId           String?
+  bookingId       String
+  amount          Decimal       @db.Decimal(10, 2)
+  method          String        // e.g. "CASH", "CARD", "UPI"
+  status          PaymentStatus @default(PENDING)
+  // Phase 7 W3: provider's Order id (Razorpay creates an Order, then a Payment
+  // against that Order). Set on charge(); webhook updates Payment.txnRef with
+  // the captured payment id. Null for the MANUAL provider.
+  providerOrderId String?
+  txnRef          String?
+  capturedAt      DateTime?
+  createdById     String?       @db.Uuid
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -584,6 +588,23 @@ model Payment {
   @@index([bookingId])
   @@index([status])
   @@index([deletedAt])
+  @@index([providerOrderId])
+}
+
+// Webhook idempotency store (Phase 7 W3).
+// One row per (provider, eventId). The Razorpay webhook route inserts a row
+// before processing; a duplicate event hits the unique constraint and is
+// silently 200 OK'd. Retention: minimum 90 days for replay-protection
+// window — pruning deferred to a documented retention review.
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  provider   String
+  eventId    String
+  receivedAt DateTime @default(now())
+  payload    Json
+
+  @@unique([provider, eventId])
+  @@index([receivedAt])
 }
 
 // =========================================================
