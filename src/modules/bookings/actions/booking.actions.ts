@@ -9,7 +9,8 @@ import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { ok } from "@/lib/result";
+import { ok, err } from "@/lib/result";
+import { getOrCreateCustomer } from "@/modules/customers/queries/customer";
 import {
   createBookingSchema,
   assignDriverSchema,
@@ -32,7 +33,24 @@ export const createBookingAction = action(
   createBookingSchema,
   async (input) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_CREATE);
-    const result = await createBooking(input, { id: actor.profile.id });
+
+    // IDOR guard: a CUSTOMER may only create bookings against their own
+    // Customer row. Resolve it from the actor and override whatever the
+    // client sent. ADMIN/STAFF keep the freedom to book on behalf of any
+    // customer.
+    let scopedInput = input;
+    if (actor.profile.role === "CUSTOMER") {
+      const customer = await getOrCreateCustomer(actor.profile.id);
+      if (input.customerId && input.customerId !== customer.id) {
+        return err({
+          code: "FORBIDDEN",
+          message: "You can only create bookings for yourself.",
+        });
+      }
+      scopedInput = { ...input, customerId: customer.id };
+    }
+
+    const result = await createBooking(scopedInput, { id: actor.profile.id });
     revalidatePath("/bookings");
     // Return only the id — the full BookingDetail contains Prisma Decimal fields
     // which React cannot serialize across the server→client boundary.

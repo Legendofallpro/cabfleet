@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
-import { AppError } from "@/lib/errors";
 import { db } from "@/lib/db";
 import { ok, err } from "@/lib/result";
 import { logger } from "@/lib/logger";
@@ -49,8 +49,14 @@ export const generateInvoiceAction = action(
   },
 );
 
-export async function voidInvoiceAction(invoiceId: string) {
-  try {
+const voidInvoiceSchema = z.object({
+  invoiceId: z.string().uuid("Invalid invoice id"),
+});
+
+export const voidInvoiceAction = action(
+  "invoice.void",
+  voidInvoiceSchema,
+  async ({ invoiceId }) => {
     const actor = await requirePermission(PERMISSIONS.INVOICE_MANAGE);
 
     const invoice = await db.invoice.findFirst({
@@ -80,12 +86,8 @@ export async function voidInvoiceAction(invoiceId: string) {
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath(`/bookings/${invoice.bookingId}`);
     revalidatePath(`/portal/bookings/${invoice.bookingId}`);
+    logger.info({ invoiceId, actor: actor.profile.id }, "invoice.voided");
 
     return ok(invoiceId);
-  } catch (e) {
-    if (e instanceof AppError) {
-      return err({ code: e.code, message: e.message });
-    }
-    return err({ code: "INTERNAL", message: "Failed to void invoice." });
-  }
-}
+  },
+);

@@ -159,7 +159,7 @@ export async function generateInvoice(
 
     if (uploadError) {
       logger.error({ invoiceNumber, error: uploadError }, "invoice.pdf.upload_failed");
-      throw new AppError("INTERNAL", `PDF upload failed: ${uploadError.message}`);
+      throw new AppError("INTERNAL", "Failed to upload invoice PDF. Please try again.");
     }
 
     // 5. Get a long-lived signed URL for the PDF

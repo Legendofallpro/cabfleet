@@ -368,6 +368,13 @@ prisma/
 - **Booking abuse**: per-customer daily booking cap (configurable). Phone OTP verification before first booking.
 - **Driver claim race**: covered by `SELECT FOR UPDATE SKIP LOCKED` + `version` column (section 2.4). Loadtest this in Phase 4.
 - **Secrets**: never client-bundled. `NEXT_PUBLIC_*` only for Supabase anon key.
+- **MFA (roadmap, not yet implemented)**: Supabase Auth supports TOTP factors out of the box (`supabase.auth.mfa.enroll({ factorType: 'totp' })` + `challenge`/`verify`). Phase plan:
+  1. Add an "Account security" section under each portal that lists enrolled factors and lets users enroll a TOTP factor.
+  2. After enrollment, gate ADMIN/STAFF login by checking `factors` on the session and prompting for the second factor before issuing the role-scoped redirect.
+  3. Surface enforcement policy (mandatory for ADMIN/STAFF, optional for CUSTOMER/DRIVER) in `requireRole` so unenrolled privileged users are forced through enrollment.
+  4. Audit all enroll/unenroll/verify events via `writeAudit`.
+- **Security headers**: HSTS + X-Content-Type-Options + X-Frame-Options + Referrer-Policy + Permissions-Policy + CSP (report-only at first) are set in `next.config.ts`.
+- **Error sanitization**: `toAppErrorPayload` returns a fixed generic message for non-`AppError` throws; real errors are logged server-side only.
 
 ---
 

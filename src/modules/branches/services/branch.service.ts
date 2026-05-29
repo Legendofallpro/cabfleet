@@ -12,7 +12,9 @@ export async function createBranch(
   input: BranchInput,
   actor: Actor,
 ): Promise<Result<Branch>> {
-  const existing = await db.branch.findUnique({ where: { code: input.code } });
+  const existing = await db.branch.findFirst({
+    where: { code: input.code, deletedAt: null },
+  });
   if (existing) {
     throw new AppError("CONFLICT", `Branch code "${input.code}" is already in use.`, {
       fieldErrors: { code: ["Already in use"] },
@@ -48,7 +50,9 @@ export async function updateBranch(
   if (!current) throw new AppError("NOT_FOUND", "Branch not found.");
 
   if (input.code !== current.code) {
-    const dupe = await db.branch.findUnique({ where: { code: input.code } });
+    const dupe = await db.branch.findFirst({
+      where: { code: input.code, deletedAt: null, NOT: { id } },
+    });
     if (dupe) {
       throw new AppError("CONFLICT", `Branch code "${input.code}" is already in use.`, {
         fieldErrors: { code: ["Already in use"] },

@@ -2,6 +2,7 @@ import type { Role } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
 
 /**
  * Throws AppError("UNAUTHENTICATED") if no session.
@@ -23,7 +24,11 @@ export async function requirePermission(permission: Permission): Promise<Session
   const session = await getSessionUser();
   if (!session) throw new AppError("UNAUTHENTICATED", "You must sign in.");
   if (!hasPermission(session.profile.role, permission)) {
-    throw new AppError("FORBIDDEN", `Missing permission: ${permission}`);
+    logger.warn(
+      { permission, role: session.profile.role, profileId: session.profile.id },
+      "auth.forbidden.missing_permission",
+    );
+    throw new AppError("FORBIDDEN", "You do not have access to this resource.");
   }
   return session;
 }

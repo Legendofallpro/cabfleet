@@ -101,7 +101,7 @@ export async function driverUtilization(opts: {
     .filter((id): id is string => id !== null);
 
   const drivers = await db.driver.findMany({
-    where: { id: { in: driverIds } },
+    where: { id: { in: driverIds }, deletedAt: null },
     select: {
       id: true,
       profile: { select: { fullName: true, email: true } },
@@ -157,7 +157,7 @@ export async function vehicleUtilization(opts: {
     .filter((id): id is string => id !== null);
 
   const vehicles = await db.vehicle.findMany({
-    where: { id: { in: vehicleIds } },
+    where: { id: { in: vehicleIds }, deletedAt: null },
     select: { id: true, registrationNumber: true },
   });
 
@@ -214,7 +214,7 @@ export async function topCustomersBySpend(opts: {
 
   const customerIds = rows.map((r) => r.customerId);
   const customers = await db.customer.findMany({
-    where: { id: { in: customerIds } },
+    where: { id: { in: customerIds }, deletedAt: null },
     select: {
       id: true,
       profile: { select: { fullName: true, email: true } },

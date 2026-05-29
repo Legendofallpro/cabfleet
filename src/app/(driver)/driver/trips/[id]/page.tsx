@@ -42,8 +42,8 @@ export default async function TripDetailPage({
   const session = await getSessionUser();
   if (!session) redirect("/signin");
 
-  const driver = await db.driver.findUnique({
-    where: { profileId: session.profile.id },
+  const driver = await db.driver.findFirst({
+    where: { profileId: session.profile.id, deletedAt: null },
     select: { id: true, profile: { select: { branchId: true } } },
   });
   if (!driver?.profile.branchId) {

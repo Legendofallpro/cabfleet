@@ -1,4 +1,11 @@
 import type { AppErrorPayload } from "@/lib/result";
+import { logger } from "@/lib/logger";
+
+/**
+ * Generic message returned to clients when an unexpected error escapes a
+ * server action. Real error details stay in server logs.
+ */
+const GENERIC_INTERNAL_MESSAGE = "Something went wrong. Please try again.";
 
 export type AppErrorCode =
   | "UNAUTHENTICATED"
@@ -35,9 +42,15 @@ export class AppError extends Error {
   }
 }
 
-/** Map an arbitrary thrown value to an AppErrorPayload, safe to return from a server action. */
+/** Map an arbitrary thrown value to an AppErrorPayload, safe to return from a server action.
+ *
+ * AppError messages are author-controlled and safe to surface. Anything else
+ * (Prisma / Supabase / unknown throws) is replaced with a generic message; the
+ * real error is recorded on the server via the logger so operators can debug
+ * without leaking internals to the client.
+ */
 export function toAppErrorPayload(e: unknown): AppErrorPayload {
   if (e instanceof AppError) return e.toPayload();
-  if (e instanceof Error) return { code: "INTERNAL", message: e.message };
-  return { code: "INTERNAL", message: "Unexpected error" };
+  logger.error({ err: e }, "action.unexpected_error");
+  return { code: "INTERNAL", message: GENERIC_INTERNAL_MESSAGE };
 }

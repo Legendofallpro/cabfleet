@@ -47,8 +47,8 @@ export async function inviteStaff(
     },
   });
   if (invite.error || !invite.data.user) {
-    logger.error({ err: invite.error }, "Supabase invite failed (staff)");
-    throw new AppError("INTERNAL", invite.error?.message ?? "Failed to invite staff.");
+    logger.error({ err: invite.error }, "staff.invite.supabase_failed");
+    throw new AppError("INTERNAL", "Failed to invite staff. Please try again.");
   }
 
   const userId = invite.data.user.id;
