@@ -1,42 +1,17 @@
 import type { NextConfig } from "next";
+import { composeCsp } from "./src/lib/csp";
 
 /**
  * Security headers — see docs/web-app-security.md §9.
  *
- * CSP is intentionally permissive for first deploy (allows inline scripts &
- * styles required by Next 15 RSC + TailAdmin). We start in
- * `Content-Security-Policy-Report-Only` and tighten in a follow-up once
- * violation reports settle.
+ * CSP is composed at startup from a base policy + per-feature-flag deltas
+ * (Phase 7 W0 §7.8 S17). Flip `PAYMENT_GATEWAY=RAZORPAY` or
+ * `REALTIME_TRACKING_ENABLED=true` and the policy widens accordingly.
+ *
+ * Still report-only — switch to enforcing CSP once the new `e2e:csp`
+ * Playwright job (S17 follow-up) is green on prod reports for ≥1 week.
  */
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseHost = (() => {
-  try {
-    return supabaseUrl ? new URL(supabaseUrl).origin : "";
-  } catch {
-    return "";
-  }
-})();
-
-const connectSrc = ["'self'", supabaseHost, "https://*.supabase.co", "wss://*.supabase.co"]
-  .filter(Boolean)
-  .join(" ");
-
-const csp = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  // Next.js needs 'unsafe-inline' + 'unsafe-eval' for RSC hydration in dev.
-  // In production we still keep 'unsafe-inline' for hydration scripts; this
-  // can be tightened with nonces in a later pass.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-  `connect-src ${connectSrc}`,
-  "form-action 'self'",
-  "frame-src 'self'",
-].join("; ");
+const csp = composeCsp();
 
 const securityHeaders = [
   {
