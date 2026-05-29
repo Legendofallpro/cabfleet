@@ -71,6 +71,10 @@ export const PERMISSIONS = {
   MAINTENANCE_VIEW: "maintenance.view",
   MAINTENANCE_MANAGE: "maintenance.manage",
 
+  // Shifts (Phase 6)
+  SHIFT_VIEW: "shift.view",
+  SHIFT_MANAGE: "shift.manage",
+
   // Reports (Phase 6)
   REPORT_VIEW: "report.view",
 
@@ -110,6 +114,8 @@ const STAFF_PERMISSIONS: Permission[] = [
   PERMISSIONS.EXPENSE_MANAGE,
   PERMISSIONS.MAINTENANCE_VIEW,
   PERMISSIONS.MAINTENANCE_MANAGE,
+  PERMISSIONS.SHIFT_VIEW,
+  PERMISSIONS.SHIFT_MANAGE,
   PERMISSIONS.REPORT_VIEW,
 ];
 

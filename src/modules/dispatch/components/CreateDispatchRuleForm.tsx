@@ -167,7 +167,7 @@ export function CreateDispatchRuleForm({ branches, bookingTypes, onSuccess }: Pr
       <button
         type="submit"
         disabled={isSubmitting}
-        className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-600 disabled:opacity-60"
+        className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary-hover disabled:opacity-60"
       >
         {isSubmitting ? "Creating…" : "Add Rule"}
       </button>

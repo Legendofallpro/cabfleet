@@ -35,7 +35,7 @@ const STATUS_TONE: Record<
 /** Button colour per target status */
 const BUTTON_CLASS: Partial<Record<BookingStatus, string>> = {
   DRIVER_EN_ROUTE:
-    "bg-brand-500 text-white hover:bg-brand-600",
+    "bg-primary text-primary-foreground hover:bg-primary-hover",
   IN_PROGRESS:
     "bg-success-500 text-white hover:bg-success-600",
   COMPLETED:
@@ -63,7 +63,7 @@ export function BookingStatusActions({ bookingId, status }: Props) {
         <StatusBadge tone={STATUS_TONE[status]}>
           {BOOKING_STATUS_LABEL[status]}
         </StatusBadge>
-        <span className="text-xs text-gray-400">No further actions</span>
+        <span className="text-xs text-muted">No further actions</span>
       </div>
     );
   }

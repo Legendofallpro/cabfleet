@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { BookingStatus } from "@prisma/client";
 import { driverTransitionAction } from "@/modules/bookings/actions/driver-booking.actions";
 
@@ -23,10 +24,10 @@ export function TripActionButton({
 
   const variantClass =
     tripAction.variant === "danger"
-      ? "bg-red-500 hover:bg-red-600"
+      ? "bg-error-500 text-white hover:bg-error-600"
       : tripAction.variant === "secondary"
-        ? "bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-        : "bg-brand-500 hover:bg-brand-600 text-white";
+        ? "bg-surface-inset text-default hover:bg-surface-elevated border border-default"
+        : "bg-primary hover:bg-primary-hover text-primary-foreground";
 
   function handleAction() {
     startTransition(async () => {
@@ -35,7 +36,7 @@ export function TripActionButton({
         toStatus: tripAction.toStatus,
       });
       if (!result.ok) {
-        alert(result.error.message);
+        toast.error(result.error.message);
         return;
       }
       router.refresh();

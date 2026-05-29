@@ -64,6 +64,11 @@ const navItems: NavItem[] = [
     path: "/attendance",
   },
   {
+    icon: <CalenderIcon />,
+    name: "Shifts",
+    path: "/shifts",
+  },
+  {
     icon: <DollarLineIcon />,
     name: "Payments",
     path: "/payments",
@@ -72,6 +77,11 @@ const navItems: NavItem[] = [
     icon: <FileIcon />,
     name: "Invoices",
     path: "/invoices",
+  },
+  {
+    icon: <DollarLineIcon />,
+    name: "Expenses",
+    path: "/expenses",
   },
 ];
 

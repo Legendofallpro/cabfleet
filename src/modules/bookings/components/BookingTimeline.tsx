@@ -15,13 +15,13 @@ const ACTION_ICON: Partial<Record<AuditAction, string>> = {
 };
 
 const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
-  CREATE: "bg-brand-500",
+  CREATE: "bg-primary",
   ASSIGN: "bg-success-500",
   UNASSIGN: "bg-warning-500",
-  STATUS_CHANGE: "bg-gray-400",
+  STATUS_CHANGE: "bg-surface-inset",
   CANCEL: "bg-error-500",
   COMPLETE: "bg-success-500",
-  CLAIM: "bg-brand-400",
+  CLAIM: "bg-primary",
 };
 
 const fmt = new Intl.DateTimeFormat("en-IN", {
@@ -38,7 +38,7 @@ function TimelineRow({ entry }: { entry: HistoryEntry }) {
     <li className="relative flex gap-4">
       {/* Vertical line */}
       <span
-        className="absolute left-3.5 top-7 h-full w-px -translate-x-1/2 bg-gray-200 dark:bg-gray-700"
+        className="absolute left-3.5 top-7 h-full w-px -translate-x-1/2 bg-surface-inset"
         aria-hidden
       />
       {/* Dot */}
@@ -48,19 +48,19 @@ function TimelineRow({ entry }: { entry: HistoryEntry }) {
         {icon}
       </span>
       <div className="pb-5 text-sm">
-        <p className="font-medium text-gray-800 dark:text-white/90">
+        <p className="font-medium text-default">
           {entry.action.replaceAll("_", " ")}
         </p>
         {entry.driverId && (
-          <p className="text-xs text-gray-500">Driver ID: {entry.driverId}</p>
+          <p className="text-xs text-muted">Driver ID: {entry.driverId}</p>
         )}
         {entry.vehicleId && (
-          <p className="text-xs text-gray-500">Vehicle ID: {entry.vehicleId}</p>
+          <p className="text-xs text-muted">Vehicle ID: {entry.vehicleId}</p>
         )}
         {entry.reason && (
-          <p className="mt-0.5 text-xs italic text-gray-500">&ldquo;{entry.reason}&rdquo;</p>
+          <p className="mt-0.5 text-xs italic text-muted">&ldquo;{entry.reason}&rdquo;</p>
         )}
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-muted">
           {fmt.format(new Date(entry.at))} &middot; {actor}
         </p>
       </div>
@@ -77,21 +77,21 @@ export function BookingTimeline({ booking }: Props) {
 
   return (
     <div>
-      <h3 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+      <h3 className="mb-4 text-sm font-semibold text-default">
         Activity timeline
       </h3>
       <ul className="relative space-y-0">
         {/* Latest status marker */}
         <li className="relative flex gap-4">
           <span
-            className="absolute left-3.5 top-7 h-full w-px -translate-x-1/2 bg-gray-200 dark:bg-gray-700"
+            className="absolute left-3.5 top-7 h-full w-px -translate-x-1/2 bg-surface-inset"
             aria-hidden
           />
-          <span className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+          <span className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-inset text-xs font-bold text-muted">
             ◉
           </span>
           <div className="pb-5 text-sm">
-            <p className="font-medium text-gray-800 dark:text-white/90">
+            <p className="font-medium text-default">
               Current: {BOOKING_STATUS_LABEL[status]}
             </p>
           </div>
@@ -103,12 +103,12 @@ export function BookingTimeline({ booking }: Props) {
 
         {/* Creation event at bottom */}
         <li className="flex gap-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-600 dark:bg-brand-900 dark:text-brand-300">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-bold text-on-primary-subtle">
             ✦
           </span>
           <div className="text-sm">
-            <p className="font-medium text-gray-800 dark:text-white/90">Booking created</p>
-            <p className="text-xs text-gray-400">
+            <p className="font-medium text-default">Booking created</p>
+            <p className="text-xs text-muted">
               {fmt.format(new Date(createdAt))}
               {createdBy && ` · ${createdBy.fullName ?? createdBy.email}`}
             </p>
