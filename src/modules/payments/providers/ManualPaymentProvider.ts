@@ -1,28 +1,38 @@
 import type {
   ChargeInput,
   ChargeResult,
+  FetchStatusResult,
   PaymentProvider,
   RefundInput,
   RefundResult,
-} from "./PaymentProvider";
+} from "@/modules/payments/providers/PaymentProvider";
 
 /**
- * Manual (cash/offline) payment provider.
- * Records the payment as immediately captured — no external gateway call.
- * Used for Phase 5 MVP; Phase 6+ adds a real gateway by implementing PaymentProvider.
+ * Manual (cash/offline) provider. Records the payment as immediately
+ * captured — no external gateway call, no checkout redirect. Used for the
+ * Phase 5 MVP and as the safe fallback whenever `PAYMENT_GATEWAY != RAZORPAY`.
  */
 export class ManualPaymentProvider implements PaymentProvider {
+  readonly name = "MANUAL" as const;
+
   async charge(input: ChargeInput): Promise<ChargeResult> {
     return {
-      txnRef: input.txnRef ?? `MANUAL-${Date.now()}`,
+      providerRef: input.txnRef ?? `MANUAL-${Date.now()}`,
+      status: "CAPTURED",
       capturedAt: input.capturedAt ?? new Date(),
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async refund(_input: RefundInput): Promise<RefundResult> {
+  async refund(input: RefundInput): Promise<RefundResult> {
     return {
-      refundRef: `MANUAL-REFUND-${Date.now()}`,
+      refundRef: `MANUAL-REFUND-${input.paymentId}-${Date.now()}`,
     };
+  }
+
+  async fetchStatus(providerRef: string): Promise<FetchStatusResult> {
+    // Manual payments are CAPTURED at creation. fetchStatus is a no-op that
+    // confirms whatever is already on the row; the reconciliation cron will
+    // see no PENDING manual payments to act on.
+    return { status: "CAPTURED", providerPaymentId: providerRef };
   }
 }

@@ -60,8 +60,16 @@ export function RecordPaymentForm({ bookingId, defaultAmount }: Props) {
     }
     return;
    }
+   // Phase 7 W3: gateway payments return a checkoutUrl for the customer
+   // to complete the charge. Manual payments are CAPTURED immediately and
+   // land directly on the detail page.
+   if (result.data.checkoutUrl) {
+    toast.success("Redirecting you to checkout…");
+    window.location.href = result.data.checkoutUrl;
+    return;
+   }
    toast.success("Payment recorded successfully.");
-   router.push(`/payments/${result.data.id}`);
+   router.push(`/payments/${result.data.payment.id}`);
   } finally {
    setSubmitting(false);
   }
