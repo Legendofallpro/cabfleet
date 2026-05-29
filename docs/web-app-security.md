@@ -62,7 +62,7 @@ User input is a common attack vector, making thorough validation and sanitisatio
 How data is stored, accessed, and queried is a cornerstone of any secure system.
 
 - **Use a trusted ORM or platform:** ORMs (Object-Relational Mappers) such as Prisma, Sequelize, or a secure platform like Supabase can abstract away many low-level security pitfalls.
-- **Enable Row-Level Security (RLS) where possible:** RLS allows fine-grained control over which rows can be accessed by which user, adding another layer of data protection.
+- **Enable Row-Level Security (RLS) where possible:** RLS allows fine-grained control over which rows can be accessed by which user, adding another layer of data protection. See [`docs/security/rls-lockdown.md`](security/rls-lockdown.md) for the table-level RLS policy inventory, apply order, verification checklist, and rollback procedure for this project.
 - **Avoid writing raw queries directly:** Parameterised queries and abstractions help prevent injection vulnerabilities and reduce the scope for human error.
 
 ---

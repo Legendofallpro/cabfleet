@@ -175,6 +175,7 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 - **Don't use duplicate keys in Prisma `where` objects.** If you need two `OR` conditions, wrap them: `AND: [{ OR: [...] }, { OR: [...] }]`. Duplicate keys silently drop the first condition at runtime — TypeScript will now catch this as a compile error.
 - **Don't use `watch()` from `useForm()` in components.** Use `useWatch({ control, name })` instead — it subscribes only to the named field and is React Compiler-friendly.
 - **Don't export `parsePageParams` from a `"use client"` file** and call it from an RSC. Server-safe utilities must live in plain `.ts` files (e.g., `src/lib/utils/page-params.ts`) so Next 15 can call them during server render.
+- **Don't add a new Prisma model / database table without enabling RLS.** Every new model must be accompanied by a corresponding SQL block in `prisma/sql/04_rls_lockdown_all_tables.sql` (or a new numbered file) that does `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and creates a `deny_direct_api_access` restrictive policy before the migration reaches production. See [`docs/security/rls-lockdown.md`](docs/security/rls-lockdown.md) for the pattern.
 
 ## 13. UI & theming — **read before writing any JSX**
 
