@@ -13,7 +13,6 @@ import {
   GroupIcon,
   HorizontaLDots,
   PieChartIcon,
-  PlugInIcon,
   TableIcon,
   TimeIcon,
   UserCircleIcon,
@@ -98,14 +97,6 @@ const othersItems: NavItem[] = [
       { name: "Branches", path: "/settings/branches" },
       { name: "Dispatch Rules", path: "/settings/dispatch" },
       { name: "General", path: "/settings" },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
     ],
   },
 ];

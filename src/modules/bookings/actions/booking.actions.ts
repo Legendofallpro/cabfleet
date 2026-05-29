@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { BookingStatus } from "@prisma/client";
-import { z } from "zod";
 
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
@@ -10,12 +9,13 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { ok, err } from "@/lib/result";
-import { getOrCreateCustomer } from "@/modules/customers/queries/customer";
+import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import {
   createBookingSchema,
   assignDriverSchema,
   cancelBookingSchema,
   transitionSchema,
+  softDeleteBookingSchema,
 } from "@/modules/bookings/validators/booking";
 import {
   createBooking,
@@ -132,16 +132,14 @@ export const transitionBookingAction = action(
 // Soft delete
 // ──────────────────────────────────────────────────────────────────────────────
 
-const idSchema = z.object({ bookingId: z.string().min(1) });
-
 export const softDeleteBookingAction = action(
   "bookings.delete",
-  idSchema,
+  softDeleteBookingSchema,
   async ({ bookingId }) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_OVERRIDE);
     const current = await db.booking.findFirst({ where: { id: bookingId, deletedAt: null } });
     if (!current) {
-      return { ok: false as const, error: { code: "NOT_FOUND", message: "Booking not found." } };
+      return err({ code: "NOT_FOUND", message: "Booking not found." });
     }
     await db.$transaction(async (tx) => {
       await tx.booking.update({
@@ -156,6 +154,6 @@ export const softDeleteBookingAction = action(
       });
     });
     revalidatePath("/bookings");
-    return { ok: true as const, data: true };
+    return ok(true as const);
   },
 );

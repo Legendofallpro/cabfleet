@@ -14,22 +14,22 @@ export const dynamic = "force-dynamic";
  * `(admin)`. Drivers are redirected to /driver, customers to /portal.
  */
 export default async function AdminLayout({
-  children,
+ children,
 }: {
-  children: React.ReactNode;
+ children: React.ReactNode;
 }) {
-  const session = await getSessionUser();
-  if (!session) redirect("/signin?redirectTo=/");
+ const session = await getSessionUser();
+ if (!session) redirect("/signin?redirectTo=/");
 
-  switch (session.profile.role) {
-    case "ADMIN":
-    case "STAFF":
-      return <AdminShell>{children}</AdminShell>;
-    case "DRIVER":
-      redirect(getRoleHome(session.profile.role));
-    case "CUSTOMER":
-      redirect(getRoleHome(session.profile.role));
-    default:
-      redirect("/signin");
-  }
+ switch (session.profile.role) {
+  case "ADMIN":
+  case "STAFF":
+   return <AdminShell>{children}</AdminShell>;
+  case "DRIVER":
+   redirect(getRoleHome(session.profile.role));
+  case "CUSTOMER":
+   redirect(getRoleHome(session.profile.role));
+  default:
+   redirect("/signin");
+ }
 }

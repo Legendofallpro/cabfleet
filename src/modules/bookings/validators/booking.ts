@@ -58,3 +58,13 @@ export const cancelBookingSchema = z.object({
 });
 
 export type CancelBookingInput = z.infer<typeof cancelBookingSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Soft-delete booking (admin only)
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const softDeleteBookingSchema = z.object({
+  bookingId: z.string().min(1),
+});
+
+export type SoftDeleteBookingInput = z.infer<typeof softDeleteBookingSchema>;

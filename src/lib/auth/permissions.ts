@@ -1,23 +1,29 @@
 import type { Role } from "@prisma/client";
+import { BOOKING_PERMISSIONS } from "@/modules/bookings/permissions";
+import { DRIVER_PERMISSIONS } from "@/modules/drivers/permissions";
+import { VEHICLE_PERMISSIONS } from "@/modules/vehicles/permissions";
+import { ATTENDANCE_PERMISSIONS } from "@/modules/attendance/permissions";
 
 /**
  * Fine-grained permission strings. The convention is "<entity>.<action>".
- * Add new permissions here as features land - never inline string permissions
- * elsewhere in the codebase.
+ *
+ * Per-domain groups live in src/modules/<feature>/permissions.ts and are
+ * re-exported here so callers continue to use `PERMISSIONS.*` from one
+ * import site. Add new domains following the same pattern.
  */
 export const PERMISSIONS = {
   // Branches
   BRANCH_VIEW: "branch.view",
   BRANCH_MANAGE: "branch.manage",
 
-  // Vehicles
-  VEHICLE_VIEW: "vehicle.view",
-  VEHICLE_MANAGE: "vehicle.manage",
+  // Vehicles — defined in src/modules/vehicles/permissions.ts
+  VEHICLE_VIEW: VEHICLE_PERMISSIONS.VIEW,
+  VEHICLE_MANAGE: VEHICLE_PERMISSIONS.MANAGE,
 
-  // Drivers
-  DRIVER_VIEW: "driver.view",
-  DRIVER_MANAGE: "driver.manage",
-  DRIVER_VERIFY: "driver.verify",
+  // Drivers — defined in src/modules/drivers/permissions.ts
+  DRIVER_VIEW: DRIVER_PERMISSIONS.VIEW,
+  DRIVER_MANAGE: DRIVER_PERMISSIONS.MANAGE,
+  DRIVER_VERIFY: DRIVER_PERMISSIONS.VERIFY,
 
   // Staff
   STAFF_VIEW: "staff.view",
@@ -27,15 +33,14 @@ export const PERMISSIONS = {
   CUSTOMER_VIEW: "customer.view",
   CUSTOMER_MANAGE: "customer.manage",
 
-  // Bookings (Phase 2+)
-  BOOKING_VIEW: "booking.view",
-  BOOKING_CREATE: "booking.create",
-  BOOKING_ASSIGN: "booking.assign",
-  BOOKING_REASSIGN: "booking.reassign",
-  BOOKING_CANCEL: "booking.cancel",
-  BOOKING_OVERRIDE: "booking.override",
-  /** Phase 4: driver claims an OPEN_FOR_CLAIM booking */
-  BOOKING_CLAIM: "booking.claim",
+  // Bookings (Phase 2+) — defined in src/modules/bookings/permissions.ts
+  BOOKING_VIEW: BOOKING_PERMISSIONS.VIEW,
+  BOOKING_CREATE: BOOKING_PERMISSIONS.CREATE,
+  BOOKING_ASSIGN: BOOKING_PERMISSIONS.ASSIGN,
+  BOOKING_REASSIGN: BOOKING_PERMISSIONS.REASSIGN,
+  BOOKING_CANCEL: BOOKING_PERMISSIONS.CANCEL,
+  BOOKING_OVERRIDE: BOOKING_PERMISSIONS.OVERRIDE,
+  BOOKING_CLAIM: BOOKING_PERMISSIONS.CLAIM,
 
   // Pricing
   PRICING_VIEW: "pricing.view",
@@ -53,11 +58,10 @@ export const PERMISSIONS = {
   INVOICE_VIEW: "invoice.view",
   INVOICE_MANAGE: "invoice.manage",
 
-  // Attendance (Phase 6)
-  ATTENDANCE_VIEW: "attendance.view",
-  ATTENDANCE_MANAGE: "attendance.manage",
-  /** Driver viewing/editing their own attendance record */
-  ATTENDANCE_SELF: "attendance.self",
+  // Attendance (Phase 6) — defined in src/modules/attendance/permissions.ts
+  ATTENDANCE_VIEW: ATTENDANCE_PERMISSIONS.VIEW,
+  ATTENDANCE_MANAGE: ATTENDANCE_PERMISSIONS.MANAGE,
+  ATTENDANCE_SELF: ATTENDANCE_PERMISSIONS.SELF,
 
   // Fuel (Phase 6)
   FUEL_VIEW: "fuel.view",
@@ -119,13 +123,13 @@ const STAFF_PERMISSIONS: Permission[] = [
   PERMISSIONS.REPORT_VIEW,
 ];
 
-const DRIVER_PERMISSIONS: Permission[] = [
+const DRIVER_PERMISSIONS_LIST: Permission[] = [
   PERMISSIONS.BOOKING_VIEW,
   PERMISSIONS.BOOKING_CLAIM,
   PERMISSIONS.ATTENDANCE_SELF,
 ];
 
-const CUSTOMER_PERMISSIONS: Permission[] = [
+const CUSTOMER_PERMISSIONS_LIST: Permission[] = [
   PERMISSIONS.BOOKING_VIEW,
   PERMISSIONS.BOOKING_CREATE,
 ];
@@ -133,8 +137,8 @@ const CUSTOMER_PERMISSIONS: Permission[] = [
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ADMIN: ALL_PERMISSIONS,
   STAFF: STAFF_PERMISSIONS,
-  DRIVER: DRIVER_PERMISSIONS,
-  CUSTOMER: CUSTOMER_PERMISSIONS,
+  DRIVER: DRIVER_PERMISSIONS_LIST,
+  CUSTOMER: CUSTOMER_PERMISSIONS_LIST,
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function DriverRootPage() {
-  redirect("/driver/trips/open");
+ redirect("/driver/trips/open");
 }

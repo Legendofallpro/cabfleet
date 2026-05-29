@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { db } from "@/lib/db";
-import { listAssignableVehicles } from "./list";
+import { listAssignableVehicles } from "./vehicle";
 
 describe("listAssignableVehicles", () => {
   beforeEach(() => {

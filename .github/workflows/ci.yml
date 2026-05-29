@@ -38,6 +38,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: UI token guard
+        run: npm run check:tokens
+
+      - name: Structure guard
+        run: npm run check:structure
+
       - name: Typecheck
         run: npx tsc --noEmit
 

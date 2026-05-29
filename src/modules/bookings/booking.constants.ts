@@ -2,6 +2,7 @@
  * Pure constants for the Booking state machine.
  * No server imports — safe to import from both Server and Client Components.
  */
+import type { StatusTone } from "@/components/common/StatusBadge";
 import { BookingStatus, DispatchMode } from "@prisma/client";
 
 /** Human-readable label for each status. */
@@ -16,6 +17,20 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   CANCELLED: "Cancelled",
   NO_SHOW: "No Show",
   FAILED: "Failed",
+};
+
+/** StatusBadge tone for each booking status. */
+export const BOOKING_STATUS_TONE: Record<BookingStatus, StatusTone> = {
+  PENDING: "warning",
+  OPEN_FOR_CLAIM: "info",
+  CLAIMED: "info",
+  ASSIGNED: "info",
+  DRIVER_EN_ROUTE: "info",
+  IN_PROGRESS: "success",
+  COMPLETED: "success",
+  CANCELLED: "neutral",
+  NO_SHOW: "neutral",
+  FAILED: "error",
 };
 
 /** Human-readable label for dispatch mode. */

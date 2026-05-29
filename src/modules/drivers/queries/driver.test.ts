@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { db } from "@/lib/db";
-import { listAssignableDrivers } from "./list";
+import { listAssignableDrivers } from "./driver";
 
 describe("listAssignableDrivers", () => {
   beforeEach(() => {
