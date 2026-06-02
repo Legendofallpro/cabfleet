@@ -53,16 +53,19 @@ export async function middleware(request: NextRequest) {
   const ip = getClientIp(request);
 
   // Coarse IP rate-limit on auth + API paths to dampen brute-force / abuse.
+  // /api/v1/* is excluded here — its per-driver limit lives in
+  // withApiHandler, which is strictly tighter than a per-IP bucket would
+  // be for a shared NAT (corporate WiFi, mobile carrier CGNAT).
   if (isAuthPath(pathname)) {
     const limit = checkLimit(`auth:${ip}`, LIMITS.auth);
     if (!limit.success) return rateLimitResponse(limit.resetAt);
-  } else if (pathname.startsWith("/api/")) {
+  } else if (pathname.startsWith("/api/") && !pathname.startsWith("/api/v1/")) {
     const limit = checkLimit(`api:${ip}:${pathname}`, LIMITS.api);
     if (!limit.success) return rateLimitResponse(limit.resetAt);
   }
 
-  // API routes manage their own auth (e.g. cron bearer); skip Supabase session
-  // refresh to avoid double cookie work on each cron tick.
+  // API routes manage their own auth (e.g. cron bearer, v1 Bearer JWT);
+  // skip Supabase session refresh to avoid double cookie work per request.
   if (pathname.startsWith("/api/")) return NextResponse.next();
 
   const { response, user } = await updateSession(request);

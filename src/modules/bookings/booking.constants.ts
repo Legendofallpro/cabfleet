@@ -5,6 +5,18 @@
 import type { StatusTone } from "@/components/common/StatusBadge";
 import { BookingStatus, DispatchMode } from "@prisma/client";
 
+/**
+ * Statuses a driver may transition to (W4: shared by server action +
+ * `/api/v1/trips/:id/transition`). Anything outside this list requires
+ * staff/admin and is rejected at the action/route layer.
+ */
+export const DRIVER_ALLOWED_TARGETS: readonly BookingStatus[] = [
+  BookingStatus.DRIVER_EN_ROUTE,
+  BookingStatus.IN_PROGRESS,
+  BookingStatus.COMPLETED,
+  BookingStatus.NO_SHOW,
+];
+
 /** Human-readable label for each status. */
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   PENDING: "Pending",

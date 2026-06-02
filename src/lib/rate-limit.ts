@@ -57,6 +57,20 @@ export const LIMITS = {
   action: { windowMs: 60_000, max: 60 },
   /** API routes (cron etc.). */
   api: { windowMs: 60_000, max: 30 },
+
+  // ── Phase 7 W4: REST v1 per-driver presets ──────────────────────────
+  /**
+   * §4.4 Claim spam protection. Pairs with `SELECT FOR UPDATE SKIP LOCKED`
+   * in `claimBooking` — the limit defangs UX-level retries; the lock
+   * defangs concurrent server-side races.
+   */
+  apiClaim: { windowMs: 60_000, max: 30 },
+  /** §4.4 Location ingest ceiling — 1 write / second / driver on average. */
+  apiLocation: { windowMs: 60_000, max: 60 },
+  /** Driver reads (list trips, get me). Generous; reads are cheap. */
+  apiRead: { windowMs: 60_000, max: 300 },
+  /** Generic driver mutation (transition, attendance). */
+  apiWrite: { windowMs: 60_000, max: 60 },
 } as const;
 
 /** Best-effort client IP extraction from common proxy headers. */

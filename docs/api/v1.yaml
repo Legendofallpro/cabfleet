@@ -1,0 +1,425 @@
+openapi: 3.1.0
+info:
+  title: CabFleet REST v1 (driver)
+  version: "1.0.0"
+  description: |
+    Driver mobile app API. All endpoints require a Supabase JWT bearer
+    token. See docs/api/README.md for envelope conventions, idempotency,
+    and rate-limit details.
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: app.cabfleet.example
+security:
+  - bearerAuth: []
+tags:
+  - name: profile
+  - name: trips
+  - name: attendance
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [profile]
+      summary: Current driver profile + driver record
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/trips/open:
+    get:
+      tags: [trips]
+      summary: OPEN_FOR_CLAIM bookings in the driver's branch
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [trips]
+                    properties:
+                      trips:
+                        type: array
+                        items: { $ref: "#/components/schemas/TripSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/trips/mine:
+    get:
+      tags: [trips]
+      summary: Trips claimed or assigned to this driver
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [trips]
+                    properties:
+                      trips:
+                        type: array
+                        items: { $ref: "#/components/schemas/TripSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/trips/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TripId"
+    get:
+      tags: [trips]
+      summary: Booking detail (404 if the driver does not own it)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      trip: { $ref: "#/components/schemas/TripDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/trips/{id}/claim:
+    parameters:
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/IdempotencyKey"
+    post:
+      tags: [trips]
+      summary: Claim an OPEN_FOR_CLAIM trip
+      responses:
+        "200":
+          description: Claim accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, status]
+                    properties:
+                      id: { type: string }
+                      status: { type: string, enum: [CLAIMED] }
+                      claimedAt: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already claimed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/v1/trips/{id}/transition:
+    parameters:
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/IdempotencyKey"
+    post:
+      tags: [trips]
+      summary: Advance a trip to one of the driver-allowed statuses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toStatus]
+              properties:
+                toStatus:
+                  type: string
+                  enum: [DRIVER_EN_ROUTE, IN_PROGRESS, COMPLETED, NO_SHOW]
+                reason:
+                  type: string
+                  maxLength: 300
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, status]
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+        "400": { $ref: "#/components/responses/Validation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Illegal transition (state machine rejected)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  /api/v1/trips/{id}/location:
+    parameters:
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      summary: "Single live location point (W5 — currently returns 501)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationPoint" }
+      responses:
+        "501":
+          description: Not implemented yet (Workstream 5)
+
+  /api/v1/trips/{id}/location/batch:
+    parameters:
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      summary: "Batched live location points (W5 — currently returns 501)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points:
+                  type: array
+                  minItems: 1
+                  maxItems: 60
+                  items: { $ref: "#/components/schemas/LocationPoint" }
+      responses:
+        "501":
+          description: Not implemented yet (Workstream 5)
+
+  /api/v1/attendance/check-in:
+    parameters:
+      - $ref: "#/components/parameters/IdempotencyKey"
+    post:
+      tags: [attendance]
+      summary: Driver self check-in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, checkIn]
+              properties:
+                date: { type: string, format: date-time }
+                checkIn: { type: string, format: date-time }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceResponse" }
+
+  /api/v1/attendance/check-out:
+    parameters:
+      - $ref: "#/components/parameters/IdempotencyKey"
+    post:
+      tags: [attendance]
+      summary: Driver self check-out
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, checkOut]
+              properties:
+                date: { type: string, format: date-time }
+                checkOut: { type: string, format: date-time }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TripId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+        pattern: "^[A-Za-z0-9_\\-.:]+$"
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: Permission denied (or feature flag off)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: Resource not found OR ownership check failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Validation:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ValidationEnvelope" }
+    TooManyRequests:
+      description: Per-driver rate limit exceeded
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - UNAUTHENTICATED
+                - FORBIDDEN
+                - VALIDATION
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - INTERNAL
+            message: { type: string }
+
+    ValidationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                fieldErrors:
+                  type: object
+                  additionalProperties:
+                    type: array
+                    items: { type: string }
+
+    MeResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            profile:
+              type: object
+              properties:
+                id: { type: string }
+                fullName: { type: string }
+                email: { type: string }
+                phone: { type: string, nullable: true }
+                role: { type: string }
+                orgId: { type: string, nullable: true }
+                branchId: { type: string, nullable: true }
+                locale: { type: string, nullable: true }
+            driver:
+              type: object
+              properties:
+                id: { type: string }
+                status: { type: string }
+                licenseNumber: { type: string }
+                licenseExpiry: { type: string, format: date, nullable: true }
+
+    TripSummary:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string }
+        pickupAt: { type: string, format: date-time }
+        pickupAddress: { type: string }
+        dropoffAddress: { type: string }
+        branch:
+          type: object
+          properties:
+            id: { type: string }
+            code: { type: string }
+            name: { type: string }
+
+    TripDetail:
+      allOf:
+        - $ref: "#/components/schemas/TripSummary"
+        - type: object
+          properties:
+            customer:
+              type: object
+              properties:
+                profile:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    fullName: { type: string }
+                    phone: { type: string, nullable: true }
+
+    LocationPoint:
+      type: object
+      required: [lat, lng, recordedAt]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        speedKph: { type: number, minimum: 0 }
+        recordedAt: { type: string, format: date-time }
+
+    AttendanceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            id: { type: string }
+            profileId: { type: string }
+            date: { type: string, format: date-time }
+            status: { type: string }

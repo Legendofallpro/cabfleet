@@ -1,40 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { BookingStatus, DriverStatus } from "@prisma/client";
 import { z } from "zod";
+
+import { BookingStatus } from "@prisma/client";
 
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
-import { AppError } from "@/lib/errors";
 import { err, ok } from "@/lib/result";
 import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
 import { claimBooking } from "@/modules/bookings/services/claimBooking";
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Resolves the Driver record for the currently signed-in profile.
- * Includes the profile's branchId so eligibility can be checked per-claim.
- */
-async function getDriverForProfile(profileId: string) {
-  const driver = await db.driver.findFirst({
-    where: { profileId, deletedAt: null },
-    select: {
-      id: true,
-      status: true,
-      profile: { select: { branchId: true } },
-    },
-  });
-  if (!driver) {
-    throw new AppError("FORBIDDEN", "No driver profile found for this account.");
-  }
-  return driver;
-}
+import { DRIVER_ALLOWED_TARGETS } from "@/modules/bookings/booking.constants";
+import {
+  ensureCanClaim,
+  getDriverForProfile,
+} from "@/modules/drivers/services/eligibility";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Claim an OPEN_FOR_CLAIM booking
@@ -47,37 +29,12 @@ export const claimBookingAction = action(
   claimBookingSchema,
   async ({ bookingId }) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_CLAIM);
-    const driver = await getDriverForProfile(actor.profile.id);
-
-    // Eligibility: only ACTIVE or ON_LEAVE drivers may claim
-    if (
-      driver.status === DriverStatus.SUSPENDED ||
-      driver.status === DriverStatus.INACTIVE
-    ) {
-      return err({
-        code: "FORBIDDEN",
-        message: "Your account is not eligible to claim trips.",
-      });
-    }
-
-    // Branch eligibility: driver's branch must match the booking's branch
-    const booking = await db.booking.findFirst({
-      where: { id: bookingId, deletedAt: null },
-      select: { branchId: true },
-    });
-    if (!booking) {
-      return err({ code: "NOT_FOUND", message: "Booking not found." });
-    }
-    if (driver.profile.branchId !== booking.branchId) {
-      return err({
-        code: "FORBIDDEN",
-        message: "You can only claim trips in your assigned branch.",
-      });
-    }
+    const eligibility = await ensureCanClaim(actor.profile.id, bookingId);
+    if (!eligibility.ok) return eligibility;
 
     const result = await claimBooking({
       bookingId,
-      driverId: driver.id,
+      driverId: eligibility.data.id,
       byProfileId: actor.profile.id,
     });
 
@@ -95,13 +52,6 @@ export const claimBookingAction = action(
 // Drivers can only advance their OWN trips.
 // ──────────────────────────────────────────────────────────────────────────────
 
-const DRIVER_ALLOWED_TARGETS = [
-  BookingStatus.DRIVER_EN_ROUTE,
-  BookingStatus.IN_PROGRESS,
-  BookingStatus.COMPLETED,
-  BookingStatus.NO_SHOW,
-] as const;
-
 const driverTransitionSchema = z.object({
   bookingId: z.string().min(1),
   toStatus: z.enum(BookingStatus),
@@ -111,7 +61,7 @@ const driverTransitionSchema = z.object({
 export const driverTransitionAction = action(
   "bookings.driver.transition",
   driverTransitionSchema.refine(
-    (d) => (DRIVER_ALLOWED_TARGETS as readonly BookingStatus[]).includes(d.toStatus),
+    (d) => DRIVER_ALLOWED_TARGETS.includes(d.toStatus),
     { message: "Drivers can only transition to DRIVER_EN_ROUTE, IN_PROGRESS, COMPLETED, or NO_SHOW." },
   ),
   async (input) => {
