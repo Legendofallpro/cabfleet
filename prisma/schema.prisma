@@ -145,6 +145,7 @@ model Organization {
   refunds            Refund[]
   invoices           Invoice[]
   shifts             Shift[]
+  tripLocations      TripLocation[]
   attendance         Attendance[]
   fuelLogs           FuelLog[]
   expenses           Expense[]
@@ -450,6 +451,23 @@ model Booking {
 
   createdById String? @db.Uuid
 
+  // ── Phase 7 W5: Realtime tracking ──────────────────────────────────
+  /// §S15: timestamp when the customer accepted location tracking for
+  /// this trip. NULL means "no consent recorded" and the ingest service
+  /// refuses to accept location points.
+  locationConsentAt DateTime?
+  /// §S7: number of plausibility-flagged location points received for
+  /// this booking. transitionBookingStatus blocks the COMPLETED move
+  /// once this crosses LOCATION_SUSPICIOUS_THRESHOLD until a human
+  /// clears it (admin override). Counter only grows; reset on a fresh
+  /// booking.
+  suspiciousLocationCount Int @default(0)
+  /// §S15: compressed polyline (e.g. Google polyline algorithm at zoom
+  /// 5) captured at COMPLETED time. Long-term summary that survives the
+  /// 30-day TripLocation retention cron and is also wiped during DSR
+  /// erasure.
+  tripPolyline String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -466,6 +484,7 @@ model Booking {
   assignmentHistory AssignmentHistory[]
   payments          Payment[]
   invoice           Invoice?
+  tripLocations     TripLocation[]
 
   @@index([orgId])
   @@index([branchId])
@@ -473,6 +492,49 @@ model Booking {
   @@index([status])
   @@index([pickupAt])
   @@index([deletedAt])
+}
+
+/// §W5: live driver location points ingested via /api/v1/trips/:id/location.
+///
+/// Tenant-scoped (orgId) so the W1 Prisma extension auto-filters reads.
+/// Rows are pruned daily by /api/cron/prune-trip-locations once they age
+/// out of TRIP_LOCATION_RETENTION_DAYS (default 30). The long-term trip
+/// summary (Booking.tripPolyline) is generated at COMPLETED time and
+/// survives the prune.
+model TripLocation {
+  id          String   @id @default(cuid())
+  orgId       String?
+  bookingId   String
+  /// Driver who emitted the point. Auth-checked in the route handler;
+  /// stored here for forensic queries ("which driver pinged from
+  /// outside the city last Tuesday?").
+  driverId    String?
+  lat         Decimal  @db.Decimal(9, 6)
+  lng         Decimal  @db.Decimal(9, 6)
+  /// Optional reported speed in km/h. NULL means "client didn't compute
+  /// one"; the ingest service computes one from consecutive points
+  /// when needed for plausibility (S7).
+  speedKph    Decimal? @db.Decimal(6, 2)
+  /// Wall-clock time the point was recorded on the device. We trust
+  /// this only for ordering — plausibility uses server-side derived
+  /// values.
+  recordedAt  DateTime
+  /// Server receive time — invariant for retention-cron filtering.
+  createdAt   DateTime @default(now())
+  /// §S7: true when this single point failed plausibility (speed cap,
+  /// first-point distance, sudden jump). We still persist the row for
+  /// forensics but it does NOT advance the customer-visible polyline.
+  flagged     Boolean  @default(false)
+  /// Audit string for why a point was flagged (which rule fired).
+  flagReason  String?
+
+  org     Organization? @relation(fields: [orgId], references: [id])
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([bookingId, recordedAt])
+  @@index([createdAt])
+  @@index([driverId])
 }
 
 model AssignmentHistory {

@@ -18,6 +18,7 @@ import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
 import { notifyOnTransition } from "@/modules/notifications/services/notifyOnTransition";
+import { assertCanCompleteTrip } from "@/modules/tracking/services/policy";
 
 // Pure constants live in booking.constants.ts (no server imports) so client
 // components can import them without pulling in the pg/Prisma bundle.
@@ -93,6 +94,16 @@ export async function transitionBookingStatus(
       "VALIDATION",
       `Cannot transition booking from ${current.status} to ${opts.toStatus}.`,
     );
+  }
+
+  // 2b. §W5 S7: refuse COMPLETED when the trip accumulated too many
+  // flagged location points. Bypassed (threshold=0) by config in
+  // staging.
+  if (opts.toStatus === BookingStatus.COMPLETED) {
+    assertCanCompleteTrip({
+      bookingId,
+      suspiciousLocationCount: current.suspiciousLocationCount,
+    });
   }
 
   // 3. Determine what changed for audit and assignment history

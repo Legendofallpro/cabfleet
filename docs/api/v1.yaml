@@ -184,22 +184,38 @@ paths:
       - $ref: "#/components/parameters/TripId"
     post:
       tags: [trips]
-      summary: "Single live location point (W5 — currently returns 501)"
+      summary: Single live location point
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/LocationPoint" }
       responses:
-        "501":
-          description: Not implemented yet (Workstream 5)
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LocationIngestResponse" }
+        "400": { $ref: "#/components/responses/Validation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Customer has not consented to location sharing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Booking is not in an in-trip status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
 
   /api/v1/trips/{id}/location/batch:
     parameters:
       - $ref: "#/components/parameters/TripId"
     post:
       tags: [trips]
-      summary: "Batched live location points (W5 — currently returns 501)"
+      summary: Batched live location points (1–60)
       requestBody:
         required: true
         content:
@@ -214,8 +230,20 @@ paths:
                   maxItems: 60
                   items: { $ref: "#/components/schemas/LocationPoint" }
       responses:
-        "501":
-          description: Not implemented yet (Workstream 5)
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LocationIngestResponse" }
+        "400": { $ref: "#/components/responses/Validation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Booking is not in an in-trip status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
 
   /api/v1/attendance/check-in:
     parameters:
@@ -411,6 +439,20 @@ components:
         lng: { type: number, minimum: -180, maximum: 180 }
         speedKph: { type: number, minimum: 0 }
         recordedAt: { type: string, format: date-time }
+
+    LocationIngestResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accepted, flagged, suspiciousLocationCount]
+          properties:
+            accepted: { type: integer, description: "Points persisted (incl. flagged)" }
+            flagged: { type: integer, description: "Points that failed plausibility" }
+            suspiciousLocationCount:
+              type: integer
+              description: "Running total of flagged points for this booking"
 
     AttendanceResponse:
       type: object
