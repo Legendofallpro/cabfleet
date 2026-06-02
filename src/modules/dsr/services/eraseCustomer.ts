@@ -60,10 +60,12 @@ export type EraseCustomerOutput = {
     profile: boolean;
     customer: boolean;
     bookings: number;
+    tripPolylines: number;
   };
   deleted: {
     notificationLogs: number;
     notificationOutbox: number;
+    tripLocations: number;
   };
 };
 
@@ -136,11 +138,37 @@ export async function eraseCustomer(
 
       // 5. Bookings: keep operational fields (addresses are operational
       //    + already non-precise in many cases). If/when we add a notes
-      //    column we'd scrub it here. The query is wrapped in a count for
-      //    audit symmetry — currently always 0 columns updated.
+      //    column we'd scrub it here.
       const bookings = await tx.booking.count({
         where: { customerId: customer.id },
       });
+
+      // 5b. §W5 S15: cascade erasure to TripLocation (every raw point
+      //     ever ingested for this customer's bookings) and the
+      //     long-term tripPolyline summary. Booking row itself is
+      //     preserved for the financial trail; we just wipe the
+      //     geo-history.
+      const customerBookings = await tx.booking.findMany({
+        where: { customerId: customer.id },
+        select: { id: true, tripPolyline: true },
+      });
+      const bookingIds = customerBookings.map((b) => b.id);
+      const tripPolylinesScrubbed = customerBookings.filter(
+        (b) => b.tripPolyline !== null,
+      ).length;
+
+      const tripLocationsDeleted = bookingIds.length
+        ? await tx.tripLocation.deleteMany({
+            where: { bookingId: { in: bookingIds } },
+          })
+        : { count: 0 };
+
+      if (tripPolylinesScrubbed > 0) {
+        await tx.booking.updateMany({
+          where: { customerId: customer.id, tripPolyline: { not: null } },
+          data: { tripPolyline: null },
+        });
+      }
 
       // 6. Audit row recording the DSR action.
       await writeAudit(tx, {
@@ -162,6 +190,8 @@ export async function eraseCustomer(
           },
           notificationLogsDeleted: logsDeleted.count,
           notificationOutboxDeleted: outboxDeleted.count,
+          tripLocationsDeleted: tripLocationsDeleted.count,
+          tripPolylinesScrubbed,
           bookingsAffected: bookings,
         },
       });
@@ -169,10 +199,16 @@ export async function eraseCustomer(
       return {
         customerId: customer.id,
         profileId: profile.id,
-        scrubbed: { profile: true, customer: true, bookings },
+        scrubbed: {
+          profile: true,
+          customer: true,
+          bookings,
+          tripPolylines: tripPolylinesScrubbed,
+        },
         deleted: {
           notificationLogs: logsDeleted.count,
           notificationOutbox: outboxDeleted.count,
+          tripLocations: tripLocationsDeleted.count,
         },
       };
     });

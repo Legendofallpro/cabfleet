@@ -17,6 +17,14 @@ export const createBookingSchema = z.object({
   distanceKm: z.coerce.number().positive().optional().nullable(),
   passengers: z.coerce.number().int().min(1).max(60).default(1),
   notes: z.string().max(500).optional().nullable(),
+  /**
+   * §W5 S15: explicit per-trip opt-in for live location sharing. The
+   * customer's UI MUST surface this as a real checkbox, not a hidden
+   * field. When true, the service stamps Booking.locationConsentAt;
+   * the ingest endpoint refuses to accept points without that
+   * timestamp.
+   */
+  locationConsent: z.coerce.boolean().default(false),
 });
 
 export type CreateBookingFormValues = z.input<typeof createBookingSchema>;

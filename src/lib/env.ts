@@ -105,6 +105,33 @@ export const env = createEnv({
     API_V1_MAX_BODY_BYTES_DEFAULT: z.coerce.number().int().positive().default(65_536),
     /** §4.1: TTL for the Idempotency-Key response cache. Default 24h. */
     API_V1_IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
+
+    // ── Phase 7 W5: realtime tracking ────────────────────────────────────
+    /**
+     * §S15: how long to keep raw TripLocation points before pruning.
+     * Default 30 days — long enough for trip-day forensics, short
+     * enough to satisfy DPDP minimisation. Aggregate trip polylines
+     * live on Booking.tripPolyline and survive the prune.
+     */
+    TRIP_LOCATION_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    /**
+     * §S7: hard ceiling on plausible reported / derived speed in km/h.
+     * Points above this are flagged (not dropped) and increment the
+     * booking's suspiciousLocationCount.
+     */
+    LOCATION_MAX_SPEED_KPH: z.coerce.number().positive().default(200),
+    /**
+     * §S7: the first location point per booking must land within this
+     * many km of the geocoded pickup. Larger distances suggest a
+     * spoofed origin and are flagged. Set to 0 to disable.
+     */
+    LOCATION_FIRST_POINT_MAX_KM: z.coerce.number().nonnegative().default(5),
+    /**
+     * §S7: number of flagged points that blocks the COMPLETED
+     * transition (until an admin clears the count). 0 disables the
+     * block — useful for staging.
+     */
+    LOCATION_SUSPICIOUS_THRESHOLD: z.coerce.number().int().nonnegative().default(5),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -152,6 +179,10 @@ export const env = createEnv({
     SUPABASE_JWT_LEGACY_SECRET: process.env.SUPABASE_JWT_LEGACY_SECRET,
     API_V1_MAX_BODY_BYTES_DEFAULT: process.env.API_V1_MAX_BODY_BYTES_DEFAULT,
     API_V1_IDEMPOTENCY_TTL_HOURS: process.env.API_V1_IDEMPOTENCY_TTL_HOURS,
+    TRIP_LOCATION_RETENTION_DAYS: process.env.TRIP_LOCATION_RETENTION_DAYS,
+    LOCATION_MAX_SPEED_KPH: process.env.LOCATION_MAX_SPEED_KPH,
+    LOCATION_FIRST_POINT_MAX_KM: process.env.LOCATION_FIRST_POINT_MAX_KM,
+    LOCATION_SUSPICIOUS_THRESHOLD: process.env.LOCATION_SUSPICIOUS_THRESHOLD,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,

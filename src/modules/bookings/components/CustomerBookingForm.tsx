@@ -234,6 +234,7 @@ function Step3Review({
  notes,
  bookingTypes,
  pending,
+ register,
 }: {
  bookingTypeId: string;
  pickupAt: string;
@@ -244,6 +245,7 @@ function Step3Review({
  notes?: string | null;
  bookingTypes: BookingType[];
  pending: boolean;
+ register: ReturnType<typeof useForm<CreateBookingFormValues>>["register"];
 }) {
  const selectedType = bookingTypes.find((bt) => bt.id === bookingTypeId);
  const pickupLabel = pickupAt ? dtFmt.format(new Date(pickupAt)) : "—";
@@ -282,6 +284,23 @@ function Step3Review({
     Fare will be calculated and confirmed by staff after booking.
    </p>
 
+   {/* §W5 S15: per-trip location consent. Opt-in only — uncontrolled. */}
+   <label className="flex items-start gap-3 rounded-xl border border-default bg-surface-inset p-4 text-sm text-default">
+    <input
+     type="checkbox"
+     className="mt-0.5 h-4 w-4 rounded border-default text-primary focus:ring-primary"
+     {...register("locationConsent")}
+    />
+    <span className="flex-1">
+     <span className="font-medium">Share my live location during this trip.</span>
+     <span className="mt-0.5 block text-xs text-muted">
+      Lets you see your driver on a map in real time. Raw location points
+      are kept for 30 days then deleted; you can request deletion sooner
+      via support.
+     </span>
+    </span>
+   </label>
+
    <button
     type="submit"
     disabled={pending}
@@ -306,7 +325,7 @@ export function CustomerBookingForm({
 
  const form = useForm<CreateBookingFormValues>({
   resolver: zodResolver(createBookingSchema),
-  defaultValues: {
+   defaultValues: {
    branchId: defaultBranchId,
    customerId: defaultCustomerId,
    bookingTypeId: "",
@@ -316,6 +335,7 @@ export function CustomerBookingForm({
    distanceKm: undefined,
    passengers: 1,
    notes: "",
+   locationConsent: false,
   },
  });
 
@@ -412,6 +432,7 @@ export function CustomerBookingForm({
       notes={reviewNotes}
       bookingTypes={bookingTypes}
       pending={pending}
+      register={register}
      />
     )}
    </div>

@@ -44,6 +44,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   "MaintenanceLog",
   "AssignmentHistory",
   "AuditLog",
+  "TripLocation",
 ]);
 
 export type OrgContext =

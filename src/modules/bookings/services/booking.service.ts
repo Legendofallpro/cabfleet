@@ -94,6 +94,10 @@ export async function createBooking(
         fareEstimate: fare?.total ?? null,
         claimTimeoutAt,
         createdById: actor.id,
+        // §W5 S15: capture the consent stamp at create time. Customers
+        // who opt out simply don't get a live map; they (and ops) can
+        // grant consent later via a dedicated action (TBD).
+        locationConsentAt: input.locationConsent ? new Date() : null,
         version: 0,
       },
       include: bookingDetailInclude,

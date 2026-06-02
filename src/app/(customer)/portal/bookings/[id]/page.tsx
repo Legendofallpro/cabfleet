@@ -1,16 +1,26 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import type { BookingStatus } from "@prisma/client";
+import { BookingStatus } from "@prisma/client";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import { CancelBookingButton } from "@/modules/bookings/components/CancelBookingButton";
 import { getInvoiceForBooking } from "@/modules/invoices/queries/invoice";
+import { listRecentForBooking } from "@/modules/tracking/queries/location";
+import LiveTripMapLoader from "@/modules/tracking/components/LiveTripMapLoader";
+
+const IN_TRIP_STATUSES = new Set<BookingStatus>([
+  BookingStatus.CLAIMED,
+  BookingStatus.ASSIGNED,
+  BookingStatus.DRIVER_EN_ROUTE,
+  BookingStatus.IN_PROGRESS,
+]);
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Booking Detail | CabFleet" };
@@ -62,6 +72,11 @@ export default async function CustomerBookingDetailPage({
 
  const invoice = await getInvoiceForBooking(id);
  const bookingRef = booking.id.slice(-8).toUpperCase();
+
+ const showLiveMap =
+  IN_TRIP_STATUSES.has(booking.status as BookingStatus) &&
+  booking.locationConsentAt !== null;
+ const initialPoints = showLiveMap ? await listRecentForBooking(id, 200) : [];
 
  return (
   <div>
@@ -122,6 +137,33 @@ export default async function CustomerBookingDetailPage({
         {booking.assignedVehicle.registrationNumber}
        </p>
       )}
+     </div>
+    )}
+
+    {showLiveMap && (
+     <div className="mt-5">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Live Trip Map</p>
+      <LiveTripMapLoader
+       bookingId={booking.id}
+       pickup={
+        booking.pickupLat != null && booking.pickupLng != null
+         ? { lat: Number(booking.pickupLat), lng: Number(booking.pickupLng) }
+         : null
+       }
+       drop={
+        booking.dropLat != null && booking.dropLng != null
+         ? { lat: Number(booking.dropLat), lng: Number(booking.dropLng) }
+         : null
+       }
+       initialPoints={initialPoints.map((p) => ({
+        lat: p.lat,
+        lng: p.lng,
+        recordedAt: p.recordedAt.toISOString(),
+       }))}
+       mapTilesUrl={env.NEXT_PUBLIC_MAP_TILES_URL ?? null}
+       supabaseUrl={env.NEXT_PUBLIC_SUPABASE_URL}
+       supabaseAnonKey={env.NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      />
      </div>
     )}
 
