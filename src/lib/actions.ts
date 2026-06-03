@@ -35,7 +35,7 @@ export function action<Schema extends z.ZodTypeAny, T>(
     try {
       session = await getSessionUser();
       const actorKey = session?.profile.id ?? "anon";
-      const limit = checkLimit(`action:${name}:${actorKey}`, LIMITS.action);
+      const limit = await checkLimit(`action:${name}:${actorKey}`, LIMITS.action);
       if (!limit.success) {
         logger.warn(
           { action: name, actorKey, resetAt: limit.resetAt },

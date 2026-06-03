@@ -116,9 +116,9 @@ export class TwilioWhatsAppProvider implements NotificationProvider {
     }
 
     // §7.4 S8: per-recipient rate limit — defeats template loops and
-    // burst spam. In-memory limiter is the single-instance fallback;
-    // multi-instance prod swaps to Upstash via src/lib/rate-limit.ts.
-    const limit = checkLimit(`twilio:recipient:${parsed.e164}`, RECIPIENT_LIMIT);
+    // burst spam. The limiter is Upstash-backed in prod (shared across
+    // instances) and in-memory in dev; see src/lib/rate-limit.ts.
+    const limit = await checkLimit(`twilio:recipient:${parsed.e164}`, RECIPIENT_LIMIT);
     if (!limit.success) {
       logger.warn(
         {

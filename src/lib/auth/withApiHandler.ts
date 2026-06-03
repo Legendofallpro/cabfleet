@@ -40,6 +40,11 @@ import { requireApiAuth } from "@/lib/auth/api";
 import type { SessionUser } from "@/lib/auth/session";
 import { runWithOrg, runWithoutOrg } from "@/lib/org-context";
 import type { Result } from "@/lib/result";
+import {
+  getIdempotencyEntry,
+  setIdempotencyEntry,
+  __clearIdempotencyForTests,
+} from "@/lib/idempotency";
 
 const STATUS_FOR_CODE: Record<AppErrorCode, number> = {
   UNAUTHENTICATED: 401,
@@ -103,30 +108,12 @@ type RouteHandlerOptions<TBody, TParams> = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────
-// Idempotency response cache (in-memory).
+// Idempotency response cache.
 //
-// Production deploy gate: swap to Upstash when the same is done for the
-// rate limiter (see §4.4). The cache key is
-// `${profileId}:${pathname}:${idempotencyHeader}` so a leaked key from
-// one driver can't replay another's request.
+// The actual storage (in-memory vs Upstash) lives in `src/lib/idempotency.ts`.
+// The cache key shape is `${profileId}:${pathname}:${idempotencyHeader}` so
+// a leaked key from one driver cannot replay another driver's response.
 // ──────────────────────────────────────────────────────────────────────────
-type CachedResponse = {
-  body: string;
-  status: number;
-  contentType: string;
-  expiresAt: number;
-};
-const idempotencyStore = new Map<string, CachedResponse>();
-
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [k, v] of idempotencyStore) {
-      if (v.expiresAt <= now) idempotencyStore.delete(k);
-    }
-  }, 5 * 60_000).unref?.();
-}
-
 function makeIdempotencyKey(user: SessionUser, url: URL, header: string) {
   return `${user.profile.id}:${url.pathname}:${header}`;
 }
@@ -326,7 +313,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
     // 4. Rate limit. Keyed by profile id when authenticated, IP otherwise.
     if (opts.rateLimit) {
       const actor = user ? `profile:${user.profile.id}` : `ip:${getClientIp(req)}`;
-      const limit = checkLimit(
+      const limit = await checkLimit(
         `api.v1:${opts.rateLimit.key}:${actor}`,
         opts.rateLimit.opts,
       );
@@ -369,8 +356,8 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
         );
       }
       idempotencyKey = makeIdempotencyKey(user, url, idempotencyHeader);
-      const cached = idempotencyStore.get(idempotencyKey);
-      if (cached && cached.expiresAt > Date.now()) {
+      const cached = await getIdempotencyEntry(idempotencyKey);
+      if (cached) {
         return new NextResponse(cached.body, {
           status: cached.status,
           headers: {
@@ -455,12 +442,16 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
     //    a 429 for 24h.
     if (idempotencyKey && response.status >= 200 && response.status < 300) {
       const text = await response.clone().text();
-      idempotencyStore.set(idempotencyKey, {
-        body: text,
-        status: response.status,
-        contentType: response.headers.get("content-type") ?? "application/json",
-        expiresAt: Date.now() + idempotencyTtlMs,
-      });
+      await setIdempotencyEntry(
+        idempotencyKey,
+        {
+          body: text,
+          status: response.status,
+          contentType:
+            response.headers.get("content-type") ?? "application/json",
+        },
+        idempotencyTtlMs,
+      );
     }
 
     return response;
@@ -469,4 +460,6 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
 
 // Exposed for tests — DO NOT use from app code. Mutating this from the
 // product code would break the abstraction.
-export const __internalIdempotencyStoreForTests = idempotencyStore;
+export const __internalIdempotencyStoreForTests = {
+  clear: () => __clearIdempotencyForTests(),
+};

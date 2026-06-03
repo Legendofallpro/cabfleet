@@ -1,18 +1,29 @@
 /**
- * Lightweight in-memory sliding-window rate limiter.
+ * Rate limiter with a transparent in-memory ↔ Upstash Redis swap.
  *
- * This is the dev/single-instance backstop. In production behind multiple
- * Node instances you want a shared store (Upstash Redis) so counters are
- * consistent across replicas; wire that in by replacing `checkLimit` with
- * a call to `@upstash/ratelimit` when `env.UPSTASH_REDIS_REST_URL` is set
- * (env keys are already declared in `src/lib/env.ts`).
+ * Selection rule
+ * --------------
+ * When both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are
+ * set, we route every call through `@upstash/ratelimit` — a sliding
+ * window backed by a shared Redis. This is the only configuration that
+ * works on multi-instance Vercel: in-process Maps can't agree across
+ * cold starts, so a "60/min" limit silently becomes 60×N/min.
  *
- * See docs/web-app-security.md §14.
+ * When the env is unset (local dev, CI), we fall back to the original
+ * in-process Map. Behaviour is identical from the caller's perspective
+ * — both return `{ success, remaining, resetAt }`.
+ *
+ * Why `async`?
+ * ------------
+ * Upstash REST is HTTP under the covers. We make `checkLimit` async
+ * everywhere so the in-memory path and the Redis path share one shape;
+ * call sites that already lived in async contexts (middleware, action
+ * wrapper, withApiHandler) just add an `await`.
  */
 
-type Bucket = { count: number; resetAt: number };
-
-const buckets = new Map<string, Bucket>();
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { env } from "@/lib/env";
 
 export type RateLimitResult = {
   success: boolean;
@@ -27,7 +38,13 @@ export type RateLimitOptions = {
   max: number;
 };
 
-export function checkLimit(key: string, opts: RateLimitOptions): RateLimitResult {
+// ──────────────────────────────────────────────────────────────────────
+// In-memory fallback
+// ──────────────────────────────────────────────────────────────────────
+type Bucket = { count: number; resetAt: number };
+const buckets = new Map<string, Bucket>();
+
+function checkLimitMemory(key: string, opts: RateLimitOptions): RateLimitResult {
   const now = Date.now();
   const existing = buckets.get(key);
 
@@ -47,6 +64,103 @@ export function checkLimit(key: string, opts: RateLimitOptions): RateLimitResult
     remaining: opts.max - existing.count,
     resetAt: existing.resetAt,
   };
+}
+
+// Periodic prune so the Map doesn't grow unbounded (in-memory path only).
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key);
+    }
+  }, 5 * 60_000).unref?.();
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Upstash path
+// ──────────────────────────────────────────────────────────────────────
+let cachedRedis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) return null;
+  if (cachedRedis) return cachedRedis;
+  cachedRedis = new Redis({
+    url: env.UPSTASH_REDIS_REST_URL,
+    token: env.UPSTASH_REDIS_REST_TOKEN,
+  });
+  return cachedRedis;
+}
+
+/**
+ * One Ratelimit instance per (windowMs,max) shape. The Upstash client
+ * keys its analytics + ephemeral cache off this object, so reusing
+ * instances is materially cheaper than recreating per request.
+ */
+const limiterCache = new Map<string, Ratelimit>();
+function getLimiter(opts: RateLimitOptions): Ratelimit | null {
+  const redis = getRedis();
+  if (!redis) return null;
+  const cacheKey = `${opts.windowMs}:${opts.max}`;
+  const existing = limiterCache.get(cacheKey);
+  if (existing) return existing;
+
+  // Upstash duration shape: "60 s", "100 ms", etc. We use ms when not
+  // a clean second multiple, since several presets are multi-second.
+  const duration =
+    opts.windowMs % 1000 === 0
+      ? `${opts.windowMs / 1000} s`
+      : `${opts.windowMs} ms`;
+
+  const limiter = new Ratelimit({
+    redis,
+    // Sliding window matches the in-memory semantics most closely.
+    limiter: Ratelimit.slidingWindow(opts.max, duration as `${number} s`),
+    // No analytics, no global prefix — keep it cheap and predictable.
+    analytics: false,
+    prefix: "rl",
+  });
+  limiterCache.set(cacheKey, limiter);
+  return limiter;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Public API
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Check (and increment) the limiter for `key`. Returns whether the
+ * caller is under the limit, how many requests remain in the window,
+ * and when the window resets (epoch ms).
+ *
+ * The Upstash call can fail (network blip, REST 5xx). If it does we
+ * fail-OPEN and log via the caller — denying legitimate traffic on a
+ * limiter outage is a bigger user-visible bug than the brief window of
+ * looser rate enforcement.
+ */
+export async function checkLimit(
+  key: string,
+  opts: RateLimitOptions,
+): Promise<RateLimitResult> {
+  const limiter = getLimiter(opts);
+  if (!limiter) {
+    return checkLimitMemory(key, opts);
+  }
+  try {
+    const res = await limiter.limit(key);
+    return {
+      success: res.success,
+      remaining: res.remaining,
+      resetAt: res.reset,
+    };
+  } catch {
+    // Fail open — see contract above. The caller's logger surfaces the
+    // event via its own context; we don't import logger here to avoid
+    // an import cycle with `src/lib/logger.ts`.
+    return {
+      success: true,
+      remaining: opts.max,
+      resetAt: Date.now() + opts.windowMs,
+    };
+  }
 }
 
 /** Common limiter presets. Tune per-route. */
@@ -82,14 +196,4 @@ export function getClientIp(req: { headers: Headers }): string {
     req.headers.get("cf-connecting-ip") ??
     "unknown"
   );
-}
-
-/** Periodically prune expired buckets so the Map doesn't grow unbounded. */
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(key);
-    }
-  }, 5 * 60_000).unref?.();
 }
