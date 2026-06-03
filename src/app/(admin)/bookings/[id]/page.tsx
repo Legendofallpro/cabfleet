@@ -19,6 +19,7 @@ import { listAssignableVehicles } from "@/modules/vehicles/queries/vehicle";
 import { getInvoiceForBooking } from "@/modules/invoices/queries/invoice";
 import { listPaymentsForBooking } from "@/modules/payments/queries/payment";
 import { GenerateInvoiceButton } from "@/modules/invoices/components/GenerateInvoiceButton";
+import { ClearSuspiciousButton } from "@/modules/tracking/components/ClearSuspiciousButton";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
 
@@ -72,10 +73,16 @@ export default async function BookingDetailPage({
    <PageBreadcrumb pageTitle={`Booking #${bookingRef}`} />
 
    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-    {/* ── Left column ── */}
-    <div className="space-y-5 lg:col-span-2">
+   {/* ── Left column ── */}
+   <div className="space-y-5 lg:col-span-2">
 
-     {/* Summary */}
+    {/* Suspicious-location override (admin-only; renders nothing when 0). */}
+    <ClearSuspiciousButton
+     bookingId={booking.id}
+     count={booking.suspiciousLocationCount}
+    />
+
+    {/* Summary */}
      <SurfaceCard
       title={<span className="text-base font-semibold">Booking #{bookingRef}</span>}
       actions={<BookingStatusActions bookingId={booking.id} status={booking.status} />}
