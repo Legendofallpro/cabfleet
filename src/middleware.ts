@@ -57,10 +57,10 @@ export async function middleware(request: NextRequest) {
   // withApiHandler, which is strictly tighter than a per-IP bucket would
   // be for a shared NAT (corporate WiFi, mobile carrier CGNAT).
   if (isAuthPath(pathname)) {
-    const limit = checkLimit(`auth:${ip}`, LIMITS.auth);
+    const limit = await checkLimit(`auth:${ip}`, LIMITS.auth);
     if (!limit.success) return rateLimitResponse(limit.resetAt);
   } else if (pathname.startsWith("/api/") && !pathname.startsWith("/api/v1/")) {
-    const limit = checkLimit(`api:${ip}:${pathname}`, LIMITS.api);
+    const limit = await checkLimit(`api:${ip}:${pathname}`, LIMITS.api);
     if (!limit.success) return rateLimitResponse(limit.resetAt);
   }
 
