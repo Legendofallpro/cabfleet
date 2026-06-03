@@ -100,6 +100,9 @@ const othersItems: NavItem[] = [
       // Phase 7 W1: SUPER_ADMIN-only — tenant ADMINs who click the link
       // are bounced by the page-level role check.
       { name: "Organizations", path: "/orgs" },
+      // Phase 7 W2 deferred — DSR right-to-erasure workbench, also
+      // SUPER_ADMIN-only at the page + action layer.
+      { name: "DSR Erase", path: "/dsr" },
     ],
   },
 ];
