@@ -171,6 +171,102 @@ export async function updateDriver(
   return ok(driver);
 }
 
+/**
+ * S22 — terminate a driver with forced sign-out.
+ *
+ * The combination is non-negotiable: a softDelete alone leaves any
+ * existing access + refresh tokens live for their full TTL, which
+ * means a fired driver can keep claiming/transitioning trips through
+ * the REST v1 API until those tokens naturally expire. We:
+ *
+ *  1. Ban the Supabase Auth user (`ban_duration: '876000h'`) — this
+ *     immediately invalidates all live refresh tokens and blocks
+ *     re-authentication. Access tokens still validate until they
+ *     expire (Supabase doesn't sign-out access tokens server-side),
+ *     so the upstream remediation is short access-token TTLs +
+ *     `requireApiAuth`-side checks on `Profile.role`/`Driver.status`.
+ *  2. In a single Prisma transaction: set Driver.status = SUSPENDED,
+ *     set deletedAt, tombstone the license number (so it can be
+ *     re-issued to a future driver), and write a TERMINATE audit row.
+ *
+ * The ban happens BEFORE the DB write because the Supabase call is
+ * the externally-visible operation; if it fails we surface the error
+ * to the actor without having tombstoned the DB row.
+ */
+export async function terminateDriver(
+  id: string,
+  reason: string,
+  actor: Actor,
+): Promise<Result<true>> {
+  const current = await db.driver.findFirst({
+    where: { id, deletedAt: null },
+    include: { profile: true },
+  });
+  if (!current) throw new AppError("NOT_FOUND", "Driver not found.");
+
+  const supabase = getSupabaseAdminClient();
+  // 100-year ban is the documented Supabase pattern for permanent
+  // termination. Any string accepted by Go's time.ParseDuration works.
+  const banResult = await supabase.auth.admin.updateUserById(current.profileId, {
+    ban_duration: "876000h",
+  });
+  if (banResult.error) {
+    logger.error(
+      { err: banResult.error, driverId: id },
+      "driver.terminate.ban_failed",
+    );
+    throw new AppError(
+      "INTERNAL",
+      "Failed to revoke driver sessions. Please try again.",
+    );
+  }
+
+  const deletedLicenseNumber = tombstoneUniqueValue(
+    current.licenseNumber,
+    current.id,
+  );
+
+  await db.$transaction(async (tx) => {
+    await tx.driver.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        status: "SUSPENDED",
+        licenseNumber: deletedLicenseNumber,
+      },
+    });
+    // AuditAction has no dedicated "TERMINATE" value, so we reuse DELETE
+    // and tag the diff so reports can distinguish a routine soft-delete
+    // from a forced sign-out termination.
+    await writeAudit(tx, {
+      entity: "Driver",
+      entityId: id,
+      action: "DELETE",
+      byProfileId: actor.id,
+      diff: {
+        kind: "TERMINATE",
+        before: {
+          status: current.status,
+          licenseNumber: current.licenseNumber,
+        },
+        after: {
+          status: "SUSPENDED",
+          licenseNumber: deletedLicenseNumber,
+          banned: true,
+        },
+        reason,
+      },
+    });
+  });
+
+  logger.info(
+    { driverId: id, profileId: current.profileId, actorId: actor.id },
+    "driver.terminated",
+  );
+
+  return ok(true);
+}
+
 export async function softDeleteDriver(id: string, actor: Actor): Promise<Result<true>> {
   const current = await db.driver.findFirst({ where: { id, deletedAt: null } });
   if (!current) throw new AppError("NOT_FOUND", "Driver not found.");
