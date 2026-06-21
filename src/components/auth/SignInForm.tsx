@@ -45,8 +45,8 @@ export default function SignInForm() {
   // Hard redirect so Next.js re-runs the middleware with the fresh
   // Supabase auth cookies. router.push() alone is a client-side
   // navigation that can miss the cookie hand-off in some Next.js
-  // versions; window.location guarantees a full request cycle.
-  window.location.href = redirectTo;
+  // versions; a full navigation guarantees a fresh request cycle.
+  window.location.assign(redirectTo);
  }
 
  return (
