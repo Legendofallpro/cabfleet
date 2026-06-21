@@ -2,11 +2,12 @@
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
+import type { HeaderUser } from "@/layout/header-user";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 
-const AppHeader: React.FC = () => {
+const AppHeader: React.FC<{ user: HeaderUser }> = ({ user }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -167,7 +168,7 @@ const AppHeader: React.FC = () => {
             {/* Notification bell — placeholder until notification module ships */}
           </div>
           {/* <!-- User Area --> */}
-          <UserDropdown /> 
+          <UserDropdown user={user} />
     
         </div>
       </div>

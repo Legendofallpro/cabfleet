@@ -1,7 +1,18 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, globalIgnores } from "eslint/config";
 import tailwindcss from "eslint-plugin-tailwindcss";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const tailwindConfigPath = path.join(__dirname, "src/app/globals.css");
+
+const tailwindPluginSettings = {
+  tailwindcss: {
+    config: tailwindConfigPath,
+  },
+};
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -20,6 +31,7 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/**/*.{ts,tsx}", "src/modules/**/*.{ts,tsx}"],
     plugins: { tailwindcss },
+    settings: tailwindPluginSettings,
     rules: {
       // Block bracket notation: w-[372px], text-[13px], rounded-[17px] etc.
       "tailwindcss/no-arbitrary-value": "warn",
@@ -34,6 +46,7 @@ const eslintConfig = defineConfig([
       "src/layout/**/*.{ts,tsx}",
     ],
     plugins: { tailwindcss },
+    settings: tailwindPluginSettings,
     rules: {
       "tailwindcss/no-arbitrary-value": "off",
     },

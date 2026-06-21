@@ -4,6 +4,7 @@ import React from "react";
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
 import AdminShell from "@/app/(admin)/_components/AdminShell";
+import type { HeaderUser } from "@/layout/header-user";
 
 // Every page under (admin) reads the session + queries the DB, so prerendering
 // makes no sense. Force dynamic at the segment root.
@@ -24,8 +25,14 @@ export default async function AdminLayout({
  switch (session.profile.role) {
   case "SUPER_ADMIN":
   case "ADMIN":
-  case "STAFF":
-   return <AdminShell>{children}</AdminShell>;
+  case "STAFF": {
+   const headerUser: HeaderUser = {
+    fullName: session.profile.fullName,
+    email: session.profile.email,
+    avatarUrl: session.profile.avatarUrl,
+   };
+   return <AdminShell user={headerUser}>{children}</AdminShell>;
+  }
   case "DRIVER":
    redirect(getRoleHome(session.profile.role));
   case "CUSTOMER":
