@@ -77,7 +77,7 @@ export default function ResetPasswordRequestForm() {
        error={errors.email?.message}
       />
 
-      <Button className="w-full" size="sm" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" size="sm" disabled={isSubmitting}>
        {isSubmitting ? "Sending reset link..." : "Send reset link"}
       </Button>
      </form>

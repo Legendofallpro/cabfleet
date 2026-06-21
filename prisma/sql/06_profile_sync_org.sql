@@ -61,10 +61,9 @@ begin
        and "deletedAt" is null;
   end if;
 
-  resolved_role := coalesce(
-    (new.raw_user_meta_data->>'role')::public."Role",
-    'CUSTOMER'
-  );
+  -- Self-service signup must be CUSTOMER (02_profile_sync_lock_role.sql).
+  -- Driver/Staff invites override role in the service-layer upsert afterward.
+  resolved_role := 'CUSTOMER'::public."Role";
 
   -- SUPER_ADMIN profiles may carry orgId IS NULL (CHECK constraint allows it).
   -- For every other role we require an org; if neither path resolved we let

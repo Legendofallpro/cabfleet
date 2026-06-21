@@ -35,7 +35,7 @@ export default function SignUpForm() {
 
  async function onSubmit(values: SignUpValues) {
   const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
    email: values.email,
    password: values.password,
    options: {
@@ -45,11 +45,26 @@ export default function SignUpForm() {
    },
   });
   if (error) {
-   toast.error("Unable to create your account. Please try again.");
+   const hint =
+    error.message?.toLowerCase().includes("database") ||
+    error.message?.toLowerCase().includes("saving new user")
+     ? " Account setup failed — your Supabase project is missing the org-aware profile trigger. Apply prisma/sql/06_profile_sync_org.sql in the Supabase SQL editor."
+     : "";
+   toast.error(`Unable to create your account.${hint}`);
    return;
   }
-  toast.success("Account created. Check your email to confirm.");
-  router.push("/signin");
+  // When email confirmation is disabled in Supabase the signUp call returns
+  // a live session immediately. Navigate straight to the portal in that case.
+  // When confirmation IS required the session is null and the user needs to
+  // check their inbox first.
+  if (data.session) {
+   toast.success("Account created. Taking you to the portal…");
+   router.push("/portal");
+   router.refresh();
+  } else {
+   toast.success("Account created. Check your email to confirm, then sign in.");
+   router.push("/signin");
+  }
  }
 
  return (
