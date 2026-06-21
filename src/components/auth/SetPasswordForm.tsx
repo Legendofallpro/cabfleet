@@ -112,7 +112,7 @@ export function SetPasswordForm({ mode, postPasswordRedirect }: Props) {
        error={errors.confirmPassword?.message}
       />
 
-      <Button className="w-full" size="sm" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" size="sm" disabled={isSubmitting}>
        {isSubmitting ? "Saving password..." : copy.submitLabel}
       </Button>
      </form>

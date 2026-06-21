@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -15,7 +15,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signInSchema, type SignInValues } from "@/lib/auth/validators";
 
 export default function SignInForm() {
- const router = useRouter();
  const searchParams = useSearchParams();
  const redirectTo = sanitizeRedirectTo(searchParams.get("redirectTo")) ?? "/";
 
@@ -37,12 +36,17 @@ export default function SignInForm() {
    password: values.password,
   });
   if (error) {
-   toast.error("Invalid email or password.");
+   // Supabase returns the same error shape for "wrong password" and
+   // "email not confirmed" to avoid account enumeration. The message
+   // is safe to surface verbatim here because it doesn't leak existence.
+   toast.error(error.message ?? "Invalid email or password.");
    return;
   }
-  toast.success("Signed in.");
-  router.push(redirectTo);
-  router.refresh();
+  // Hard redirect so Next.js re-runs the middleware with the fresh
+  // Supabase auth cookies. router.push() alone is a client-side
+  // navigation that can miss the cookie hand-off in some Next.js
+  // versions; window.location guarantees a full request cycle.
+  window.location.href = redirectTo;
  }
 
  return (
@@ -107,7 +111,7 @@ export default function SignInForm() {
         Forgot password?
        </Link>
       </div>
-      <Button className="w-full" size="sm" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" size="sm" disabled={isSubmitting}>
        {isSubmitting ? "Signing in..." : "Sign in"}
       </Button>
      </form>
