@@ -46,7 +46,7 @@ export default async function AuthErrorPage({ searchParams }: Props) {
      <div className="mt-6">
       <Link
        href="/signin"
-       className="inline-flex h-10 items-center justify-center rounded-lg bg-primary-subtle0 px-4 text-sm font-medium text-white hover:bg-primary-hover"
+       className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-hover"
       >
        Go to sign in
       </Link>

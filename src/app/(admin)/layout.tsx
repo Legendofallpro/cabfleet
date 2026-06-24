@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
 import AdminShell from "@/app/(admin)/_components/AdminShell";
 import type { HeaderUser } from "@/layout/header-user";
-import { getHeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
+import { getHeaderNotificationSummary } from "@/modules/notifications/queries/notification";
 
 // Every page under (admin) reads the session + queries the DB, so prerendering
 // makes no sense. Force dynamic at the segment root.

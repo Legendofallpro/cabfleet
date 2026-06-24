@@ -38,7 +38,7 @@ function StepIndicator({ current }: { current: number }) {
      <div
       className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
        i < current
-        ? "bg-primary-subtle0 text-white"
+        ? "bg-primary text-white"
         : i === current
          ? "border-2 border-primary bg-surface-elevated text-primary "
          : "bg-surface-inset text-muted dark:text-muted"
@@ -112,7 +112,7 @@ function Step1BookingType({
        onClick={() => onSelect(bt.id)}
        className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
         isSelected
-         ? "border-brand-500 bg-primary-subtle dark:border-brand-400 dark:bg-primary-subtle0/10"
+         ? "border-primary bg-primary-subtle dark:border-primary dark:bg-primary/10"
          : "border-default bg-surface-elevated hover:border-default  dark:hover:border-primary"
        }`}
       >
@@ -304,7 +304,7 @@ function Step3Review({
    <button
     type="submit"
     disabled={pending}
-    className="w-full rounded-xl bg-primary-subtle0 py-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50 sm:py-3.5"
+    className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50 sm:py-3.5"
    >
     {pending ? "Confirming…" : "Confirm Booking"}
    </button>
@@ -454,7 +454,7 @@ export function CustomerBookingForm({
      <button
       type="button"
       onClick={goNext}
-      className="ml-auto inline-flex h-11 items-center rounded-xl bg-primary-subtle0 px-6 text-sm font-semibold text-white hover:bg-primary-hover"
+      className="ml-auto inline-flex h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-white hover:bg-primary-hover"
      >
       Continue →
      </button>

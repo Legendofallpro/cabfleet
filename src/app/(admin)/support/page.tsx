@@ -7,7 +7,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
-import { db } from "@/lib/db";
+import { getOrg } from "@/modules/orgs/queries/org";
 
 export const metadata: Metadata = {
   title: "Support | CabFleet Admin",
@@ -36,10 +36,7 @@ export default async function AdminSupportPage() {
   if (!session) redirect("/signin?redirectTo=/support");
 
   const org = session.profile.orgId
-    ? await db.organization.findFirst({
-        where: { id: session.profile.orgId, deletedAt: null },
-        select: { name: true },
-      })
+    ? await getOrg(session.profile.orgId)
     : null;
 
   const supportEmail = env.SUPPORT_EMAIL;

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { getSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { getDriverIdForProfile } from "@/modules/drivers/queries/driver-self";
 import { listOpenForClaimBookings } from "@/modules/bookings/queries/driver";
 import { ClaimButton } from "@/app/(driver)/_components/ClaimButton";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
@@ -15,12 +15,9 @@ export default async function OpenTripsPage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin");
 
-  const driver = await db.driver.findFirst({
-    where: { profileId: session.profile.id, deletedAt: null },
-    select: { id: true, status: true, profile: { select: { branchId: true } } },
-  });
+  const driver = await getDriverIdForProfile(session.profile.id);
 
-  if (!driver || !driver.profile.branchId) {
+  if (!driver || !driver.branchId) {
     return (
       <SurfaceCard padding="lg">
         <p className="text-sm text-muted text-center">
@@ -40,7 +37,7 @@ export default async function OpenTripsPage() {
     );
   }
 
-  const bookings = await listOpenForClaimBookings(driver.profile.branchId);
+  const bookings = await listOpenForClaimBookings(driver.branchId);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

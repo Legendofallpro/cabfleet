@@ -6,8 +6,6 @@ import { BookingStatus } from "@prisma/client";
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
-import { db } from "@/lib/db";
-import { writeAudit } from "@/lib/audit";
 import { ok, err } from "@/lib/result";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import {
@@ -23,6 +21,7 @@ import {
   cancelBooking,
   transitionByStaff,
 } from "@/modules/bookings/services/booking.service";
+import { softDeleteBooking } from "@/modules/bookings/services/softDeleteBooking";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Create
@@ -137,22 +136,8 @@ export const softDeleteBookingAction = action(
   softDeleteBookingSchema,
   async ({ bookingId }) => {
     const actor = await requirePermission(PERMISSIONS.BOOKING_OVERRIDE);
-    const current = await db.booking.findFirst({ where: { id: bookingId, deletedAt: null } });
-    if (!current) {
-      return err({ code: "NOT_FOUND", message: "Booking not found." });
-    }
-    await db.$transaction(async (tx) => {
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: { deletedAt: new Date() },
-      });
-      await writeAudit(tx, {
-        entity: "Booking",
-        entityId: bookingId,
-        action: "DELETE",
-        byProfileId: actor.profile.id,
-      });
-    });
+    const result = await softDeleteBooking(bookingId, { id: actor.profile.id });
+    if (!result.ok) return result;
     revalidatePath("/bookings");
     return ok(true as const);
   },

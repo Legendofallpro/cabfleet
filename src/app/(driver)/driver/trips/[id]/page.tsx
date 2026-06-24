@@ -3,36 +3,21 @@ import { notFound, redirect } from "next/navigation";
 import { format } from "date-fns";
 import type { BookingStatus } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { getDriverIdForProfile } from "@/modules/drivers/queries/driver-self";
 import { getDriverBookingDetail } from "@/modules/bookings/queries/driver";
-import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
+import {
+  BOOKING_STATUS_LABEL,
+  DRIVER_NEXT_ACTIONS,
+  type DriverNextAction,
+} from "@/modules/bookings/booking.constants";
 import { ClaimButton } from "@/app/(driver)/_components/ClaimButton";
 import { TripActionButton } from "@/app/(driver)/_components/TripActionButton";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 
 export const metadata: Metadata = { title: "Trip Detail | CabFleet Driver" };
 
-type NextDriverAction = {
- label: string;
- toStatus: BookingStatus;
- variant?: "primary" | "danger" | "secondary";
-};
-
-function getNextActions(status: BookingStatus): NextDriverAction[] {
- switch (status) {
-  case "ASSIGNED":
-   return [{ label: "I'm on my way", toStatus: "DRIVER_EN_ROUTE" }];
-  case "DRIVER_EN_ROUTE":
-   return [
-    { label: "Start Trip", toStatus: "IN_PROGRESS" },
-    { label: "Customer No-Show", toStatus: "NO_SHOW", variant: "danger" },
-   ];
-  case "IN_PROGRESS":
-   return [{ label: "Complete Trip", toStatus: "COMPLETED" }];
-  default:
-   return [];
- }
-}
+// Re-export type for TripActionButton prop compatibility
+type NextDriverAction = DriverNextAction;
 
 export default async function TripDetailPage({
  params,
@@ -43,17 +28,14 @@ export default async function TripDetailPage({
  const session = await getSessionUser();
  if (!session) redirect("/signin");
 
- const driver = await db.driver.findFirst({
-  where: { profileId: session.profile.id, deletedAt: null },
-  select: { id: true, profile: { select: { branchId: true } } },
- });
- if (!driver?.profile.branchId) {
+ const driver = await getDriverIdForProfile(session.profile.id);
+ if (!driver?.branchId) {
   redirect("/driver/trips/open");
  }
 
  const booking = await getDriverBookingDetail(id, {
   driverId: driver.id,
-  branchId: driver.profile.branchId,
+  branchId: driver.branchId,
  });
  if (!booking) notFound();
 
@@ -69,7 +51,7 @@ export default async function TripDetailPage({
   redirect("/driver/trips/open");
  }
 
- const nextActions = getNextActions(booking.status);
+ const nextActions: NextDriverAction[] = DRIVER_NEXT_ACTIONS[booking.status] ?? [];
 
  return (
   <div className="space-y-4">
@@ -84,7 +66,7 @@ export default async function TripDetailPage({
     <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Route</div>
     <div className="space-y-2">
      <div className="flex items-start gap-2">
-      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-green-500" />
+      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-success" />
       <span className="text-sm text-default">
        {booking.pickupAddress}
       </span>
@@ -93,7 +75,7 @@ export default async function TripDetailPage({
       {format(new Date(booking.pickupAt), "dd MMM yyyy, h:mm a")}
      </div>
      <div className="flex items-start gap-2">
-      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-error" />
       <span className="text-sm text-default">
        {booking.dropAddress}
       </span>

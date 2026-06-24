@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
-import { db } from "@/lib/db";
 import { listBookingTypes } from "@/modules/bookings/queries/booking";
+import { getDefaultBranch } from "@/modules/branches/queries/branch";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import { CustomerBookingForm } from "@/modules/bookings/components/CustomerBookingForm";
 
@@ -19,11 +19,7 @@ export default async function BookPage() {
 
  const [customer, branch, bookingTypes] = await Promise.all([
   getOrCreateCustomer(session.profile.id),
-  db.branch.findFirst({
-   where: { deletedAt: null },
-   orderBy: { createdAt: "asc" },
-   select: { id: true, name: true },
-  }),
+  getDefaultBranch(),
   listBookingTypes(),
  ]);
 

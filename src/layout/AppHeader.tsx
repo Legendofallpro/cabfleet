@@ -4,7 +4,7 @@ import HeaderNotificationDropdown from "@/components/header/HeaderNotificationDr
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import type { HeaderUser } from "@/layout/header-user";
-import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
+import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";

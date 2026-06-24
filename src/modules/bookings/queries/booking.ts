@@ -1,6 +1,6 @@
 import { type BookingStatus, type Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { bookingDetailInclude } from "@/modules/bookings/services/transitionBookingStatus";
+import { bookingDetailInclude } from "@/modules/bookings/includes";
 import type { BookingDetail, BookingListRow } from "@/modules/bookings/types";
 
 export type ListBookingsParams = {
@@ -75,5 +75,14 @@ export async function listBookingTypes() {
     where: { deletedAt: null, active: true },
     orderBy: { name: "asc" },
     select: { id: true, name: true, defaultDispatchMode: true },
+  });
+}
+
+/** Minimal booking-type list for dispatch-rule selects (id + name only). */
+export async function listActiveBookingTypesFlat() {
+  return db.bookingType.findMany({
+    where: { deletedAt: null, active: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
   });
 }

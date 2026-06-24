@@ -1,9 +1,14 @@
 import { Metadata } from "next";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
+import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import { DateRangeFilterBar } from "@/components/common/DateRangeFilterBar";
-import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import {
+ BOOKING_STATUS_LABEL,
+ BOOKING_STATUS_TONE,
+} from "@/modules/bookings/booking.constants";
+import type { BookingStatus } from "@prisma/client";
 import {
  revenueByPeriod,
  tripsByStatus,
@@ -16,32 +21,6 @@ import {
 export const metadata: Metadata = {
  title: "Reports | CabFleet Admin",
  description: "Fleet analytics and operational reports",
-};
-
-const BOOKING_STATUS_LABEL: Record<string, string> = {
- PENDING: "Pending",
- OPEN_FOR_CLAIM: "Open for Claim",
- CLAIMED: "Claimed",
- ASSIGNED: "Assigned",
- DRIVER_EN_ROUTE: "Driver En Route",
- IN_PROGRESS: "In Progress",
- COMPLETED: "Completed",
- CANCELLED: "Cancelled",
- FAILED: "Failed",
- NO_SHOW: "No Show",
-};
-
-const BOOKING_STATUS_TONE: Record<string, StatusTone> = {
- COMPLETED: "success",
- CANCELLED: "error",
- FAILED: "error",
- IN_PROGRESS: "info",
- ASSIGNED: "warning",
- DRIVER_EN_ROUTE: "warning",
- CLAIMED: "warning",
- PENDING: "neutral",
- OPEN_FOR_CLAIM: "neutral",
- NO_SHOW: "neutral",
 };
 
 interface Props {
@@ -112,7 +91,8 @@ export default async function ReportsPage({ searchParams }: Props) {
      <StatCard label="Completed Trips" value={completedTrips.toString()} tone="warning" />
     </div>
 
-    <ComponentCard title="Revenue Trend" desc={`Captured payments grouped by ${period}`}>
+    <SurfaceCard title="Revenue Trend">
+     <p className="mb-4 text-sm text-muted">Captured payments grouped by {period}.</p>
      {revenue.length === 0 ? (
       <p className="py-8 text-center text-sm text-muted">No payment data in this range.</p>
      ) : (
@@ -139,27 +119,29 @@ export default async function ReportsPage({ searchParams }: Props) {
        </table>
       </div>
      )}
-    </ComponentCard>
+    </SurfaceCard>
 
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-     <ComponentCard title="Trips by Status" desc="Booking counts in this period">
+     <SurfaceCard title="Trips by Status">
+      <p className="mb-4 text-sm text-muted">Booking counts in this period.</p>
       {tripsStatus.length === 0 ? (
        <p className="py-8 text-center text-sm text-muted">No bookings in this range.</p>
       ) : (
        <ul className="space-y-2">
         {tripsStatus.map((row) => (
          <li key={row.status} className="flex items-center justify-between">
-          <StatusBadge tone={BOOKING_STATUS_TONE[row.status] ?? "neutral"}>
-           {BOOKING_STATUS_LABEL[row.status] ?? row.status}
+          <StatusBadge tone={BOOKING_STATUS_TONE[row.status as BookingStatus] ?? "neutral"}>
+           {BOOKING_STATUS_LABEL[row.status as BookingStatus] ?? row.status}
           </StatusBadge>
           <span className="text-sm font-semibold text-default">{row.count}</span>
          </li>
         ))}
        </ul>
       )}
-     </ComponentCard>
+     </SurfaceCard>
 
-     <ComponentCard title="Top Customers by Spend" desc="Highest-paying customers">
+     <SurfaceCard title="Top Customers by Spend">
+      <p className="mb-4 text-sm text-muted">Highest-paying customers.</p>
       {topCustomers.length === 0 ? (
        <p className="py-8 text-center text-sm text-muted">No payment data in this range.</p>
       ) : (
@@ -180,11 +162,12 @@ export default async function ReportsPage({ searchParams }: Props) {
         ))}
        </ol>
       )}
-     </ComponentCard>
+     </SurfaceCard>
     </div>
 
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-     <ComponentCard title="Driver Utilisation" desc="Completed trips per driver">
+     <SurfaceCard title="Driver Utilisation">
+      <p className="mb-4 text-sm text-muted">Completed trips per driver.</p>
       {driverUtil.length === 0 ? (
        <p className="py-8 text-center text-sm text-muted">No completed trips in this range.</p>
       ) : (
@@ -200,9 +183,10 @@ export default async function ReportsPage({ searchParams }: Props) {
         ))}
        </ol>
       )}
-     </ComponentCard>
+     </SurfaceCard>
 
-     <ComponentCard title="Vehicle Utilisation" desc="Total completed trips per vehicle">
+     <SurfaceCard title="Vehicle Utilisation">
+      <p className="mb-4 text-sm text-muted">Total completed trips per vehicle.</p>
       {vehicleUtil.length === 0 ? (
        <p className="py-8 text-center text-sm text-muted">No completed trips in this range.</p>
       ) : (
@@ -218,7 +202,7 @@ export default async function ReportsPage({ searchParams }: Props) {
         ))}
        </ol>
       )}
-     </ComponentCard>
+     </SurfaceCard>
     </div>
    </div>
   </div>

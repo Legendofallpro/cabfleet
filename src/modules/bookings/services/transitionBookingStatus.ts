@@ -5,18 +5,19 @@
  *  - Validates the transition is allowed from the current status.
  *  - Updates the booking with optimistic-locking (WHERE id = ? AND version = ?).
  *  - Increments `version` on every write.
- *  - Writes AssignmentHistory if driver or vehicle changed.
+ *  - Writes AssignmentHistory if driver/vehicle changed or a CLAIM occurred.
  *  - Writes AuditLog inside the same transaction.
  *
  * NEVER call db.booking.update({ status }) directly from anywhere else.
  */
-import { BookingStatus, type AuditAction } from "@prisma/client";
+import { BookingStatus, type AuditAction, type Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
+import { bookingDetailInclude } from "@/modules/bookings/includes";
 import { notifyOnTransition } from "@/modules/notifications/services/notifyOnTransition";
 import { assertCanCompleteTrip } from "@/modules/tracking/services/policy";
 
@@ -32,7 +33,6 @@ export {
 // ──────────────────────────────────────────────────────────────────────────────
 // State machine definition
 // Entries not listed here = terminal states (no transitions allowed from them).
-// Phase 4 will add OPEN_FOR_CLAIM, CLAIMED paths.
 // ──────────────────────────────────────────────────────────────────────────────
 
 const ALLOWED_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
@@ -73,60 +73,58 @@ export type TransitionOptions = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Main function
+// In-transaction core — shared by transitionBookingStatus and claimBooking
 // ──────────────────────────────────────────────────────────────────────────────
 
-export async function transitionBookingStatus(
+/**
+ * Snapshot of the booking loaded before the transaction starts.
+ * Only the fields needed inside the transaction body are required.
+ */
+export type TxCurrentBooking = {
+  status: BookingStatus;
+  version: number;
+  assignedDriverId: string | null;
+  assignedVehicleId: string | null;
+};
+
+/**
+ * Executes the booking transition writes inside an already-open transaction.
+ * Callers are responsible for validation before calling this function.
+ *
+ * Used by:
+ *  - `transitionBookingStatus` (standard path — opens its own transaction)
+ *  - `claimBooking` (concurrency path — uses SELECT FOR UPDATE SKIP LOCKED
+ *     and calls this inside the same lock-holding transaction)
+ */
+export async function applyBookingTransitionTx(
+  tx: Prisma.TransactionClient,
   bookingId: string,
+  current: TxCurrentBooking,
   opts: TransitionOptions,
-): Promise<Result<BookingDetail>> {
-  // 1. Load current state (outside transaction — cheap pre-check)
-  const current = await db.booking.findFirst({
-    where: { id: bookingId, deletedAt: null },
-  });
-  if (!current) {
-    throw new AppError("NOT_FOUND", "Booking not found.");
-  }
+): Promise<BookingDetail> {
+  const now = new Date();
+  const toStatus = opts.toStatus;
 
-  // 2. Validate transition is allowed
-  if (!canTransition(current.status, opts.toStatus)) {
-    throw new AppError(
-      "VALIDATION",
-      `Cannot transition booking from ${current.status} to ${opts.toStatus}.`,
-    );
-  }
-
-  // 2b. §W5 S7: refuse COMPLETED when the trip accumulated too many
-  // flagged location points. Bypassed (threshold=0) by config in
-  // staging.
-  if (opts.toStatus === BookingStatus.COMPLETED) {
-    assertCanCompleteTrip({
-      bookingId,
-      suspiciousLocationCount: current.suspiciousLocationCount,
-    });
-  }
-
-  // 3. Determine what changed for audit and assignment history
   const driverChanged =
     opts.assignedDriverId !== undefined &&
     opts.assignedDriverId !== current.assignedDriverId;
   const vehicleChanged =
     opts.assignedVehicleId !== undefined &&
     opts.assignedVehicleId !== current.assignedVehicleId;
+  const isClaimTransition =
+    toStatus === BookingStatus.CLAIMED && opts.claimedByDriverId != null;
 
-  const toStatus = opts.toStatus;
   const auditAction: AuditAction =
     toStatus === BookingStatus.CANCELLED
       ? "CANCEL"
       : toStatus === BookingStatus.COMPLETED
         ? "COMPLETE"
-        : driverChanged || vehicleChanged
-          ? "ASSIGN"
-          : "STATUS_CHANGE";
+        : isClaimTransition
+          ? "CLAIM"
+          : driverChanged || vehicleChanged
+            ? "ASSIGN"
+            : "STATUS_CHANGE";
 
-  const now = new Date();
-
-  // 4. Build the update data
   const updateData: Record<string, unknown> = {
     status: toStatus,
     version: { increment: 1 },
@@ -145,58 +143,89 @@ export async function transitionBookingStatus(
     updateData.claimedAt = now;
   }
 
-  // 5. Execute transaction
-  const booking = await db.$transaction(async (tx) => {
-    // Optimistic lock: ensure the row hasn't been updated since we read it
-    const updated = await tx.booking.update({
-      where: { id: bookingId, version: current.version },
-      data: updateData,
-      include: bookingDetailInclude,
-    });
+  const updated = await tx.booking.update({
+    where: { id: bookingId, version: current.version },
+    data: updateData,
+    include: bookingDetailInclude,
+  });
 
-    // Write AssignmentHistory if driver or vehicle changed
-    if (driverChanged || vehicleChanged) {
-      await tx.assignmentHistory.create({
-        data: {
-          bookingId,
-          driverId: opts.assignedDriverId ?? current.assignedDriverId ?? null,
-          vehicleId: opts.assignedVehicleId ?? current.assignedVehicleId ?? null,
-          action: auditAction,
-          byProfileId: opts.byProfileId,
-          reason: opts.reason ?? null,
-          at: now,
-        },
-      });
-    }
-
-    await writeAudit(tx, {
-      entity: "Booking",
-      entityId: bookingId,
-      action: auditAction,
-      byProfileId: opts.byProfileId,
-      diff: {
-        before: { status: current.status, version: current.version },
-        after: { status: toStatus, version: current.version + 1 },
-        reason: opts.reason,
+  if (driverChanged || vehicleChanged || isClaimTransition) {
+    await tx.assignmentHistory.create({
+      data: {
+        bookingId,
+        driverId: isClaimTransition
+          ? opts.claimedByDriverId!
+          : (opts.assignedDriverId ?? current.assignedDriverId ?? null),
+        vehicleId: opts.assignedVehicleId ?? current.assignedVehicleId ?? null,
+        action: auditAction,
+        byProfileId: opts.byProfileId,
+        reason: opts.reason ?? null,
+        at: now,
       },
     });
+  }
 
-    // Phase 7 W2: enqueue notification (if any) inside the same transaction
-    // so notifications are atomic with the business state change. The cron
-    // at /api/cron/drain-notifications is the only caller that hits
-    // providers. Errors here would roll back the booking update — keep this
-    // write trivial (no provider IO, no profile lookups beyond the
-    // already-loaded BookingDetail).
-    await notifyOnTransition(tx, {
-      prev: current.status,
-      next: toStatus,
-      booking: updated as BookingDetail,
+  await writeAudit(tx, {
+    entity: "Booking",
+    entityId: bookingId,
+    action: auditAction,
+    byProfileId: opts.byProfileId,
+    diff: {
+      before: { status: current.status, version: current.version },
+      after: { status: toStatus, version: current.version + 1 },
       reason: opts.reason,
-    });
+    },
+  });
 
-    return updated as BookingDetail;
+  await notifyOnTransition(tx, {
+    prev: current.status,
+    next: toStatus,
+    booking: updated as BookingDetail,
+    reason: opts.reason,
+  });
+
+  return updated as BookingDetail;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Public API — standard (non-concurrency) path
+// ──────────────────────────────────────────────────────────────────────────────
+
+export async function transitionBookingStatus(
+  bookingId: string,
+  opts: TransitionOptions,
+): Promise<Result<BookingDetail>> {
+  const current = await db.booking.findFirst({
+    where: { id: bookingId, deletedAt: null },
+    select: {
+      status: true,
+      version: true,
+      assignedDriverId: true,
+      assignedVehicleId: true,
+      suspiciousLocationCount: true,
+    },
+  });
+  if (!current) {
+    throw new AppError("NOT_FOUND", "Booking not found.");
+  }
+
+  if (!canTransition(current.status, opts.toStatus)) {
+    throw new AppError(
+      "VALIDATION",
+      `Cannot transition booking from ${current.status} to ${opts.toStatus}.`,
+    );
+  }
+
+  if (opts.toStatus === BookingStatus.COMPLETED) {
+    assertCanCompleteTrip({
+      bookingId,
+      suspiciousLocationCount: current.suspiciousLocationCount,
+    });
+  }
+
+  const booking = await db.$transaction(async (tx) => {
+    return applyBookingTransitionTx(tx, bookingId, current, opts);
   }).catch((e: unknown) => {
-    // Prisma throws P2025 when the WHERE clause matches nothing (optimistic lock miss)
     const errMsg = e instanceof Error ? e.message : String(e);
     if (errMsg.includes("P2025")) {
       throw new AppError(
@@ -204,52 +233,14 @@ export async function transitionBookingStatus(
         "This booking was updated by another user. Please refresh and try again.",
       );
     }
-    logger.error({ err: e, bookingId, toStatus }, "transitionBookingStatus failed");
+    logger.error({ err: e, bookingId, toStatus: opts.toStatus }, "transitionBookingStatus failed");
     throw e;
   });
 
   logger.info(
-    { bookingId, from: current.status, to: toStatus, by: opts.byProfileId },
+    { bookingId, from: current.status, to: opts.toStatus, by: opts.byProfileId },
     "booking.transition",
   );
 
   return ok(booking);
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Shared Prisma include clause — used by transition + queries
-// ──────────────────────────────────────────────────────────────────────────────
-
-export const bookingDetailInclude = {
-  branch: { select: { id: true, name: true, code: true } },
-  customer: {
-    include: {
-      profile: { select: { id: true, fullName: true, email: true, phone: true } },
-    },
-  },
-  bookingType: { select: { id: true, name: true, defaultDispatchMode: true } },
-  assignedDriver: {
-    include: {
-      profile: { select: { id: true, fullName: true, email: true, phone: true } },
-    },
-  },
-  assignedVehicle: {
-    select: { id: true, registrationNumber: true, make: true, model: true },
-  },
-  claimedBy: {
-    include: {
-      profile: { select: { id: true, fullName: true, email: true } },
-    },
-  },
-  assignedBy: { select: { id: true, fullName: true, email: true } },
-  createdBy: { select: { id: true, fullName: true, email: true } },
-  assignmentHistory: {
-    orderBy: { at: "desc" as const },
-    include: {
-      byProfile: { select: { id: true, fullName: true, email: true } },
-    },
-  },
-} as const;
-
-// The canTransition helper below is used internally by this module only.
-// All exported constants live in booking.constants.ts.

@@ -9,6 +9,7 @@ import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getPayment } from "@/modules/payments/queries/payment";
 import { listRefundsForPayment } from "@/modules/payments/queries/refund";
 import { RefundRequestForm } from "@/modules/payments/components/RefundRequestForm";
+import { DetailRow } from "@/components/common/DetailRow";
 import type { RefundStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -36,15 +37,6 @@ const currency = new Intl.NumberFormat("en-IN", {
  currency: "INR",
  maximumFractionDigits: 0,
 });
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
- return (
-  <div className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-start sm:gap-4">
-   <dt className="w-40 shrink-0 text-xs font-medium text-muted">{label}</dt>
-   <dd className="text-sm text-default">{value ?? "—"}</dd>
-  </div>
- );
-}
 
 export default async function PaymentDetailPage({
  params,

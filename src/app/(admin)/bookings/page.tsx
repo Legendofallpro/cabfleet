@@ -8,26 +8,10 @@ import { DataTableToolbar } from "@/components/common/DataTableToolbar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { parsePageParams } from "@/lib/utils/page-params";
 import { listBookings } from "@/modules/bookings/queries/booking";
-import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
+import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import type { BookingListRow } from "@/modules/bookings/types";
 
 export const metadata: Metadata = { title: "Bookings | CabFleet Admin" };
-
-const STATUS_TONE: Record<
- BookingStatus,
- "success" | "warning" | "error" | "neutral" | "info"
-> = {
- PENDING: "warning",
- OPEN_FOR_CLAIM: "info",
- CLAIMED: "info",
- ASSIGNED: "info",
- DRIVER_EN_ROUTE: "info",
- IN_PROGRESS: "success",
- COMPLETED: "success",
- CANCELLED: "neutral",
- NO_SHOW: "neutral",
- FAILED: "error",
-};
 
 const fmt = new Intl.DateTimeFormat("en-IN", {
  dateStyle: "medium",
@@ -87,7 +71,7 @@ const columns: Column<BookingListRow>[] = [
  {
   header: "Status",
   cell: (b) => (
-   <StatusBadge tone={STATUS_TONE[b.status]}>
+   <StatusBadge tone={BOOKING_STATUS_TONE[b.status]}>
     {BOOKING_STATUS_LABEL[b.status]}
    </StatusBadge>
   ),

@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 
 import { cn } from "@/lib/cn";
-import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
+import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification";
 
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";

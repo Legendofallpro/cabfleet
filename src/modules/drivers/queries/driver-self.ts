@@ -2,15 +2,43 @@
  * Read-only queries for the driver's own overview page.
  * Safe to call from React Server Components.
  */
-import { BookingStatus } from "@prisma/client";
+import { BookingStatus, DriverStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { ACTIVE_BOOKING_STATUSES } from "@/modules/bookings/booking.constants";
 
-const ACTIVE_STATUSES: BookingStatus[] = [
-  BookingStatus.CLAIMED,
-  BookingStatus.ASSIGNED,
-  BookingStatus.DRIVER_EN_ROUTE,
-  BookingStatus.IN_PROGRESS,
-];
+// ──────────────────────────────────────────────────────────────────────────────
+// Driver identity lookup — shared by all driver pages
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type DriverProfileSnapshot = {
+  id: string;
+  status: DriverStatus;
+  branchId: string | null;
+};
+
+/**
+ * Resolves the Driver row for a given profile. Returns null instead of throwing
+ * when no driver profile is found — suitable for displaying empty-state UI.
+ * Use `getDriverForProfile` in eligibility.ts when you need the hard throw.
+ */
+export async function getDriverIdForProfile(
+  profileId: string,
+): Promise<DriverProfileSnapshot | null> {
+  const driver = await db.driver.findFirst({
+    where: { profileId, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      profile: { select: { branchId: true } },
+    },
+  });
+  if (!driver) return null;
+  return {
+    id: driver.id,
+    status: driver.status,
+    branchId: driver.profile.branchId,
+  };
+}
 
 export type DriverSelfOverview = Awaited<ReturnType<typeof getDriverSelfOverview>>;
 
@@ -87,7 +115,7 @@ export async function getDriverSelfOverview(driverId: string, profileId: string)
     db.booking.findFirst({
       where: {
         deletedAt: null,
-        status: { in: ACTIVE_STATUSES },
+        status: { in: [...ACTIVE_BOOKING_STATUSES] },
         OR: [{ claimedByDriverId: driverId }, { assignedDriverId: driverId }],
       },
       select: {
@@ -157,10 +185,24 @@ export async function getDriverSelfOverview(driverId: string, profileId: string)
     }),
   ]);
 
+  // The tenant middleware cast in db.ts (as unknown as PrismaClient) loses Prisma's
+  // select type narrowing, so we cast explicitly — same pattern as getBooking().
+  type ActiveTripRow = {
+    id: string;
+    status: BookingStatus;
+    pickupAddress: string;
+    dropAddress: string;
+    pickupAt: Date;
+    fareEstimate: unknown;
+    fareFinal: unknown;
+    passengers: number;
+    bookingType: { name: string };
+  };
+
   return {
     driver,
     vehicleAssignment,
-    activeTrip,
+    activeTrip: activeTrip as ActiveTripRow | null,
     recentCompleted,
     today: {
       count: todayAgg._count.id,

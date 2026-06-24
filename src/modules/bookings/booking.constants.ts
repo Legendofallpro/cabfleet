@@ -5,6 +5,24 @@
 import type { StatusTone } from "@/components/common/StatusBadge";
 import { BookingStatus, DispatchMode } from "@prisma/client";
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Active / in-trip status groups
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Bookings that are live (claimed, assigned, or in progress). */
+export const ACTIVE_BOOKING_STATUSES: readonly BookingStatus[] = [
+  BookingStatus.CLAIMED,
+  BookingStatus.ASSIGNED,
+  BookingStatus.DRIVER_EN_ROUTE,
+  BookingStatus.IN_PROGRESS,
+] as const;
+
+/** Bookings where the driver is actively en-route or in progress. */
+export const IN_TRIP_STATUSES: readonly BookingStatus[] = [
+  BookingStatus.DRIVER_EN_ROUTE,
+  BookingStatus.IN_PROGRESS,
+] as const;
+
 /**
  * Statuses a driver may transition to (W4: shared by server action +
  * `/api/v1/trips/:id/transition`). Anything outside this list requires
@@ -80,4 +98,33 @@ export const STAFF_MANUAL_TRANSITIONS: Partial<Record<BookingStatus, BookingStat
   ASSIGNED: [BookingStatus.DRIVER_EN_ROUTE, BookingStatus.CANCELLED],
   DRIVER_EN_ROUTE: [BookingStatus.IN_PROGRESS, BookingStatus.NO_SHOW],
   IN_PROGRESS: [BookingStatus.COMPLETED, BookingStatus.FAILED],
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Driver trip-detail UI actions
+// Derived from / consistent with DRIVER_ALLOWED_TARGETS.
+// A unit test in booking.constants.test.ts asserts full coverage.
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type DriverNextAction = {
+  toStatus: BookingStatus;
+  label: string;
+  variant?: "primary" | "danger" | "secondary";
+};
+
+/**
+ * Maps the driver's current booking status to the list of action buttons
+ * shown on the trip detail page. Keep in sync with DRIVER_ALLOWED_TARGETS.
+ */
+export const DRIVER_NEXT_ACTIONS: Partial<Record<BookingStatus, DriverNextAction[]>> = {
+  [BookingStatus.ASSIGNED]: [
+    { toStatus: BookingStatus.DRIVER_EN_ROUTE, label: "I'm on my way" },
+  ],
+  [BookingStatus.DRIVER_EN_ROUTE]: [
+    { toStatus: BookingStatus.IN_PROGRESS, label: "Start Trip" },
+    { toStatus: BookingStatus.NO_SHOW, label: "Customer No-Show", variant: "danger" },
+  ],
+  [BookingStatus.IN_PROGRESS]: [
+    { toStatus: BookingStatus.COMPLETED, label: "Complete Trip" },
+  ],
 };

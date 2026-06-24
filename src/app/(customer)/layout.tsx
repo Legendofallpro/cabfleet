@@ -28,7 +28,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
        <>
         <Link
          href="/portal/book"
-         className="hidden rounded-lg bg-primary-subtle0 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover sm:inline-flex"
+         className="hidden rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover sm:inline-flex"
         >
          Book a Ride
         </Link>
@@ -67,7 +67,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         </Link>
         <Link
          href="/signup"
-         className="rounded-lg bg-primary-subtle0 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+         className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
         >
          Sign up
         </Link>

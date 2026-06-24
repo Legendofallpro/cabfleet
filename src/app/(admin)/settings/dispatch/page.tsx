@@ -3,9 +3,10 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { listDispatchRules } from "@/modules/dispatch/queries/dispatch-rule";
 import { DISPATCH_MODE_LABEL } from "@/modules/bookings/booking.constants";
+import { listActiveBranchesFlat } from "@/modules/branches/queries/branch";
+import { listActiveBookingTypesFlat } from "@/modules/bookings/queries/booking";
 import { CreateDispatchRuleForm } from "@/modules/dispatch/components/CreateDispatchRuleForm";
 import { DeleteDispatchRuleButton } from "@/modules/dispatch/components/DeleteDispatchRuleButton";
-import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
  title: "Dispatch Rules | CabFleet Admin",
@@ -16,16 +17,8 @@ export const dynamic = "force-dynamic";
 export default async function DispatchSettingsPage() {
  const [rules, branches, bookingTypes] = await Promise.all([
   listDispatchRules(),
-  db.branch.findMany({
-   where: { deletedAt: null, active: true },
-   select: { id: true, name: true, code: true },
-   orderBy: { name: "asc" },
-  }),
-  db.bookingType.findMany({
-   where: { deletedAt: null, active: true },
-   select: { id: true, name: true },
-   orderBy: { name: "asc" },
-  }),
+  listActiveBranchesFlat(),
+  listActiveBookingTypesFlat(),
  ]);
 
  return (

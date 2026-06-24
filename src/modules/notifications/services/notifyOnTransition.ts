@@ -1,8 +1,9 @@
 /**
  * Map booking status transitions to outbox enqueues (Phase 7 W2 §2.3).
  *
- * Called from inside booking-mutation transactions
- * (`transitionBookingStatus`, `claimBooking`) — exactly once per transition.
+ * Called from inside booking-mutation transactions via `applyBookingTransitionTx`
+ * — exactly once per transition regardless of whether the caller is the standard
+ * `transitionBookingStatus` path or the concurrency-safe `claimBooking` path.
  * Unknown transitions enqueue nothing (returns silently).
  *
  * The fully-loaded booking with `bookingDetailInclude` is required so we can
@@ -21,8 +22,6 @@ type TransitionLog = {
 };
 
 const TRANSITION_TEMPLATES: TransitionLog[] = [
-  // OPEN_FOR_CLAIM -> CLAIMED is fired from claimBooking; transitionBookingStatus
-  // is not called on that path.
   { prev: BookingStatus.OPEN_FOR_CLAIM, next: BookingStatus.CLAIMED, templateId: "BOOKING_CLAIMED" },
   { prev: BookingStatus.PENDING, next: BookingStatus.ASSIGNED, templateId: "BOOKING_ASSIGNED" },
   { prev: BookingStatus.CLAIMED, next: BookingStatus.ASSIGNED, templateId: "BOOKING_ASSIGNED" },

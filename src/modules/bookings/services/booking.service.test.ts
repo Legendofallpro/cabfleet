@@ -13,6 +13,9 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/modules/bookings/services/transitionBookingStatus", () => ({
   transitionBookingStatus: vi.fn(),
+}));
+
+vi.mock("@/modules/bookings/includes", () => ({
   bookingDetailInclude: {},
 }));
 
