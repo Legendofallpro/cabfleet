@@ -132,6 +132,9 @@ export const env = createEnv({
      * block — useful for staging.
      */
     LOCATION_SUSPICIOUS_THRESHOLD: z.coerce.number().int().nonnegative().default(5),
+
+    /** Platform support contact shown on /support when org has no admin email. */
+    SUPPORT_EMAIL: z.string().email().optional(),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -183,6 +186,7 @@ export const env = createEnv({
     LOCATION_MAX_SPEED_KPH: process.env.LOCATION_MAX_SPEED_KPH,
     LOCATION_FIRST_POINT_MAX_KM: process.env.LOCATION_FIRST_POINT_MAX_KM,
     LOCATION_SUSPICIOUS_THRESHOLD: process.env.LOCATION_SUSPICIOUS_THRESHOLD,
+    SUPPORT_EMAIL: process.env.SUPPORT_EMAIL,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,

@@ -88,3 +88,57 @@ export async function updateNotificationPrefs(
 
   return ok(profile);
 }
+
+export async function updateLocale(
+  input: { locale: string },
+  actor: Actor,
+): Promise<Result<Profile>> {
+  const current = await db.profile.findFirst({
+    where: { id: actor.id, deletedAt: null },
+  });
+  if (!current) throw new AppError("NOT_FOUND", "Profile not found.");
+
+  const profile = await db.$transaction(async (tx) => {
+    const updated = await tx.profile.update({
+      where: { id: actor.id },
+      data: { locale: input.locale },
+    });
+    await writeAudit(tx, {
+      entity: "Profile",
+      entityId: updated.id,
+      action: "UPDATE",
+      byProfileId: actor.id,
+      diff: { before: { locale: current.locale }, after: { locale: updated.locale } },
+    });
+    return updated;
+  });
+
+  return ok(profile);
+}
+
+export async function updateAvatarUrl(
+  avatarUrl: string,
+  actor: Actor,
+): Promise<Result<Profile>> {
+  const current = await db.profile.findFirst({
+    where: { id: actor.id, deletedAt: null },
+  });
+  if (!current) throw new AppError("NOT_FOUND", "Profile not found.");
+
+  const profile = await db.$transaction(async (tx) => {
+    const updated = await tx.profile.update({
+      where: { id: actor.id },
+      data: { avatarUrl },
+    });
+    await writeAudit(tx, {
+      entity: "Profile",
+      entityId: updated.id,
+      action: "UPDATE",
+      byProfileId: actor.id,
+      diff: { before: { avatarUrl: current.avatarUrl }, after: { avatarUrl: updated.avatarUrl } },
+    });
+    return updated;
+  });
+
+  return ok(profile);
+}

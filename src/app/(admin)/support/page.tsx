@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
+import { env } from "@/lib/env";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -40,6 +42,8 @@ export default async function AdminSupportPage() {
       })
     : null;
 
+  const supportEmail = env.SUPPORT_EMAIL;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageBreadcrumb pageTitle="Support" />
@@ -48,6 +52,30 @@ export default async function AdminSupportPage() {
         organization administrator.
       </p>
 
+      {session.profile.role === Role.SUPER_ADMIN && !org && (
+        <SurfaceCard title="Platform administrator">
+          <p className="text-sm text-default">
+            You are signed in as a CabFleet platform administrator without an organization
+            context.
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            For platform operations, billing, or escalations, contact CabFleet ops
+            {supportEmail ? (
+              <>
+                {" "}
+                at{" "}
+                <a href={`mailto:${supportEmail}`} className="text-primary hover:underline">
+                  {supportEmail}
+                </a>
+              </>
+            ) : (
+              " (set SUPPORT_EMAIL in environment configuration)."
+            )}
+            .
+          </p>
+        </SurfaceCard>
+      )}
+
       {org && (
         <SurfaceCard title="Your organization">
           <p className="text-sm text-default">{org.name}</p>
@@ -55,6 +83,13 @@ export default async function AdminSupportPage() {
             Reach out to an admin in {org.name} for branch access, role changes, or fleet
             configuration.
           </p>
+          {supportEmail && (
+            <p className="mt-3 text-sm">
+              <a href={`mailto:${supportEmail}`} className="text-primary hover:underline">
+                Email platform support
+              </a>
+            </p>
+          )}
         </SurfaceCard>
       )}
 

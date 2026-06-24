@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
-import { getHeaderInitials } from "@/layout/header-user";
+import type { HeaderUser } from "@/layout/header-user";
+import { ProfileAvatar } from "@/modules/profile/components/ProfileAvatar";
+import { ProfileContextCard } from "@/modules/profile/components/ProfileContextCard";
 import { ProfileEditForm } from "@/modules/profile/components/ProfileEditForm";
+import { AvatarUploadForm } from "@/modules/profile/components/AvatarUploadForm";
+import { getProfileWithContext } from "@/modules/profile/queries/profile.queries";
 
 export const metadata: Metadata = {
   title: "Profile | CabFleet Admin",
@@ -17,29 +21,31 @@ export default async function AdminProfilePage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/profile");
 
-  const headerUser = {
+  const context = await getProfileWithContext(session.profile.id);
+  const headerUser: HeaderUser = {
     fullName: session.profile.fullName,
     email: session.profile.email,
     avatarUrl: session.profile.avatarUrl,
   };
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg space-y-6">
       <PageBreadcrumb pageTitle="Edit profile" />
-      <p className="mb-6 text-sm text-muted">Update your name and contact phone.</p>
+      <p className="text-sm text-muted">Update your name, contact phone, and avatar.</p>
 
       <SurfaceCard>
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-subtle text-xl font-bold text-primary">
-            {getHeaderInitials(headerUser)}
-          </div>
+          <ProfileAvatar user={headerUser} size="md" />
           <div>
             <p className="font-semibold text-default">{session.profile.fullName ?? "—"}</p>
             <p className="text-sm text-muted">{session.profile.email}</p>
           </div>
         </div>
 
+        <AvatarUploadForm profileId={session.profile.id} />
+
         <ProfileEditForm
+          email={session.profile.email}
           defaultValues={{
             fullName: session.profile.fullName ?? "",
             phone: session.profile.phone ?? "",
@@ -47,7 +53,9 @@ export default async function AdminProfilePage() {
         />
       </SurfaceCard>
 
-      <p className="mt-4 text-center text-caption text-muted">
+      {context && <ProfileContextCard context={context} />}
+
+      <p className="text-center text-caption text-muted">
         Password and notifications are in{" "}
         <Link href="/profile/account" className="text-primary hover:underline">
           Account settings

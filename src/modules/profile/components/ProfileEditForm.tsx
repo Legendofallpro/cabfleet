@@ -14,10 +14,12 @@ import {
 } from "@/modules/profile/validators/profile";
 
 type Props = {
+  email: string;
   defaultValues: UpdateProfileFormValues;
+  cancelHref?: string;
 };
 
-export function ProfileEditForm({ defaultValues }: Props) {
+export function ProfileEditForm({ email, defaultValues, cancelHref = "/" }: Props) {
   const router = useRouter();
   const {
     register,
@@ -47,6 +49,14 @@ export function ProfileEditForm({ defaultValues }: Props) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <TextField
+        label="Email"
+        type="email"
+        value={email}
+        readOnly
+        disabled
+        hint="Email is managed by your sign-in provider. Contact an administrator to change it."
+      />
+      <TextField
         label="Full name"
         required
         {...register("fullName")}
@@ -59,7 +69,7 @@ export function ProfileEditForm({ defaultValues }: Props) {
         error={errors.phone?.message}
         hint="Optional. Used for operational contact."
       />
-      <FormActions cancelHref="/" submitting={isSubmitting} submitLabel="Save profile" />
+      <FormActions cancelHref={cancelHref} submitting={isSubmitting} submitLabel="Save profile" />
     </form>
   );
 }

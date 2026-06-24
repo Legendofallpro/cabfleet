@@ -1,26 +1,28 @@
 "use client";
 
-import Image from "next/image";
+import { usePathname } from "next/navigation";
 import React, { useState } from "react";
 
 import { signOutAction } from "@/lib/auth/sign-out";
-import {
-  getHeaderDisplayName,
-  getHeaderInitials,
-  type HeaderUser,
-} from "@/layout/header-user";
+import { cn } from "@/lib/cn";
+import { getHeaderDisplayName, type HeaderUser } from "@/layout/header-user";
+import { ProfileAvatar } from "@/modules/profile/components/ProfileAvatar";
 
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 
-const menuItemClass =
-  "flex items-center gap-3 rounded-lg px-3 py-2 text-caption font-medium text-default group hover:bg-surface-inset";
+const MENU_ROUTES = [
+  { href: "/profile", label: "Edit profile", icon: ProfileIcon },
+  { href: "/profile/account", label: "Account settings", icon: SettingsIcon },
+  { href: "/support", label: "Support", icon: SupportIcon },
+] as const;
 
 type Props = {
   user: HeaderUser;
 };
 
 export default function UserDropdown({ user }: Props) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const displayName = getHeaderDisplayName(user);
 
@@ -33,6 +35,14 @@ export default function UserDropdown({ user }: Props) {
     setIsOpen(false);
   }
 
+  function menuItemClass(href: string) {
+    const active = pathname === href || pathname.startsWith(`${href}/`);
+    return cn(
+      "flex items-center gap-3 rounded-lg px-3 py-2 text-caption font-medium text-default group hover:bg-surface-inset",
+      active && "bg-surface-inset",
+    );
+  }
+
   return (
     <div className="relative">
       <button
@@ -41,18 +51,10 @@ export default function UserDropdown({ user }: Props) {
         aria-expanded={isOpen}
         aria-haspopup="menu"
       >
-        <span className="mr-3 flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-subtle text-sm font-semibold text-primary">
-          {user.avatarUrl ? (
-            <Image width={44} height={44} src={user.avatarUrl} alt={displayName} />
-          ) : (
-            getHeaderInitials(user)
-          )}
-        </span>
-
+        <ProfileAvatar user={user} size="sm" className="mr-3" />
         <span className="mr-1 block font-medium text-caption">{displayName}</span>
-
         <svg
-          className={`stroke-muted transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={cn("stroke-muted transition-transform duration-200", isOpen && "rotate-180")}
           width="18"
           height="20"
           viewBox="0 0 18 20"
@@ -83,45 +85,25 @@ export default function UserDropdown({ user }: Props) {
         </div>
 
         <ul className="flex flex-col gap-1 border-b border-default pb-3 pt-4">
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              href="/profile"
-              className={menuItemClass}
-            >
-              <ProfileIcon />
-              Edit profile
-            </DropdownItem>
-          </li>
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              href="/profile/account"
-              className={menuItemClass}
-            >
-              <SettingsIcon />
-              Account settings
-            </DropdownItem>
-          </li>
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              href="/support"
-              className={menuItemClass}
-            >
-              <SupportIcon />
-              Support
-            </DropdownItem>
-          </li>
+          {MENU_ROUTES.map(({ href, label, icon: Icon }) => (
+            <li key={href}>
+              <DropdownItem
+                onItemClick={closeDropdown}
+                tag="a"
+                href={href}
+                className={menuItemClass(href)}
+              >
+                <Icon />
+                {label}
+              </DropdownItem>
+            </li>
+          ))}
         </ul>
         <form action={signOutAction}>
           <button
             type="submit"
             onClick={closeDropdown}
-            className={`${menuItemClass} mt-3 w-full`}
+            className="mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-caption font-medium text-default group hover:bg-surface-inset"
           >
             <SignOutIcon />
             Sign out

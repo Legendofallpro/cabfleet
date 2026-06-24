@@ -2,30 +2,60 @@
 
 import { revalidatePath } from "next/cache";
 import { Role } from "@prisma/client";
+import { z } from "zod";
 
 import { action } from "@/lib/actions";
+import { ok } from "@/lib/result";
+import { writeAuditStandalone } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/requireRole";
+import { env } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import {
+  updateAvatarUrlSchema,
+  updateLocaleSchema,
   updateNotificationPrefsSchema,
   updateProfileSchema,
 } from "@/modules/profile/validators/profile";
 import {
+  updateAvatarUrl,
+  updateLocale,
   updateNotificationPrefs,
   updateProfile,
 } from "@/modules/profile/services/profile.service";
 
-const ADMIN_ROLES = [Role.ADMIN, Role.STAFF, Role.SUPER_ADMIN] as const;
+/** Roles that may use self-service profile mutations. */
+const SELF_SERVICE_ROLES = [
+  Role.SUPER_ADMIN,
+  Role.ADMIN,
+  Role.STAFF,
+  Role.CUSTOMER,
+  Role.DRIVER,
+] as const;
+
+const mfaAuditSchema = z.object({
+  event: z.enum(["MFA_ENROLL", "MFA_UNENROLL", "MFA_VERIFY"]),
+  factorId: z.string().optional(),
+});
+
+function revalidateProfilePaths() {
+  revalidatePath("/profile");
+  revalidatePath("/profile/account");
+  revalidatePath("/portal/profile");
+  revalidatePath("/portal/profile/account");
+  revalidatePath("/driver/profile");
+  revalidatePath("/driver/profile/account");
+  revalidatePath("/");
+}
 
 export const updateProfileAction = action(
   "profile.update",
   updateProfileSchema,
   async (input) => {
-    const actor = await requireRole([...ADMIN_ROLES]);
+    const actor = await requireRole([...SELF_SERVICE_ROLES]);
     const result = await updateProfile(input, { id: actor.profile.id });
 
-    if (result.ok) {
+    if (result.ok && actor.profile.role !== Role.CUSTOMER && actor.profile.role !== Role.DRIVER) {
       try {
         const supabase = await getSupabaseServerClient();
         await supabase.auth.updateUser({
@@ -39,8 +69,7 @@ export const updateProfileAction = action(
       }
     }
 
-    revalidatePath("/profile");
-    revalidatePath("/");
+    revalidateProfilePaths();
     return result;
   },
 );
@@ -49,9 +78,57 @@ export const updateNotificationPrefsAction = action(
   "profile.updateNotificationPrefs",
   updateNotificationPrefsSchema,
   async (input) => {
-    const actor = await requireRole([...ADMIN_ROLES]);
+    const actor = await requireRole([...SELF_SERVICE_ROLES]);
     const result = await updateNotificationPrefs(input, { id: actor.profile.id });
-    revalidatePath("/profile/account");
+    revalidateProfilePaths();
     return result;
+  },
+);
+
+export const updateLocaleAction = action(
+  "profile.updateLocale",
+  updateLocaleSchema,
+  async (input) => {
+    const actor = await requireRole([...SELF_SERVICE_ROLES]);
+    const result = await updateLocale(input, { id: actor.profile.id });
+    revalidateProfilePaths();
+    return result;
+  },
+);
+
+export const updateAvatarUrlAction = action(
+  "profile.updateAvatarUrl",
+  updateAvatarUrlSchema,
+  async (input) => {
+    const actor = await requireRole([...SELF_SERVICE_ROLES]);
+
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!input.avatarUrl.startsWith(supabaseUrl)) {
+      throw new Error("Invalid avatar URL");
+    }
+    const expectedSegment = `/avatars/${actor.profile.id}/`;
+    if (!input.avatarUrl.includes(expectedSegment)) {
+      throw new Error("Avatar path must belong to your profile");
+    }
+
+    const result = await updateAvatarUrl(input.avatarUrl, { id: actor.profile.id });
+    revalidateProfilePaths();
+    return result;
+  },
+);
+
+export const recordMfaAuditAction = action(
+  "profile.mfaAudit",
+  mfaAuditSchema,
+  async (input) => {
+    const actor = await requireRole([...SELF_SERVICE_ROLES]);
+    await writeAuditStandalone({
+      entity: "Profile",
+      entityId: actor.profile.id,
+      action: "UPDATE",
+      byProfileId: actor.profile.id,
+      diff: { mfaEvent: input.event, factorId: input.factorId ?? null },
+    });
+    return ok(null);
   },
 );

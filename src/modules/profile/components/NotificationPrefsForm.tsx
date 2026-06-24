@@ -1,23 +1,27 @@
 "use client";
 
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { FormActions } from "@/components/common/FormActions";
+import { SelectField } from "@/components/common/form/SelectField";
+import { SwitchField } from "@/components/common/form/SwitchField";
 import { TextField } from "@/components/common/form/TextField";
-import Checkbox from "@/components/form/input/Checkbox";
 import { updateNotificationPrefsAction } from "@/modules/profile/actions/profile.actions";
+import { formatQuietHoursPreview } from "@/modules/profile/profile.constants";
 import {
+  TIMEZONE_OPTIONS,
   updateNotificationPrefsSchema,
   type UpdateNotificationPrefsFormValues,
 } from "@/modules/profile/validators/profile";
 
 type Props = {
   defaultValues: UpdateNotificationPrefsFormValues;
+  cancelHref?: string;
 };
 
-export function NotificationPrefsForm({ defaultValues }: Props) {
+export function NotificationPrefsForm({ defaultValues, cancelHref = "/profile/account" }: Props) {
   const {
     register,
     control,
@@ -28,6 +32,10 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
     resolver: zodResolver(updateNotificationPrefsSchema),
     defaultValues,
   });
+
+  const quietStart = useWatch({ control, name: "quietHoursStart" });
+  const quietEnd = useWatch({ control, name: "quietHoursEnd" });
+  const timezone = useWatch({ control, name: "timezone" });
 
   async function onSubmit(values: UpdateNotificationPrefsFormValues) {
     const result = await updateNotificationPrefsAction(values);
@@ -43,6 +51,8 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
     toast.success("Notification preferences saved.");
   }
 
+  const quietPreview = formatQuietHoursPreview(quietStart, quietEnd, timezone);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-3">
@@ -50,7 +60,7 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
           name="email"
           control={control}
           render={({ field }) => (
-            <Checkbox
+            <SwitchField
               label="Email notifications"
               checked={field.value}
               onChange={field.onChange}
@@ -61,7 +71,7 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
           name="whatsapp"
           control={control}
           render={({ field }) => (
-            <Checkbox
+            <SwitchField
               label="WhatsApp notifications"
               checked={field.value}
               onChange={field.onChange}
@@ -69,6 +79,13 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
           )}
         />
       </div>
+      <SelectField
+        label="Timezone"
+        required
+        options={TIMEZONE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        {...register("timezone")}
+        error={errors.timezone?.message}
+      />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <TextField
           label="Quiet hours start"
@@ -84,18 +101,12 @@ export function NotificationPrefsForm({ defaultValues }: Props) {
           error={errors.quietHoursEnd?.message}
           hint="Optional. HH:MM in your timezone."
         />
-        <div className="md:col-span-2">
-          <TextField
-            label="Timezone"
-            required
-            {...register("timezone")}
-            error={errors.timezone?.message}
-            hint="IANA timezone, e.g. Asia/Kolkata"
-          />
-        </div>
       </div>
+      {quietPreview && (
+        <p className="rounded-lg bg-surface-inset px-3 py-2 text-xs text-muted">{quietPreview}</p>
+      )}
       <FormActions
-        cancelHref="/profile/account"
+        cancelHref={cancelHref}
         submitting={isSubmitting}
         submitLabel="Save preferences"
       />
