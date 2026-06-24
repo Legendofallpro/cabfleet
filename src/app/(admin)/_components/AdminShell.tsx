@@ -7,13 +7,16 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import type { HeaderUser } from "@/layout/header-user";
+import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
 
 export default function AdminShell({
  children,
  user,
+ notifications,
 }: {
  children: React.ReactNode;
  user: HeaderUser;
+ notifications?: HeaderNotificationSummary;
 }) {
  const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
@@ -28,7 +31,7 @@ export default function AdminShell({
    <AppSidebar />
    <Backdrop />
    <div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
-    <AppHeader user={user} />
+    <AppHeader user={user} notifications={notifications} />
     <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
    </div>
   </div>

@@ -21,3 +21,17 @@ export function parseNotificationPrefsFormValues(
     timezone: prefs.timezone ?? DEFAULT_NOTIFICATION_PREFS.timezone,
   };
 }
+
+/** Human-readable quiet-hours preview for the notification prefs form. */
+export function formatQuietHoursPreview(
+  start: string | undefined,
+  end: string | undefined,
+  timezone: string | undefined,
+): string | null {
+  const s = start?.trim();
+  const e = end?.trim();
+  if (!s && !e) return null;
+  if (!s || !e) return "Set both start and end times to enable quiet hours.";
+  const tz = timezone?.trim() || DEFAULT_NOTIFICATION_PREFS.timezone;
+  return `Quiet hours: ${s}–${e} (${tz}). Urgent alerts may still be delivered.`;
+}

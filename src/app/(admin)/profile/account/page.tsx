@@ -6,6 +6,8 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
 import { ChangePasswordForm } from "@/modules/profile/components/ChangePasswordForm";
+import { LocaleForm } from "@/modules/profile/components/LocaleForm";
+import { MfaSettingsPanel } from "@/modules/profile/components/MfaSettingsPanel";
 import { NotificationPrefsForm } from "@/modules/profile/components/NotificationPrefsForm";
 import { parseNotificationPrefsFormValues } from "@/modules/profile/profile.constants";
 
@@ -34,9 +36,18 @@ export default async function AdminAccountSettingsPage() {
 
       <SurfaceCard title="Security">
         <p className="mb-4 text-sm text-muted">
-          Choose a new password for your CabFleet login.
+          Choose a new password for your CabFleet login. You must enter your current password
+          first.
         </p>
-        <ChangePasswordForm />
+        <ChangePasswordForm email={session.profile.email} />
+      </SurfaceCard>
+
+      <SurfaceCard title="Two-factor authentication">
+        <MfaSettingsPanel />
+      </SurfaceCard>
+
+      <SurfaceCard title="Language">
+        <LocaleForm defaultValues={{ locale: session.profile.locale }} />
       </SurfaceCard>
 
       <SurfaceCard title="Notifications">

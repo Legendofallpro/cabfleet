@@ -1,13 +1,18 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
+import HeaderNotificationDropdown from "@/components/header/HeaderNotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import type { HeaderUser } from "@/layout/header-user";
+import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 
-const AppHeader: React.FC<{ user: HeaderUser }> = ({ user }) => {
+const AppHeader: React.FC<{
+  user: HeaderUser;
+  notifications?: HeaderNotificationSummary;
+}> = ({ user, notifications }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -161,11 +166,8 @@ const AppHeader: React.FC<{ user: HeaderUser }> = ({ user }) => {
           } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
-            {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
-
-            {/* Notification bell — placeholder until notification module ships */}
+            {notifications && <HeaderNotificationDropdown summary={notifications} />}
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown user={user} />

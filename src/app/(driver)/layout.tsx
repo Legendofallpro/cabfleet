@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
+import { signOutAction } from "@/lib/auth/sign-out";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,13 @@ export default async function DriverLayout({ children }: { children: React.React
  return (
   <div className="flex min-h-screen flex-col bg-surface">
    {/* Header */}
-   <header className="sticky top-0 z-30 border-b border-default bg-surface-elevated px-4 py-3">
-    <h1 className="text-lg font-semibold text-default">
-     CabFleet Driver
-    </h1>
+   <header className="sticky top-0 z-30 flex items-center justify-between border-b border-default bg-surface-elevated px-4 py-3">
+    <h1 className="text-lg font-semibold text-default">CabFleet Driver</h1>
+    <form action={signOutAction}>
+     <button type="submit" className="text-sm text-muted hover:text-primary">
+      Sign out
+     </button>
+    </form>
    </header>
 
    {/* Page content — leave space for bottom nav */}
