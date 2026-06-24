@@ -10,7 +10,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/modules/bookings/services/transitionBookingStatus", () => ({
+vi.mock("@/modules/bookings/includes", () => ({
   bookingDetailInclude: { test: true },
 }));
 

@@ -4,7 +4,7 @@
  */
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { bookingDetailInclude } from "@/modules/bookings/services/transitionBookingStatus";
+import { bookingDetailInclude } from "@/modules/bookings/includes";
 import type { BookingDetail } from "@/modules/bookings/types";
 
 const driverListInclude = {

@@ -42,7 +42,7 @@ export default async function MyBookingsPage() {
     </div>
     <Link
      href="/portal/book"
-     className="inline-flex h-10 items-center rounded-xl bg-primary-subtle0 px-5 text-sm font-semibold text-white hover:bg-primary-hover"
+     className="inline-flex h-10 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
     >
      + New Booking
     </Link>
@@ -59,7 +59,7 @@ export default async function MyBookingsPage() {
      </p>
      <Link
       href="/portal/book"
-      className="mt-5 inline-flex h-10 items-center rounded-xl bg-primary-subtle0 px-6 text-sm font-semibold text-white hover:bg-primary-hover"
+      className="mt-5 inline-flex h-10 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-white hover:bg-primary-hover"
      >
       Book a Ride
      </Link>
@@ -92,12 +92,12 @@ export default async function MyBookingsPage() {
        {/* Route */}
        <div className="space-y-1.5">
         <div className="flex items-start gap-2 text-sm">
-         <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-green-500" />
+         <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-success" />
          <span className="text-default">{booking.pickupAddress}</span>
         </div>
         <div className="ml-1 border-l-2 border-dashed border-default py-0.5 " />
         <div className="flex items-start gap-2 text-sm">
-         <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+         <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-error" />
          <span className="text-default">{booking.dropAddress}</span>
         </div>
        </div>

@@ -3,22 +3,19 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { getSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { getDriverIdForProfile } from "@/modules/drivers/queries/driver-self";
 import { listMyTrips } from "@/modules/bookings/queries/driver";
-import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
+import {
+  BOOKING_STATUS_LABEL,
+  BOOKING_STATUS_TONE,
+  ACTIVE_BOOKING_STATUSES,
+} from "@/modules/bookings/booking.constants";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import type { BookingStatus } from "@prisma/client";
 
 export const metadata: Metadata = { title: "My Trips | CabFleet Driver" };
-
-const ACTIVE_STATUSES = new Set<string>([
-  "CLAIMED",
-  "ASSIGNED",
-  "DRIVER_EN_ROUTE",
-  "IN_PROGRESS",
-]);
 
 const COMPLETED_STATUSES = new Set<string>(["COMPLETED", "NO_SHOW", "CANCELLED", "FAILED"]);
 
@@ -57,10 +54,7 @@ export default async function MyTripsPage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin");
 
-  const driver = await db.driver.findFirst({
-    where: { profileId: session.profile.id, deletedAt: null },
-    select: { id: true },
-  });
+  const driver = await getDriverIdForProfile(session.profile.id);
 
   if (!driver) {
     return (
@@ -72,7 +66,9 @@ export default async function MyTripsPage() {
 
   const bookings = await listMyTrips(driver.id);
 
-  const active = bookings.filter((b) => ACTIVE_STATUSES.has(b.status));
+  const active = bookings.filter((b) =>
+    ACTIVE_BOOKING_STATUSES.includes(b.status as BookingStatus),
+  );
   const completed = bookings.filter((b) => COMPLETED_STATUSES.has(b.status));
 
   // Completed within last 30 days

@@ -6,25 +6,10 @@ import { getRoleHome } from "@/lib/auth/redirects";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import { listCustomerBookings } from "@/modules/customers/queries/customer";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
+import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import type { BookingStatus } from "@prisma/client";
 
 const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
-type StatusTone = "success" | "warning" | "error" | "neutral" | "info";
-
-const STATUS_TONE: Record<BookingStatus, StatusTone> = {
- PENDING: "warning",
- OPEN_FOR_CLAIM: "info",
- CLAIMED: "info",
- ASSIGNED: "info",
- DRIVER_EN_ROUTE: "info",
- IN_PROGRESS: "success",
- COMPLETED: "success",
- CANCELLED: "neutral",
- NO_SHOW: "neutral",
- FAILED: "error",
-};
 
 export default async function CustomerPortalPage() {
  const session = await getSessionUser();
@@ -40,7 +25,7 @@ export default async function CustomerPortalPage() {
  return (
   <div className="space-y-8">
    {/* Welcome hero */}
-   <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 px-6 py-8 text-white sm:px-8">
+   <div className="rounded-2xl bg-gradient-to-br from-primary to-primary-hover px-6 py-8 text-white sm:px-8">
     <p className="text-sm font-medium text-on-primary">Welcome back</p>
     <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
      Hi, {firstName}! 👋
@@ -117,7 +102,7 @@ export default async function CustomerPortalPage() {
         <div className="flex items-center justify-between gap-2">
          <div className="min-w-0">
           <div className="flex items-center gap-2">
-           <StatusBadge tone={STATUS_TONE[booking.status as BookingStatus]}>
+           <StatusBadge tone={BOOKING_STATUS_TONE[booking.status as BookingStatus]}>
             {BOOKING_STATUS_LABEL[booking.status as BookingStatus]}
            </StatusBadge>
            <span className="truncate text-sm text-default">

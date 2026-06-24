@@ -5,10 +5,8 @@ import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { estimateFare } from "@/modules/pricing/services/fareCalculator";
-import {
-  transitionBookingStatus,
-  bookingDetailInclude,
-} from "@/modules/bookings/services/transitionBookingStatus";
+import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
+import { bookingDetailInclude } from "@/modules/bookings/includes";
 import { resolveDispatchPolicy } from "@/modules/dispatch/services/resolveDispatchPolicy";
 import type {
   CreateBookingInput,

@@ -20,6 +20,7 @@ import { getInvoiceForBooking } from "@/modules/invoices/queries/invoice";
 import { listPaymentsForBooking } from "@/modules/payments/queries/payment";
 import { GenerateInvoiceButton } from "@/modules/invoices/components/GenerateInvoiceButton";
 import { ClearSuspiciousButton } from "@/modules/tracking/components/ClearSuspiciousButton";
+import { DetailRow } from "@/components/common/DetailRow";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
 
@@ -29,16 +30,6 @@ const currency = new Intl.NumberFormat("en-IN", {
  currency: "INR",
  maximumFractionDigits: 0,
 });
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
- return (
-  <div className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-start sm:gap-4">
-   <dt className="w-36 shrink-0 text-xs font-medium text-muted">{label}</dt>
-   <dd className="text-sm text-default">{value ?? "—"}</dd>
-  </div>
- );
-}
-
 
 export default async function BookingDetailPage({
  params,

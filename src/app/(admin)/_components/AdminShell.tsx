@@ -7,7 +7,7 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import type { HeaderUser } from "@/layout/header-user";
-import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification.queries";
+import type { HeaderNotificationSummary } from "@/modules/notifications/queries/notification";
 
 export default function AdminShell({
  children,

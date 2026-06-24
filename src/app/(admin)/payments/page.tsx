@@ -97,7 +97,7 @@ export default async function PaymentsPage() {
       </h2>
       <Link
        href="/payments/new"
-       className="inline-flex h-9 items-center rounded-lg bg-primary-subtle0 px-4 text-sm font-medium text-white hover:bg-primary-hover"
+       className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-hover"
       >
        + Record Payment
       </Link>

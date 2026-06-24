@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { VehicleForm } from "@/modules/vehicles/components/VehicleForm";
 import { getVehicle } from "@/modules/vehicles/queries/vehicle";
@@ -71,7 +70,8 @@ export default async function EditVehiclePage({
    </SurfaceCard>
 
    {/* Fuel Logs */}
-   <ComponentCard title="Fuel Logs" desc="Record fuel fill-ups for this vehicle.">
+   <SurfaceCard title="Fuel Logs">
+    <p className="mb-4 text-sm text-muted">Record fuel fill-ups for this vehicle.</p>
     <div className="mb-6 border-b border-default pb-6 ">
      <p className="mb-3 text-sm font-medium text-default">
       Add Fuel Log
@@ -120,10 +120,11 @@ export default async function EditVehiclePage({
       </table>
      </div>
     )}
-   </ComponentCard>
+   </SurfaceCard>
 
    {/* Maintenance Logs */}
-   <ComponentCard title="Maintenance Logs" desc="Track service and repair history.">
+   <SurfaceCard title="Maintenance Logs">
+    <p className="mb-4 text-sm text-muted">Track service and repair history.</p>
     <div className="mb-6 border-b border-default pb-6 ">
      <p className="mb-3 text-sm font-medium text-default">
       Add Maintenance Log
@@ -172,10 +173,11 @@ export default async function EditVehiclePage({
       </table>
      </div>
     )}
-   </ComponentCard>
+   </SurfaceCard>
 
    {/* Expenses */}
-   <ComponentCard title="Expenses" desc="Operational expenses linked to this vehicle.">
+   <SurfaceCard title="Expenses">
+    <p className="mb-4 text-sm text-muted">Operational expenses linked to this vehicle.</p>
     <div className="mb-6 border-b border-default pb-6">
      <p className="mb-3 text-sm font-medium text-default">Add Expense</p>
      <ExpenseForm vehicleId={id} />
@@ -211,7 +213,7 @@ export default async function EditVehiclePage({
       </table>
      </div>
     )}
-   </ComponentCard>
+   </SurfaceCard>
   </div>
  );
 }

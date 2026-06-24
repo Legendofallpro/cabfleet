@@ -1,8 +1,7 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
-import { getDriverSelfOverview } from "@/modules/drivers/queries/driver-self";
+import { getDriverIdForProfile, getDriverSelfOverview } from "@/modules/drivers/queries/driver-self";
 import { StatCard } from "@/components/common/StatCard";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { OverviewHeader } from "@/app/(driver)/_components/OverviewHeader";
@@ -17,10 +16,7 @@ export default async function DriverHomePage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/driver");
 
-  const driver = await db.driver.findFirst({
-    where: { profileId: session.profile.id, deletedAt: null },
-    select: { id: true },
-  });
+  const driver = await getDriverIdForProfile(session.profile.id);
 
   if (!driver) {
     return (

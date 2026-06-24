@@ -2,6 +2,29 @@ import { db } from "@/lib/db";
 // getOrCreateCustomer performs a write — it lives in services/ not here.
 export type { CustomerRow } from "@/modules/customers/services/customer.service";
 
+/**
+ * Fetches a single booking scoped to the owning customer's profileId.
+ * Returns null when the booking is not found or belongs to a different profile.
+ */
+export async function getCustomerBooking(id: string, profileId: string) {
+  const booking = await db.booking.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      customer: { select: { profileId: true } },
+      bookingType: { select: { name: true } },
+      branch: { select: { name: true, code: true } },
+      assignedDriver: {
+        include: { profile: { select: { fullName: true } } },
+      },
+      assignedVehicle: {
+        select: { registrationNumber: true, make: true, model: true },
+      },
+    },
+  });
+  if (!booking || booking.customer.profileId !== profileId) return null;
+  return booking;
+}
+
 export type CustomerBookingRow = {
   id: string;
   status: string;

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
+import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import { DateRangeFilterBar } from "@/components/common/DateRangeFilterBar";
 import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
@@ -70,10 +70,8 @@ export default async function AttendancePage({ searchParams }: Props) {
      <StatCard label="On Leave" value={summary.onLeave} tone="info" />
     </div>
 
-    <ComponentCard
-     title={`Attendance Log — ${dateStr}`}
-     desc={`${total} record${total !== 1 ? "s" : ""} found`}
-    >
+    <SurfaceCard title={`Attendance Log — ${dateStr}`}>
+     <p className="mb-4 text-sm text-muted">{total} record{total !== 1 ? "s" : ""} found.</p>
      {rows.length === 0 ? (
       <div className="flex items-center justify-center py-16 text-muted">
        <p className="text-sm">No attendance records for this date.</p>
@@ -114,7 +112,7 @@ export default async function AttendancePage({ searchParams }: Props) {
        </table>
       </div>
      )}
-    </ComponentCard>
+    </SurfaceCard>
    </div>
   </div>
  );

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
+import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
-import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
  getTodayBookingCount,
  getActiveRidesCount,
@@ -13,7 +13,7 @@ import {
  getPendingPaymentCount,
  getRecentBookings,
 } from "@/modules/reports/queries/dashboard";
-import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
+import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import type { BookingStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -21,19 +21,6 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
  title: "Dashboard | CabFleet Admin",
  description: "CabFleet management platform overview",
-};
-
-const STATUS_TONE: Record<BookingStatus, StatusTone> = {
- PENDING: "warning",
- OPEN_FOR_CLAIM: "info",
- CLAIMED: "info",
- ASSIGNED: "info",
- DRIVER_EN_ROUTE: "info",
- IN_PROGRESS: "success",
- COMPLETED: "success",
- CANCELLED: "neutral",
- NO_SHOW: "neutral",
- FAILED: "error",
 };
 
 const quickLinks = [
@@ -83,10 +70,8 @@ export default async function DashboardPage() {
 
     <div className="grid grid-cols-12 gap-6">
      <div className="col-span-12 xl:col-span-8">
-      <ComponentCard
-       title="Recent Bookings"
-       desc="Latest booking activity across the fleet."
-      >
+      <SurfaceCard title="Recent Bookings">
+       <p className="mb-4 text-sm text-muted">Latest booking activity across the fleet.</p>
        {recentBookings.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-muted">
          <p className="text-sm">No bookings yet.</p>
@@ -120,7 +105,7 @@ export default async function DashboardPage() {
               {b.pickupAt ? dtFmt.format(new Date(b.pickupAt)) : "—"}
              </td>
              <td className="py-3">
-              <StatusBadge tone={STATUS_TONE[b.status]}>
+              <StatusBadge tone={BOOKING_STATUS_TONE[b.status]}>
                {BOOKING_STATUS_LABEL[b.status]}
               </StatusBadge>
              </td>
@@ -130,11 +115,11 @@ export default async function DashboardPage() {
          </table>
         </div>
        )}
-      </ComponentCard>
+      </SurfaceCard>
      </div>
 
      <div className="col-span-12 xl:col-span-4">
-      <ComponentCard title="Quick Actions">
+      <SurfaceCard title="Quick Actions">
        <div className="space-y-3">
         {quickLinks.map((link) => (
          <Link
@@ -149,7 +134,7 @@ export default async function DashboardPage() {
          </Link>
         ))}
        </div>
-      </ComponentCard>
+      </SurfaceCard>
      </div>
     </div>
    </div>

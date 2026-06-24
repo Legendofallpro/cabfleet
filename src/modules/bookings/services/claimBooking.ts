@@ -4,7 +4,7 @@
  * Two-layer locking:
  *   1. SELECT FOR UPDATE SKIP LOCKED — only one transaction proceeds when
  *      multiple drivers claim simultaneously; the others get zero rows immediately.
- *   2. Booking.version optimistic-lock in transitionBookingStatus — backstop
+ *   2. Booking.version optimistic-lock inside applyBookingTransitionTx — backstop
  *      against any code paths that might bypass the row lock.
  *
  * Returns:
@@ -16,7 +16,7 @@ import { db } from "@/lib/db";
 import { err, ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
 import type { BookingDetail } from "@/modules/bookings/types";
-import { notifyOnTransition } from "@/modules/notifications/services/notifyOnTransition";
+import { applyBookingTransitionTx } from "@/modules/bookings/services/transitionBookingStatus";
 
 type ClaimBookingInput = {
   bookingId: string;
@@ -54,99 +54,32 @@ export async function claimBooking(
         return err({ code: "ALREADY_CLAIMED", message: "This trip is no longer available." });
       }
 
-      // 2. Transition to CLAIMED — this runs inside the same transaction and
-      //    uses the optimistic-lock (WHERE id = ? AND version = ?) as backstop.
-      //    Note: transitionBookingStatus opens its OWN db.$transaction internally,
-      //    but since we're already inside a transaction the outer one wins in Prisma
-      //    with the PgBouncer adapter (nested transactions become savepoints).
-      //    To avoid nested transaction issues we call the raw update directly here
-      //    and write the audit + assignment history ourselves.
-
+      // 2. Apply the CLAIMED transition inside the same lock-holding transaction.
+      //    applyBookingTransitionTx handles the optimistic-lock update, assignment
+      //    history, audit log, and notification outbox atomically.
       const locked = rows[0];
-      const now = new Date();
 
-      const updated = await tx.booking.update({
-        where: { id: bookingId, version: locked.version },
-        data: {
-          status: BookingStatus.CLAIMED,
+      const booking = await applyBookingTransitionTx(
+        tx,
+        bookingId,
+        {
+          status: BookingStatus.OPEN_FOR_CLAIM,
+          version: locked.version,
+          // An OPEN_FOR_CLAIM booking has no assigned driver/vehicle yet;
+          // these are null and not involved in the driverChanged/vehicleChanged
+          // checks inside applyBookingTransitionTx.
+          assignedDriverId: null,
+          assignedVehicleId: null,
+        },
+        {
+          toStatus: BookingStatus.CLAIMED,
+          byProfileId,
           claimedByDriverId: driverId,
-          claimedAt: now,
-          version: { increment: 1 },
-          updatedAt: now,
-        },
-        include: {
-          branch: { select: { id: true, name: true, code: true } },
-          customer: {
-            include: {
-              profile: { select: { id: true, fullName: true, email: true, phone: true } },
-            },
-          },
-          bookingType: { select: { id: true, name: true, defaultDispatchMode: true } },
-          assignedDriver: {
-            include: {
-              profile: { select: { id: true, fullName: true, email: true, phone: true } },
-            },
-          },
-          assignedVehicle: {
-            select: { id: true, registrationNumber: true, make: true, model: true },
-          },
-          claimedBy: {
-            include: {
-              profile: { select: { id: true, fullName: true, email: true } },
-            },
-          },
-          assignedBy: { select: { id: true, fullName: true, email: true } },
-          createdBy: { select: { id: true, fullName: true, email: true } },
-          assignmentHistory: {
-            orderBy: { at: "desc" as const },
-            include: {
-              byProfile: { select: { id: true, fullName: true, email: true } },
-            },
-          },
-        },
-      });
-
-      // 3. Write AssignmentHistory for the claim event
-      await tx.assignmentHistory.create({
-        data: {
-          bookingId,
-          driverId,
-          action: "CLAIM",
-          byProfileId,
           reason: "Driver claimed open booking",
-          at: now,
         },
-      });
+      );
 
-      // 4. Write AuditLog inside the same transaction
-      await tx.auditLog.create({
-        data: {
-          entity: "Booking",
-          entityId: bookingId,
-          action: "CLAIM",
-          byProfileId,
-          diff: {
-            before: { status: BookingStatus.OPEN_FOR_CLAIM, version: locked.version },
-            after: {
-              status: BookingStatus.CLAIMED,
-              version: locked.version + 1,
-              claimedByDriverId: driverId,
-            },
-          },
-        },
-      });
-
-      // Phase 7 W2: queue the BOOKING_CLAIMED notification atomically with
-      // the claim. transitionBookingStatus is NOT called on this path (raw
-      // SQL lock + direct update), so we emit the outbox row here directly.
-      await notifyOnTransition(tx, {
-        prev: BookingStatus.OPEN_FOR_CLAIM,
-        next: BookingStatus.CLAIMED,
-        booking: updated as BookingDetail,
-        reason: "Driver claimed open booking",
-      });
-
-      return ok(updated as BookingDetail);
+      return ok(booking);
     },
     {
       // Debug evidence showed P2028 "Unable to start a transaction in the given time"

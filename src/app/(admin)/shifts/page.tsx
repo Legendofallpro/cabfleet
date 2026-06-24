@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
+import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import { DateRangeFilterBar } from "@/components/common/DateRangeFilterBar";
 import { requirePermission } from "@/lib/auth/requireRole";
@@ -99,14 +99,13 @@ export default async function ShiftsPage({ searchParams }: Props) {
      />
     </div>
 
-    <ComponentCard title="New Shift" desc="Schedule a shift for a branch or staff member">
+    <SurfaceCard title="New Shift">
+     <p className="mb-4 text-sm text-muted">Schedule a shift for a branch or staff member.</p>
      <ShiftForm branches={branchOptions} staffOptions={staffOptions} />
-    </ComponentCard>
+    </SurfaceCard>
 
-    <ComponentCard
-     title="Shift Schedule"
-     desc={`${total} shift${total !== 1 ? "s" : ""} in this period`}
-    >
+    <SurfaceCard title="Shift Schedule">
+     <p className="mb-4 text-sm text-muted">{total} shift{total !== 1 ? "s" : ""} in this period.</p>
      {shifts.length === 0 ? (
       <div className="flex items-center justify-center py-16 text-muted">
        <p className="text-sm">No shifts scheduled in this period.</p>
@@ -154,7 +153,7 @@ export default async function ShiftsPage({ searchParams }: Props) {
        </table>
       </div>
      )}
-    </ComponentCard>
+    </SurfaceCard>
    </div>
   </div>
  );

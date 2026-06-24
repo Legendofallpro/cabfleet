@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import ComponentCard from "@/components/common/ComponentCard";
+import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import { DateRangeFilterBar } from "@/components/common/DateRangeFilterBar";
 import { requirePermission } from "@/lib/auth/requireRole";
@@ -106,7 +106,8 @@ export default async function ExpensesPage({ searchParams }: Props) {
     </div>
 
     {Object.keys(spendByCategory).length > 0 && (
-     <ComponentCard title="Spend by Category" desc="Breakdown for the selected period">
+     <SurfaceCard title="Spend by Category">
+      <p className="mb-4 text-sm text-muted">Breakdown for the selected period.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
        {Object.entries(spendByCategory).map(([cat, amount]) => (
         <div key={cat} className="rounded-xl border border-default bg-surface-inset p-3">
@@ -117,17 +118,16 @@ export default async function ExpensesPage({ searchParams }: Props) {
         </div>
        ))}
       </div>
-     </ComponentCard>
+     </SurfaceCard>
     )}
 
-    <ComponentCard title="Record Expense" desc="Log a new operational expense">
+    <SurfaceCard title="Record Expense">
+     <p className="mb-4 text-sm text-muted">Log a new operational expense.</p>
      <ExpenseForm />
-    </ComponentCard>
+    </SurfaceCard>
 
-    <ComponentCard
-     title="Expense Log"
-     desc={`${total} record${total !== 1 ? "s" : ""} in this period`}
-    >
+    <SurfaceCard title="Expense Log">
+     <p className="mb-4 text-sm text-muted">{total} record{total !== 1 ? "s" : ""} in this period.</p>
      {rows.length === 0 ? (
       <div className="flex items-center justify-center py-16 text-muted">
        <p className="text-sm">No expenses recorded in this period.</p>
@@ -174,7 +174,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
        </table>
       </div>
      )}
-    </ComponentCard>
+    </SurfaceCard>
    </div>
   </div>
  );

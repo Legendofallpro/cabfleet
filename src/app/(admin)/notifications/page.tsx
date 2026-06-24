@@ -18,7 +18,7 @@ import { parsePageParams } from "@/lib/utils/page-params";
 import {
   listNotificationLogs,
   listProblemOutbox,
-} from "@/modules/notifications/queries/notifications";
+} from "@/modules/notifications/queries/notification";
 import type { NotificationLog, NotificationOutbox } from "@prisma/client";
 
 export const metadata: Metadata = { title: "Notifications | CabFleet Admin" };
