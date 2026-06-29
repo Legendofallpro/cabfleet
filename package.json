@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "load-test:claim": "npx tsx scripts/load-test-claim.ts",
+    "setup:avatar-bucket": "tsx scripts/setup-avatar-bucket.ts",
     "check:tokens": "tsx scripts/check-ui-tokens.ts",
     "check:structure": "tsx scripts/check-structure.ts"
   },
