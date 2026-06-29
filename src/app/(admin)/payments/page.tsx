@@ -73,7 +73,7 @@ export default async function PaymentsPage() {
       {
        label: "Refunded",
        value: refunded,
-       color: "bg-error-subtle dark:bg-error-subtle0/10",
+       color: "bg-error-subtle",
       },
      ].map((stat) => (
       <div

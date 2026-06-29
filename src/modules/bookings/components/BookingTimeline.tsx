@@ -16,11 +16,11 @@ const ACTION_ICON: Partial<Record<AuditAction, string>> = {
 
 const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
  CREATE: "bg-primary",
- ASSIGN: "bg-success-subtle0",
+ ASSIGN: "bg-success-500",
  UNASSIGN: "bg-warning-500",
  STATUS_CHANGE: "bg-surface-inset",
- CANCEL: "bg-error-subtle0",
- COMPLETE: "bg-success-subtle0",
+ CANCEL: "bg-error-500",
+ COMPLETE: "bg-success-500",
  CLAIM: "bg-primary",
 };
 

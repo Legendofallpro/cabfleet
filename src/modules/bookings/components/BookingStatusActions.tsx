@@ -20,11 +20,11 @@ import {
 /** Button colour per target status */
 const BUTTON_CLASS: Partial<Record<BookingStatus, string>> = {
  DRIVER_EN_ROUTE: "bg-primary text-primary-foreground hover:bg-primary-hover",
- IN_PROGRESS: "bg-success-subtle0 text-white hover:bg-success-600",
+ IN_PROGRESS: "bg-success-500 text-white hover:bg-success-600",
  COMPLETED: "bg-success-600 text-white hover:bg-success-700",
- CANCELLED: "bg-error-subtle0 text-white hover:bg-error-600",
+ CANCELLED: "bg-error-500 text-white hover:bg-error-600",
  NO_SHOW: "bg-warning-500 text-white hover:bg-warning-600",
- FAILED: "bg-error-400 text-white hover:bg-error-subtle0",
+ FAILED: "bg-error-400 text-white hover:bg-error-500",
 };
 
 type Props = {
