@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { checkInAction, checkOutAction } from "@/modules/attendance/actions/attendance.actions";
 import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
@@ -79,16 +80,16 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
     {current?.checkIn && (
      <div className="flex justify-between">
       <span>Check-in</span>
-      <span className="font-medium text-on-success-subtle">
-       {new Date(current.checkIn).toLocaleTimeString()}
+      <span className="font-medium text-on-success-subtle" suppressHydrationWarning>
+       {format(new Date(current.checkIn), "h:mm:ss a")}
       </span>
      </div>
     )}
     {current?.checkOut && (
      <div className="flex justify-between">
       <span>Check-out</span>
-      <span className="font-medium text-default">
-       {new Date(current.checkOut).toLocaleTimeString()}
+      <span className="font-medium text-default" suppressHydrationWarning>
+       {format(new Date(current.checkOut), "h:mm:ss a")}
       </span>
      </div>
     )}
