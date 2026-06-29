@@ -108,7 +108,7 @@ export function AttendanceSelfCard({ profileId, today, record }: Props) {
       type="button"
       onClick={handleCheckIn}
       disabled={isPending}
-      className="flex-1 rounded-lg bg-success-subtle0 py-3 text-sm font-semibold text-white hover:bg-success-600 disabled:opacity-50"
+      className="flex-1 rounded-lg bg-success-500 py-3 text-sm font-semibold text-white hover:bg-success-600 disabled:opacity-50"
      >
       {isPending ? "Please wait…" : "Check In"}
      </button>

@@ -24,7 +24,7 @@ export function TripActionButton({
 
  const variantClass =
   tripAction.variant === "danger"
-   ? "bg-error-subtle0 text-white hover:bg-error-600"
+   ? "bg-error-500 text-white hover:bg-error-600"
    : tripAction.variant === "secondary"
     ? "bg-surface-inset text-default hover:bg-surface-elevated border border-default"
     : "bg-primary hover:bg-primary-hover text-primary-foreground";
