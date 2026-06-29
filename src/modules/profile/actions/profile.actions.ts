@@ -23,6 +23,8 @@ import {
   updateNotificationPrefs,
   updateProfile,
 } from "@/modules/profile/services/profile.service";
+import { ensureAvatarsBucket } from "@/modules/profile/services/avatar-storage.service";
+import { assertAvatarUrlForProfile } from "@/modules/profile/avatar-url";
 
 /** Roles that may use self-service profile mutations. */
 const SELF_SERVICE_ROLES = [
@@ -102,18 +104,26 @@ export const updateAvatarUrlAction = action(
   async (input) => {
     const actor = await requireRole([...SELF_SERVICE_ROLES]);
 
-    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!input.avatarUrl.startsWith(supabaseUrl)) {
-      throw new Error("Invalid avatar URL");
-    }
-    const expectedSegment = `/avatars/${actor.profile.id}/`;
-    if (!input.avatarUrl.includes(expectedSegment)) {
-      throw new Error("Avatar path must belong to your profile");
-    }
+    assertAvatarUrlForProfile(
+      input.avatarUrl,
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      actor.profile.id,
+    );
 
     const result = await updateAvatarUrl(input.avatarUrl, { id: actor.profile.id });
     revalidateProfilePaths();
     return result;
+  },
+);
+
+/** Dev/ops helper: create avatars bucket if missing (ADMIN+ only). */
+export const ensureAvatarsBucketAction = action(
+  "profile.ensureAvatarsBucket",
+  z.object({}),
+  async () => {
+    await requireRole([Role.SUPER_ADMIN, Role.ADMIN, Role.STAFF, Role.CUSTOMER, Role.DRIVER]);
+    const result = await ensureAvatarsBucket();
+    return ok(result);
   },
 );
 

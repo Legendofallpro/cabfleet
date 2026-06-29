@@ -1,5 +1,6 @@
 -- Avatar uploads bucket (run in Supabase SQL editor after deploy).
 -- Users may read any avatar; authenticated users may write only under avatars/{their_profile_id}/.
+-- Bucket creation can also be done via: npx tsx scripts/setup-avatar-bucket.ts
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -14,11 +15,13 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
+DROP POLICY IF EXISTS "avatars_public_read" ON storage.objects;
 CREATE POLICY "avatars_public_read"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'avatars');
 
+DROP POLICY IF EXISTS "avatars_owner_insert" ON storage.objects;
 CREATE POLICY "avatars_owner_insert"
 ON storage.objects FOR INSERT
 TO authenticated
@@ -27,6 +30,7 @@ WITH CHECK (
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
+DROP POLICY IF EXISTS "avatars_owner_update" ON storage.objects;
 CREATE POLICY "avatars_owner_update"
 ON storage.objects FOR UPDATE
 TO authenticated
@@ -35,6 +39,7 @@ USING (
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
+DROP POLICY IF EXISTS "avatars_owner_delete" ON storage.objects;
 CREATE POLICY "avatars_owner_delete"
 ON storage.objects FOR DELETE
 TO authenticated

@@ -59,9 +59,7 @@ export default async function DriverProfilePage() {
   if (!session) redirect("/signin?redirectTo=/driver/profile");
   if (session.profile.role !== "DRIVER") redirect(getRoleHome(session.profile.role));
 
-  const [driverCard] = await Promise.all([
-    getDriverCard(session.profile.id),
-  ]);
+  const driverCard = await getDriverCard(session.profile.id);
 
   const headerUser: HeaderUser = {
     fullName: session.profile.fullName,
@@ -71,7 +69,15 @@ export default async function DriverProfilePage() {
 
   const licDays = driverCard ? daysUntil(driverCard.licenseExpiry) : null;
   const licTone: StatusTone =
-    licDays == null ? "neutral" : licDays <= 0 ? "error" : licDays <= 30 ? "error" : licDays <= 60 ? "warning" : "neutral";
+    licDays == null
+      ? "neutral"
+      : licDays <= 0
+        ? "error"
+        : licDays <= 30
+          ? "error"
+          : licDays <= 60
+            ? "warning"
+            : "neutral";
 
   return (
     <div className="space-y-6">
@@ -80,9 +86,26 @@ export default async function DriverProfilePage() {
         <p className="text-sm text-muted">Your driver details and contact information.</p>
       </div>
 
-      {/* Driver stats card */}
-      {driverCard && (
-        <SurfaceCard title="Driver Details" padding="sm">
+      <SurfaceCard padding="sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <ProfileAvatar user={headerUser} size="lg" />
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-default">
+                {session.profile.fullName ?? "—"}
+              </p>
+              <p className="truncate text-sm text-muted">{session.profile.email}</p>
+              {session.profile.phone && (
+                <p className="truncate text-sm text-muted">{session.profile.phone}</p>
+              )}
+            </div>
+          </div>
+          <AvatarUploadForm profileId={session.profile.id} variant="inline" />
+        </div>
+      </SurfaceCard>
+
+      {driverCard ? (
+        <SurfaceCard title="Driver details" padding="sm">
           <dl className="divide-y divide-default">
             <div className="flex items-center justify-between py-2.5">
               <dt className="text-sm text-muted">Status</dt>
@@ -105,7 +128,7 @@ export default async function DriverProfilePage() {
               <dd className="text-sm font-medium text-default">{driverCard.licenseNumber}</dd>
             </div>
             <div className="flex items-center justify-between py-2.5">
-              <dt className="text-sm text-muted">License Expiry</dt>
+              <dt className="text-sm text-muted">License expiry</dt>
               <dd className="flex items-center gap-2">
                 <span className="text-sm font-medium text-default">
                   {format(new Date(driverCard.licenseExpiry), "dd MMM yyyy")}
@@ -118,7 +141,7 @@ export default async function DriverProfilePage() {
               </dd>
             </div>
             <div className="flex items-center justify-between py-2.5">
-              <dt className="text-sm text-muted">Total Trips</dt>
+              <dt className="text-sm text-muted">Total trips</dt>
               <dd className="text-sm font-medium text-default">{driverCard.totalTrips}</dd>
             </div>
             {driverCard.rating != null && (
@@ -132,25 +155,22 @@ export default async function DriverProfilePage() {
             <div className="flex items-center justify-between py-2.5">
               <dt className="text-sm text-muted">Member since</dt>
               <dd className="text-sm font-medium text-default">
-                {format(new Date(driverCard.createdAt), "MMM yyyy")} · {tenureLabel(driverCard.createdAt)}
+                {format(new Date(driverCard.createdAt), "MMM yyyy")} ·{" "}
+                {tenureLabel(driverCard.createdAt)}
               </dd>
             </div>
           </dl>
         </SurfaceCard>
+      ) : (
+        <SurfaceCard title="Driver details" padding="sm">
+          <p className="text-sm text-muted">
+            Your driver record is still being set up. Contact your branch administrator if this
+            persists.
+          </p>
+        </SurfaceCard>
       )}
 
-      {/* Profile edit */}
-      <SurfaceCard>
-        <div className="mb-6 flex items-center gap-4">
-          <ProfileAvatar user={headerUser} size="md" />
-          <div>
-            <p className="font-semibold text-default">{session.profile.fullName ?? "—"}</p>
-            <p className="text-sm text-muted">{session.profile.email}</p>
-          </div>
-        </div>
-
-        <AvatarUploadForm profileId={session.profile.id} />
-
+      <SurfaceCard title="Contact details" padding="sm">
         <ProfileEditForm
           email={session.profile.email}
           cancelHref="/driver"
