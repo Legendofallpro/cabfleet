@@ -42,7 +42,7 @@ function ExpiryRow({ label, date }: { label: string; date: Date | null }) {
 export function VehicleSummaryCard({ assignment }: VehicleSummaryCardProps) {
   if (!assignment) {
     return (
-      <SurfaceCard title="Your Vehicle" padding="sm">
+      <SurfaceCard title="Your Vehicle" padding="md">
         <p className="text-sm text-muted">No vehicle assigned. Contact your administrator.</p>
       </SurfaceCard>
     );
@@ -52,11 +52,11 @@ export function VehicleSummaryCard({ assignment }: VehicleSummaryCardProps) {
   const hasExpiries = v.insuranceExpiry ?? v.fitnessExpiry ?? v.pucExpiry;
 
   return (
-    <SurfaceCard padding="sm">
+    <SurfaceCard padding="md">
       <div className="mb-3 flex items-start justify-between">
         <div>
           <p className="text-caption text-muted uppercase tracking-wide">Your Vehicle</p>
-          <p className="mt-0.5 text-base font-semibold text-default">
+          <p className="mt-0.5 text-lg font-bold text-default">
             {v.make} {v.model} {v.year}
           </p>
           <p className="text-sm text-muted">

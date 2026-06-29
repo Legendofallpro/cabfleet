@@ -34,10 +34,10 @@ function fmt(d: Date | null) {
 
 export function AttendanceQuickStatus({ today }: AttendanceQuickStatusProps) {
   return (
-    <SurfaceCard padding="sm">
+    <SurfaceCard padding="md">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-caption text-muted uppercase tracking-wide">Today&apos;s Attendance</p>
+          <p className="text-sm text-muted uppercase tracking-wide">Today&apos;s Attendance</p>
           {today ? (
             <div className="mt-1 flex items-center gap-2">
               <StatusBadge tone={TONE[today.status] ?? "neutral"}>

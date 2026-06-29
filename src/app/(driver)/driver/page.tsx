@@ -41,12 +41,14 @@ export default async function DriverHomePage() {
   }
 
   return (
-    <div className="space-y-5">
-      <OverviewHeader driver={data.driver} />
+    <div className="space-y-6 md:space-y-8">
+      <SurfaceCard padding="md">
+        <OverviewHeader driver={data.driver} />
+      </SurfaceCard>
 
       {data.activeTrip && <ActiveTripBanner trip={data.activeTrip} />}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Today's trips" value={data.today.count} tone="info" />
         <StatCard
           label="Today's earnings"

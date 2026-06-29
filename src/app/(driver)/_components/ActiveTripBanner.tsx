@@ -25,7 +25,7 @@ export function ActiveTripBanner({ trip }: ActiveTripBannerProps) {
   return (
     <Link
       href={`/driver/trips/${trip.id}`}
-      className="block rounded-2xl border-2 border-primary bg-primary-subtle p-4 transition hover:opacity-90"
+      className="block rounded-2xl border-2 border-primary bg-primary-subtle p-5 shadow-theme-sm transition hover:opacity-90 md:p-6"
     >
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-on-primary-subtle">
