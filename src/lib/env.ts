@@ -49,6 +49,19 @@ export const env = createEnv({
     /** W5: enables TripLocation ingestion + the live customer map. */
     REALTIME_TRACKING_ENABLED: boolFromString,
 
+    /**
+     * When true (default), ADMIN/STAFF/SUPER_ADMIN sessions must be aal2.
+     * Playwright sets this false so the trip loop is not blocked by TOTP.
+     */
+    STAFF_AAL2_REQUIRED: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => {
+        if (typeof v === "boolean") return v;
+        return ["true", "1", "yes", "on"].includes(v.toLowerCase());
+      })
+      .pipe(z.boolean())
+      .default(true),
+
     // ── Phase 7 W2: Twilio (WhatsApp) ────────────────────────────────────
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
@@ -164,6 +177,7 @@ export const env = createEnv({
     PAYMENT_GATEWAY: process.env.PAYMENT_GATEWAY,
     API_V1_ENABLED: process.env.API_V1_ENABLED,
     REALTIME_TRACKING_ENABLED: process.env.REALTIME_TRACKING_ENABLED,
+    STAFF_AAL2_REQUIRED: process.env.STAFF_AAL2_REQUIRED,
     TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,

@@ -8,8 +8,9 @@ import {
 
 describe("getRoleHome", () => {
   it("returns the correct home path for each role", () => {
-    expect(getRoleHome("ADMIN")).toBe("/");
-    expect(getRoleHome("STAFF")).toBe("/");
+    expect(getRoleHome("ADMIN")).toBe("/dashboard");
+    expect(getRoleHome("STAFF")).toBe("/dashboard");
+    expect(getRoleHome("SUPER_ADMIN")).toBe("/dashboard");
     expect(getRoleHome("DRIVER")).toBe("/driver");
     expect(getRoleHome("CUSTOMER")).toBe("/portal");
   });
@@ -26,6 +27,14 @@ describe("sanitizeRedirectTo", () => {
     expect(sanitizeRedirectTo("https://example.com")).toBeNull();
     expect(sanitizeRedirectTo("//example.com")).toBeNull();
     expect(sanitizeRedirectTo("portal/book")).toBeNull();
+  });
+
+  it("rejects protocol-relative and encoded slash open-redirects", () => {
+    expect(sanitizeRedirectTo("/\\evil.com")).toBeNull();
+    expect(sanitizeRedirectTo("/\\\\evil.com")).toBeNull();
+    expect(sanitizeRedirectTo("/%2fevil.com")).toBeNull();
+    expect(sanitizeRedirectTo("/%2Fevil.com")).toBeNull();
+    expect(sanitizeRedirectTo("/@evil.com")).toBeNull();
   });
 
   it("rejects auth entry paths to avoid redirect loops", () => {
@@ -76,13 +85,23 @@ describe("getPostAuthRedirect — segment-aware role checks", () => {
   });
 
   it("blocks admin and staff from /portal or /driver paths", () => {
-    expect(getPostAuthRedirect("/portal/book", "ADMIN")).toBe("/");
-    expect(getPostAuthRedirect("/driver/trips", "STAFF")).toBe("/");
+    expect(getPostAuthRedirect("/portal/book", "ADMIN")).toBe("/dashboard");
+    expect(getPostAuthRedirect("/driver/trips", "STAFF")).toBe("/dashboard");
   });
 
   it("falls back to role home when redirect target is missing", () => {
     expect(getPostAuthRedirect(undefined, "CUSTOMER")).toBe("/portal");
     expect(getPostAuthRedirect(null, "DRIVER")).toBe("/driver");
-    expect(getPostAuthRedirect(null, "ADMIN")).toBe("/");
+    expect(getPostAuthRedirect(null, "ADMIN")).toBe("/dashboard");
+  });
+
+  it("treats / as role home so the public landing is never a post-auth destination", () => {
+    expect(getPostAuthRedirect("/", "ADMIN")).toBe("/dashboard");
+    expect(getPostAuthRedirect("/", "CUSTOMER")).toBe("/portal");
+    expect(getPostAuthRedirect("/", "DRIVER")).toBe("/driver");
+  });
+
+  it("keeps staff on the desk after sign-in", () => {
+    expect(getPostAuthRedirect("/dashboard", "STAFF")).toBe("/dashboard");
   });
 });

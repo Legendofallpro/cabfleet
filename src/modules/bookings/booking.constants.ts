@@ -49,6 +49,20 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   FAILED: "Failed",
 };
 
+/** Passenger-facing copy — no dispatch jargon. */
+export const CUSTOMER_STATUS_LABEL: Record<BookingStatus, string> = {
+  PENDING: "Waiting for confirmation",
+  OPEN_FOR_CLAIM: "Finding a driver",
+  CLAIMED: "Driver assigned",
+  ASSIGNED: "Driver assigned",
+  DRIVER_EN_ROUTE: "Driver on the way",
+  IN_PROGRESS: "Trip in progress",
+  COMPLETED: "Trip completed",
+  CANCELLED: "Cancelled",
+  NO_SHOW: "No-show",
+  FAILED: "Couldn’t complete",
+};
+
 /** StatusBadge tone for each booking status. */
 export const BOOKING_STATUS_TONE: Record<BookingStatus, StatusTone> = {
   PENDING: "warning",

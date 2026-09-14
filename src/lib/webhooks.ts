@@ -9,17 +9,22 @@
  *   readRawBody       — preserve exact bytes for HMAC (Next route handlers
  *                       parse JSON eagerly otherwise).
  *   verifyHmacSha256  — timing-safe HMAC-SHA256 comparison (S3).
- *   withIdempotency   — dedupe by (provider, eventId) using WebhookEvent
- *                       and reject events older than 5 minutes (S4).
+ *   withIdempotency   — dedupe by (provider, eventId) using WebhookEvent.
+ *                       HMAC + unique event id is the replay guard.
+ *   resolveRazorpayEventId — Razorpay sends the id on x-razorpay-event-id.
  *   assertSourceIp    — optional CIDR/IP allow-list (S25).
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-// 5-minute window per plan §7.5 S4. Razorpay's payload includes `created_at`
-// (unix seconds); callers pass it through.
-export const WEBHOOK_REPLAY_WINDOW_MS = 5 * 60 * 1000;
+/** Razorpay puts the durable event id on this header, not on `body.id`. */
+export const RAZORPAY_EVENT_ID_HEADER = "x-razorpay-event-id";
+
+export function resolveRazorpayEventId(req: { headers: Headers }): string | null {
+  const header = req.headers.get(RAZORPAY_EVENT_ID_HEADER)?.trim();
+  return header ? header : null;
+}
 
 /**
  * Read the request body as a UTF-8 string AND its JSON-parsed form.
@@ -70,19 +75,14 @@ export function verifyHmacSha256(
 export type IdempotencyResult =
   | { ok: true; processed: true }
   | { ok: true; processed: false; reason: "duplicate" }
-  | { ok: false; reason: "stale" | "error"; message: string };
+  | { ok: false; reason: "error"; message: string };
 
 /**
- * Run `fn` exactly once per (provider, eventId), provided the event is fresh.
+ * Run `fn` exactly once per (provider, eventId).
  *
- * Order of operations matters:
- *   1. Reject stale events first — older than `WEBHOOK_REPLAY_WINDOW_MS`
- *      against `eventCreatedAt`. This is a replay-window guard, not a
- *      logical-event guard. (S4)
- *   2. Atomically insert a WebhookEvent row. Unique constraint violation =
- *      duplicate; swallow it, return `processed: false`. (W3 §3.3)
- *   3. Only then call `fn`. If `fn` throws we let it bubble — the row
- *      remains; a retried delivery will hit the duplicate branch.
+ * Insert the WebhookEvent row first (unique on provider+eventId). If `fn`
+ * throws, delete that row so Razorpay retries can run. Successful processing
+ * leaves the row in place as the poison-pill guard.
  */
 export async function withIdempotency(
   args: {
@@ -93,24 +93,29 @@ export async function withIdempotency(
   },
   fn: () => Promise<void>,
 ): Promise<IdempotencyResult> {
-  const now = Date.now();
-  const eventAgeMs = now - args.eventCreatedAt.getTime();
-  if (eventAgeMs > WEBHOOK_REPLAY_WINDOW_MS) {
-    return {
-      ok: false,
-      reason: "stale",
-      message: `Event ${args.provider}:${args.eventId} is ${Math.round(eventAgeMs / 1000)}s old (>${WEBHOOK_REPLAY_WINDOW_MS / 1000}s window).`,
-    };
+  const eventAgeMs = Date.now() - args.eventCreatedAt.getTime();
+  if (eventAgeMs > 5 * 60 * 1000) {
+    logger.info(
+      {
+        provider: args.provider,
+        eventId: args.eventId,
+        ageSec: Math.round(eventAgeMs / 1000),
+      },
+      "webhook.event_older_than_five_minutes",
+    );
   }
 
+  let insertedId: string | null = null;
   try {
-    await db.webhookEvent.create({
+    const row = await db.webhookEvent.create({
       data: {
         provider: args.provider,
         eventId: args.eventId,
         payload: args.payload as object,
       },
+      select: { id: true },
     });
+    insertedId = row.id;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Prisma P2002 = unique-constraint violation on (provider, eventId).
@@ -125,7 +130,21 @@ export async function withIdempotency(
     return { ok: false, reason: "error", message: msg };
   }
 
-  await fn();
+  try {
+    await fn();
+  } catch (err) {
+    if (insertedId) {
+      try {
+        await db.webhookEvent.delete({ where: { id: insertedId } });
+      } catch (deleteErr) {
+        logger.error(
+          { err: deleteErr, provider: args.provider, eventId: args.eventId },
+          "webhook.idempotency_delete_failed",
+        );
+      }
+    }
+    throw err;
+  }
   return { ok: true, processed: true };
 }
 

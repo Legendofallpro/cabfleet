@@ -6,31 +6,17 @@ import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
 import type { HeaderUser } from "@/layout/header-user";
-import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import { AvatarUploadForm } from "@/modules/profile/components/AvatarUploadForm";
 import { ProfileAvatar } from "@/modules/profile/components/ProfileAvatar";
 import { ProfileEditForm } from "@/modules/profile/components/ProfileEditForm";
 
-export const metadata: Metadata = { title: "Profile | CabFleet" };
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" });
-
-function ProfileRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 py-3.5 sm:flex-row sm:items-center sm:gap-6">
-      <dt className="w-36 shrink-0 text-xs font-medium text-muted">{label}</dt>
-      <dd className="text-sm text-default">{value ?? "—"}</dd>
-    </div>
-  );
-}
+export const metadata: Metadata = { title: "Me | CabFleet" };
 
 export default async function ProfilePage() {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/profile");
-
   if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
-  const customer = await getOrCreateCustomer(session.profile.id);
   const headerUser: HeaderUser = {
     fullName: session.profile.fullName,
     email: session.profile.email,
@@ -38,10 +24,10 @@ export default async function ProfilePage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-default">Profile</h1>
-        <p className="mt-1 text-sm text-muted">Update your name, phone, and avatar.</p>
+        <h1 className="text-2xl font-bold text-default">Me</h1>
+        <p className="mt-1 text-sm text-muted">Name and mobile. Email stays with your login.</p>
       </div>
 
       <SurfaceCard>
@@ -65,16 +51,8 @@ export default async function ProfilePage() {
         />
       </SurfaceCard>
 
-      <SurfaceCard title="Loyalty">
-        <dl className="divide-y divide-default">
-          <ProfileRow label="Loyalty tier" value={customer.loyaltyTier ?? "Standard"} />
-          <ProfileRow label="Total bookings" value={customer.totalBookings} />
-          <ProfileRow label="Member since" value={dtFmt.format(new Date(customer.createdAt))} />
-        </dl>
-      </SurfaceCard>
-
       <p className="text-center text-caption text-muted">
-        Password and notifications are in{" "}
+        Password and extra security are in{" "}
         <Link href="/portal/profile/account" className="text-primary hover:underline">
           Account settings
         </Link>

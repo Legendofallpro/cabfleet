@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { TextField } from "@/components/common/form/TextField";
@@ -37,6 +38,7 @@ function nextFriendlyName(existing: Factor[]): string {
 }
 
 export function MfaSettingsPanel() {
+  const router = useRouter();
   const [factors, setFactors] = useState<Factor[]>([]);
   const [loading, setLoading] = useState(true);
   const [enroll, setEnroll] = useState<EnrollState>(null);
@@ -148,6 +150,7 @@ export function MfaSettingsPanel() {
       setEnroll(null);
       setVerifyCode("");
       await refreshFactors();
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -180,8 +183,8 @@ export function MfaSettingsPanel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        Add an authenticator app for a second sign-in step. Recommended for admin and staff
-        accounts.
+        Add an authenticator app for a second sign-in step. Required for admin
+        and staff accounts.
       </p>
 
       {verified.length > 0 && (

@@ -4,14 +4,14 @@ Phase 7 W0 / §7.8 S17.
 
 The Content-Security-Policy header is **composed at startup** from a base policy plus per-feature-flag deltas. The composition lives in [`src/lib/csp.ts`](../../src/lib/csp.ts) and is wired into [`next.config.ts`](../../next.config.ts).
 
-Today the header is sent as `Content-Security-Policy-Report-Only`. The flip to enforcing mode is gated on the `e2e:csp` Playwright smoke test running clean against production traffic for ≥1 week. See the comment block at the top of `next.config.ts` for the exact promotion rule.
+Today the header is sent as enforcing `Content-Security-Policy` (Wave 4). The Playwright smoke at `e2e/csp.spec.ts` asserts `/signin` includes `default-src 'self'` and does **not** send Report-Only.
 
 ## How it works
 
 `composeCsp(flags?)` produces the directive string. It always merges in:
 
 1. The base policy (`'self'` everywhere, hardened `default-src`/`frame-ancestors`/`object-src`).
-2. The Supabase project origin (read from `NEXT_PUBLIC_SUPABASE_URL`) into `connect-src` and `img-src`. Supabase realtime (`wss://*.supabase.co`) is included by default because Phase 5 already uses it.
+2. The Supabase project origin (read from `NEXT_PUBLIC_SUPABASE_URL`) into `connect-src` and `img-src`. Supabase realtime (`wss://*.supabase.co`) is included by default because Phase 5 already uses it. `img-src` does **not** include the catch-all `https:` token.
 
 Then, per enabled feature flag, the matching delta is layered on:
 
@@ -31,7 +31,7 @@ When a Phase 7+ workstream needs to admit a new host, do **not** edit the base p
 3. Add a row to the table above documenting the flag and the hosts.
 4. Add a unit test in `src/lib/csp.test.ts` asserting the hosts appear when the flag is on and disappear when it is off.
 
-The composition is unit-tested — the `e2e:csp` Playwright check (deferred to S17 follow-up) verifies the runtime header doesn't break the live app under enforced CSP.
+The composition is unit-tested. The `e2e:csp` Playwright check verifies the runtime header is enforcing and `/signin` still renders.
 
 ## Why not nonces?
 

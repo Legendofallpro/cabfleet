@@ -12,8 +12,9 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { BookingStatus } from "@prisma/client";
-import { env } from "@/lib/env";
+import { cronAuthGuard } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
+import { runWithoutOrg } from "@/lib/org-context";
 import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
 import { logger } from "@/lib/logger";
 
@@ -24,19 +25,10 @@ import { logger } from "@/lib/logger";
  */
 
 async function handler(req: NextRequest) {
-  // Authenticate the cron caller. CRON_SECRET is required in production (see
-  // src/lib/env.ts). In other environments we still require the header so a
-  // missing secret means "endpoint disabled" rather than "open to the world".
-  if (!env.CRON_SECRET) {
-    logger.warn({ path: "/api/cron/promote-hybrid" }, "cron.disabled.no_secret");
-    return NextResponse.json({ error: "Cron disabled" }, { status: 503 });
-  }
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    logger.warn({ path: "/api/cron/promote-hybrid" }, "cron.unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = cronAuthGuard(req, "/api/cron/promote-hybrid");
+  if (denied) return denied;
 
+  return runWithoutOrg("cron:promote-hybrid", async () => {
   const now = new Date();
 
   // Find PENDING bookings whose hybrid timer has expired
@@ -79,6 +71,7 @@ async function handler(req: NextRequest) {
 
   logger.info({ promoted, failed, total: expired.length }, "cron.promote_hybrid.done");
   return NextResponse.json({ promoted, failed });
+  });
 }
 
 // Accept POST (state-changing) and GET (Vercel Cron uses GET with bearer).

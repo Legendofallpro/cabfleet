@@ -27,6 +27,14 @@ const redactPaths = [
   "headers.cookie",
   "err.email",
   "err.password",
+  "gstin",
+  "*.gstin",
+  "licenseNumber",
+  "*.licenseNumber",
+  "recipient",
+  "*.recipient",
+  "fullName",
+  "*.fullName",
 ];
 
 export const logger = pino({

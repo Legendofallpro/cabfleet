@@ -1,8 +1,8 @@
 import { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDriverIdForProfile, getDriverSelfOverview } from "@/modules/drivers/queries/driver-self";
-import { StatCard } from "@/components/common/StatCard";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { OverviewHeader } from "@/app/(driver)/_components/OverviewHeader";
 import { ActiveTripBanner } from "@/app/(driver)/_components/ActiveTripBanner";
@@ -42,32 +42,30 @@ export default async function DriverHomePage() {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {data.activeTrip ? (
+        <ActiveTripBanner trip={data.activeTrip} />
+      ) : (
+        <SurfaceCard padding="md">
+          <p className="text-sm font-medium text-default">No trip right now</p>
+          <Link href="/driver/trips/open" className="mt-2 inline-block text-sm font-medium text-primary hover:underline">
+            Open trips
+          </Link>
+        </SurfaceCard>
+      )}
+
       <SurfaceCard padding="md">
         <OverviewHeader driver={data.driver} />
+        <p className="mt-4 text-sm text-muted">
+          Today&apos;s earnings{" "}
+          <span className="font-semibold text-default">₹{data.today.earnings.toFixed(0)}</span>
+        </p>
       </SurfaceCard>
 
-      {data.activeTrip && <ActiveTripBanner trip={data.activeTrip} />}
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Today's trips" value={data.today.count} tone="info" />
-        <StatCard
-          label="Today's earnings"
-          value={`₹${data.today.earnings.toFixed(0)}`}
-          tone="success"
-        />
-        <StatCard label="This week" value={data.week.count} tone="default" />
-        <StatCard
-          label="Rating"
-          value={data.driver.rating != null ? data.driver.rating.toFixed(1) : "—"}
-          tone="warning"
-        />
-      </div>
+      <AttendanceQuickStatus today={data.todayAttendance} />
 
       <VehicleSummaryCard assignment={data.vehicleAssignment} />
 
       <RecentTripsList trips={data.recentCompleted} />
-
-      <AttendanceQuickStatus today={data.todayAttendance} />
     </div>
   );
 }

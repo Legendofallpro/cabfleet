@@ -28,7 +28,7 @@ const FORBIDDEN = [
   /\brounded-\[[\d.]+p/,
 ];
 
-const DIRS = ["src/app", "src/modules"];
+const DIRS = ["src/app", "src/modules", "src/layout", "src/components/common", "src/components/form"];
 // Files in these dirs are palette-aware (ui primitives or theme)
 const EXCLUDE_PATTERNS = [
   "src/components/ui/",

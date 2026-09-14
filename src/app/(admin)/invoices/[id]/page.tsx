@@ -7,6 +7,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { VoidInvoiceButton } from "@/modules/invoices/components/VoidInvoiceButton";
+import { DownloadInvoiceButton } from "@/modules/invoices/components/DownloadInvoiceButton";
 import { getInvoice } from "@/modules/invoices/queries/invoice";
 import { DetailRow } from "@/components/common/DetailRow";
 
@@ -63,14 +64,7 @@ export default async function InvoiceDetailPage({
          {STATUS_LABEL[invoice.status as InvoiceStatus]}
         </StatusBadge>
         {invoice.pdfUrl && (
-         <a
-          href={invoice.pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-9 items-center rounded-lg border border-default bg-surface-elevated px-4 text-sm font-medium text-default hover:bg-surface-inset"
-         >
-          Download PDF
-         </a>
+         <DownloadInvoiceButton invoiceId={invoice.id} label="Download PDF" />
         )}
         {isActive && <VoidInvoiceButton invoiceId={invoice.id} />}
        </div>

@@ -128,7 +128,11 @@ export default function LiveTripMap({
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
     const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
-    const channel = supabase.channel(`trip:${bookingId}`);
+    const channel = supabase.channel(`trip:${bookingId}`, {
+      config: { private: true },
+    });
+
+    void supabase.realtime.setAuth();
 
     channel
       .on("broadcast", { event: "location" }, ({ payload }) => {

@@ -8,7 +8,8 @@ import { requireRole } from "@/lib/auth/requireRole";
 import { ok, err } from "@/lib/result";
 import { db } from "@/lib/db";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
-import { cancelBooking } from "@/modules/bookings/services/booking.service";
+import { cancelBooking, grantLocationConsent } from "@/modules/bookings/services/booking.service";
+import { grantLocationConsentSchema } from "@/modules/bookings/validators/booking";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Customer cancel own booking
@@ -38,6 +39,25 @@ export const cancelOwnBookingAction = action(
 
     const result = await cancelBooking({ bookingId, reason }, { id: actor.profile.id });
     revalidatePath("/portal/bookings");
+    revalidatePath("/portal");
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
+  },
+);
+
+export const grantLocationConsentAction = action(
+  "bookings.customer.location_consent",
+  grantLocationConsentSchema,
+  async ({ bookingId }) => {
+    const actor = await requireRole(["CUSTOMER"]);
+
+    const customer = await getOrCreateCustomer(actor.profile.id);
+    const result = await grantLocationConsent(bookingId, {
+      id: actor.profile.id,
+      customerId: customer.id,
+    });
+    revalidatePath("/portal/bookings");
+    revalidatePath(`/portal/bookings/${bookingId}`);
     revalidatePath("/portal");
     if (!result.ok) return result;
     return ok({ id: result.data.id });

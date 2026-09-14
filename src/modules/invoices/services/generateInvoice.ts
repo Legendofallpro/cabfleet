@@ -1,6 +1,7 @@
 /**
  * generateInvoice — creates the Invoice row, generates a PDF via @react-pdf/renderer,
- * uploads it to Supabase Storage (bucket: "invoices"), and stores the signed URL.
+ * uploads it to Supabase Storage (bucket: "invoices"), and stores the storage path.
+ * Download URLs are minted later by `mintInvoiceDownloadUrl` (60–300s TTL).
  * All DB writes happen inside a single Prisma transaction.
  *
  * Server-only: never import from a "use client" component.
@@ -15,24 +16,11 @@ import { logger } from "@/lib/logger";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InvoicePDF, type InvoicePDFData } from "./invoice-pdf";
 import type { GenerateInvoiceInput } from "@/modules/invoices/validators/invoice";
+import { GST_SAC_CODE, gstBreakdown } from "@/modules/invoices/gst";
+import { INVOICE_BUCKET, invoiceStoragePath } from "@/modules/invoices/invoice-storage";
+import type { Invoice } from "@prisma/client";
 
 type Actor = { id: string };
-
-const INVOICE_BUCKET = "invoices";
-const SIGNED_URL_EXPIRY_SECS = 60 * 60 * 24 * 365; // 1 year
-
-type InvoiceRecord = {
-  id: string;
-  bookingId: string;
-  number: string;
-  pdfUrl: string | null;
-  issuedAt: Date;
-  dueAt: Date | null;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-};
 
 /** Generate a unique, sequential-ish invoice number: INV-YYYYMM-XXXXX */
 function getInvoiceNumberPrefix(at = new Date()): string {
@@ -53,12 +41,13 @@ async function nextInvoiceNumber(
 export async function generateInvoice(
   input: GenerateInvoiceInput,
   actor: Actor,
-): Promise<Result<InvoiceRecord>> {
+): Promise<Result<Invoice>> {
   // 1. Pre-flight: check booking exists and doesn't already have an invoice
   const booking = await db.booking.findFirst({
     where: { id: input.bookingId, deletedAt: null },
     include: {
       branch: { select: { name: true } },
+      org: { select: { name: true, gstin: true, gstRate: true } },
       customer: {
         include: {
           profile: { select: { fullName: true, email: true, phone: true } },
@@ -122,10 +111,23 @@ export async function generateInvoice(
 
     // 2. Build PDF data
     const issuedAt = new Date();
+    const gstin = booking.org?.gstin ?? null;
+    const gstRate = booking.org?.gstRate ?? 0;
+    const breakdown = gstBreakdown({
+      fareEstimate: booking.fareEstimate != null ? Number(booking.fareEstimate) : null,
+      fareFinal: booking.fareFinal != null ? Number(booking.fareFinal) : null,
+      tollAmount: Number(booking.tollAmount ?? 0),
+      parkingAmount: Number(booking.parkingAmount ?? 0),
+      gstRate,
+    });
     const pdfData: InvoicePDFData = {
       invoiceNumber,
       issuedAt,
       dueAt: input.dueAt ?? null,
+      orgName: booking.org?.name ?? "CabFleet",
+      gstin,
+      gstRate: breakdown.gstRate,
+      sacCode: GST_SAC_CODE,
       customerName: booking.customer.profile.fullName ?? booking.customer.profile.email,
       customerEmail: booking.customer.profile.email,
       customerPhone: booking.customer.profile.phone,
@@ -133,10 +135,18 @@ export async function generateInvoice(
       pickupAddress: booking.pickupAddress,
       dropAddress: booking.dropAddress,
       pickupAt: booking.pickupAt,
-      fareEstimate: booking.fareEstimate ? Number(booking.fareEstimate) : null,
-      fareFinal: booking.fareFinal ? Number(booking.fareFinal) : null,
       bookingRef: booking.id.slice(-8).toUpperCase(),
+      transport: breakdown.transport,
+      toll: breakdown.toll,
+      parking: breakdown.parking,
+      gst: breakdown.gst,
+      total: breakdown.total,
     };
+
+    const orgId = booking.orgId;
+    if (!orgId) {
+      throw new AppError("INTERNAL", "Booking is missing an organization.");
+    }
 
     // 3. Render PDF to buffer (server-side)
     // @react-pdf/renderer's renderToBuffer accepts a React element whose root is <Document>.
@@ -147,42 +157,30 @@ export async function generateInvoice(
       element as Parameters<typeof renderToBuffer>[0],
     );
 
-    // 4. Upload PDF to Supabase Storage using service-role client
-    storagePath = `${invoiceNumber}.pdf`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(INVOICE_BUCKET)
-      .upload(storagePath, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      logger.error({ invoiceNumber, error: uploadError }, "invoice.pdf.upload_failed");
-      throw new AppError("INTERNAL", "Failed to upload invoice PDF. Please try again.");
-    }
-
-    // 5. Get a long-lived signed URL for the PDF
-    const { data: signedData, error: signedError } = await supabase.storage
-      .from(INVOICE_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_SECS);
-
-    if (signedError ?? !signedData?.signedUrl) {
-      logger.error({ invoiceNumber, error: signedError }, "invoice.pdf.signed_url_failed");
-      throw new AppError("INTERNAL", "Failed to generate PDF download URL.");
-    }
-
-    const pdfUrl = signedData.signedUrl;
-
     if (existingVoidInvoice) {
+      storagePath = invoiceStoragePath(orgId, existingVoidInvoice.id);
+      const { error: uploadError } = await supabase.storage
+        .from(INVOICE_BUCKET)
+        .upload(storagePath, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+      if (uploadError) {
+        logger.error({ invoiceNumber, error: uploadError }, "invoice.pdf.upload_failed");
+        throw new AppError("INTERNAL", "Failed to upload invoice PDF. Please try again.");
+      }
+
       const updated = await tx.invoice.update({
         where: { id: existingVoidInvoice.id },
         data: {
           number: invoiceNumber,
-          pdfUrl,
+          pdfUrl: storagePath,
           issuedAt,
           dueAt: input.dueAt ?? null,
           status: "ISSUED",
+          gstin,
+          gstRate: breakdown.gstRate,
+          sacCode: GST_SAC_CODE,
           updatedAt: new Date(),
         },
       });
@@ -216,23 +214,44 @@ export async function generateInvoice(
     const created = await tx.invoice.create({
       data: {
         bookingId: input.bookingId,
+        orgId,
         number: invoiceNumber,
-        pdfUrl,
+        pdfUrl: "pending",
         issuedAt,
         dueAt: input.dueAt ?? null,
         status: "ISSUED",
+        gstin,
+        gstRate: breakdown.gstRate,
+        sacCode: GST_SAC_CODE,
       },
+    });
+
+    storagePath = invoiceStoragePath(orgId, created.id);
+    const { error: uploadError } = await supabase.storage
+      .from(INVOICE_BUCKET)
+      .upload(storagePath, pdfBuffer, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+    if (uploadError) {
+      logger.error({ invoiceNumber, error: uploadError }, "invoice.pdf.upload_failed");
+      throw new AppError("INTERNAL", "Failed to upload invoice PDF. Please try again.");
+    }
+
+    const withPath = await tx.invoice.update({
+      where: { id: created.id },
+      data: { pdfUrl: storagePath },
     });
 
     await writeAudit(tx, {
       entity: "Invoice",
-      entityId: created.id,
+      entityId: withPath.id,
       action: "CREATE",
       byProfileId: actor.id,
-      diff: { after: { ...created } },
+      diff: { after: { ...withPath } },
     });
 
-    return created;
+    return withPath;
   });
 
   logger.info(

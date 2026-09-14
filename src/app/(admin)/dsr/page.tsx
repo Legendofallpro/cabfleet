@@ -33,7 +33,7 @@ export default async function DsrPage({
 }) {
   const session = await getSessionUser();
   if (!session || session.profile.role !== "SUPER_ADMIN") {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   const { q = "" } = await searchParams;

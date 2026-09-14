@@ -2,7 +2,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { env } from "@/lib/env";
 import {
+  ensureOrgContext,
   getOrgContext,
+  runInOrgContext,
   TENANT_SCOPED_MODELS,
 } from "@/lib/org-context";
 
@@ -36,6 +38,12 @@ const FILTERED_WRITE_OPS = new Set<string>([
   "deleteMany",
   "findUniqueOrThrow",
 ]);
+
+/**
+ * `findUnique` is intentionally omitted: Prisma unique-where inputs cannot
+ * take an extra `orgId` field. Tenant lookups by id must use `findFirst`
+ * so the interceptor can inject orgId.
+ */
 
 const CREATE_OPS = new Set<string>(["create", "createMany"]);
 const UPSERT_OP = "upsert";
@@ -75,11 +83,10 @@ function injectOrgData(
 function applyOrgFilter(model: string, op: string, args: AnyArgs): AnyArgs {
   if (!TENANT_SCOPED_MODELS.has(model)) return args;
   const ctx = getOrgContext();
-  // No context active → preserve Phase 0–6 behaviour (no filter injection).
-  // BYPASS mode → SUPER_ADMIN cross-org operations.
-  // Application code that needs hard tenant isolation MUST run under
-  // `runWithOrg(...)`; the `withOrgContext` wrapper in `src/lib/actions.ts`
-  // takes care of this for every server action.
+  // No context after lazy session bind → local DX only (NODE_ENV !== production
+  // and MULTI_ORG_ENABLED=false). Production / multi-org throws in
+  // `ensureOrgContext` before we get here.
+  // BYPASS mode → SUPER_ADMIN / cron / webhook cross-org operations.
   if (!ctx || ctx.mode === "BYPASS") return args;
   const orgId = ctx.orgId;
 
@@ -99,9 +106,10 @@ function applyOrgFilter(model: string, op: string, args: AnyArgs): AnyArgs {
   }
 
   if (op === UPSERT_OP) {
+    // Unique-where inputs cannot take an extra `orgId` field. Scope the
+    // create payload; the unique key itself stays global.
     return {
       ...args,
-      where: injectOrgWhere(args.where, orgId),
       create:
         isObject(args.create) && !("orgId" in args.create)
           ? { ...args.create, orgId }
@@ -138,12 +146,20 @@ function makeClient(): PrismaClient {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          const next = applyOrgFilter(
-            model,
-            operation,
-            (args ?? {}) as AnyArgs,
-          ) as typeof args;
-          return query(next);
+          const run = async () => {
+            const next = applyOrgFilter(
+              model,
+              operation,
+              (args ?? {}) as AnyArgs,
+            ) as typeof args;
+            return query(next);
+          };
+
+          if (model && TENANT_SCOPED_MODELS.has(model) && !getOrgContext()) {
+            const ctx = await ensureOrgContext();
+            if (ctx) return runInOrgContext(ctx, run);
+          }
+          return run();
         },
       },
     },

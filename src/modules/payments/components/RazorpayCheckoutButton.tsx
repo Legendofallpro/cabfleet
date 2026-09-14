@@ -68,18 +68,55 @@ async function loadCheckoutScript(): Promise<boolean> {
   });
 }
 
-type Props = {
+type RazorpayOpenArgs = {
   orderId: string;
-  /** Amount in rupees — converted to paise for the modal. */
   amountRupees: number;
   bookingId: string;
-  /** Customer prefill (optional but reduces drop-off). */
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
-  /** Button label. */
-  children?: React.ReactNode;
 };
+
+export async function openRazorpayCheckout(args: RazorpayOpenArgs): Promise<"ok" | "error"> {
+  const keyId = env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  if (!keyId) {
+    toast.error("Razorpay is not configured. Contact support.");
+    return "error";
+  }
+  const loaded = await loadCheckoutScript();
+  if (!loaded || !window.Razorpay) {
+    toast.error("Could not load the payment widget. Please try again.");
+    return "error";
+  }
+
+  return new Promise((resolve) => {
+    const rzp = new window.Razorpay!({
+      key: keyId,
+      order_id: args.orderId,
+      amount: Math.round(args.amountRupees * 100),
+      currency: "INR",
+      name: "CabFleet",
+      description: `Booking ${args.bookingId}`,
+      prefill: {
+        name: args.customerName ?? undefined,
+        email: args.customerEmail ?? undefined,
+        contact: args.customerPhone ?? undefined,
+      },
+      notes: { bookingId: args.bookingId },
+      handler: () => {
+        toast.success("Payment submitted. We'll confirm in a moment.");
+        resolve("ok");
+      },
+      modal: {
+        ondismiss: () => {
+          toast.message("Payment cancelled.");
+          resolve("ok");
+        },
+      },
+    });
+    rzp.open();
+  });
+}
 
 export function RazorpayCheckoutButton({
   orderId,
@@ -89,56 +126,33 @@ export function RazorpayCheckoutButton({
   customerEmail,
   customerPhone,
   children,
-}: Props) {
+}: {
+  orderId: string;
+  amountRupees: number;
+  bookingId: string;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const keyId = env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
   async function onClick() {
-    if (!keyId) {
-      toast.error("Razorpay is not configured. Contact support.");
-      return;
-    }
     setBusy(true);
     try {
-      const loaded = await loadCheckoutScript();
-      if (!loaded || !window.Razorpay) {
-        toast.error("Could not load the payment widget. Please try again.");
-        return;
-      }
-
-      const rzp = new window.Razorpay({
-        key: keyId,
-        order_id: orderId,
-        // Razorpay's modal expects paise. Math.round is the canonical
-        // rupees→paise conversion (matches src/modules/payments/providers/razorpay/units.ts).
-        amount: Math.round(amountRupees * 100),
-        currency: "INR",
-        name: "CabFleet",
-        description: `Booking ${bookingId}`,
-        prefill: {
-          name: customerName ?? undefined,
-          email: customerEmail ?? undefined,
-          contact: customerPhone ?? undefined,
-        },
-        notes: { bookingId },
-        handler: () => {
-          // We deliberately don't trust the client-side handler payload —
-          // the webhook is the source of truth. Route to the booking page;
-          // the captured state will surface there once the webhook lands
-          // (usually <2s).
-          toast.success("Payment submitted. We'll confirm in a moment.");
-          router.push(`/portal/bookings/${bookingId}`);
-          router.refresh();
-        },
-        modal: {
-          ondismiss: () => {
-            toast.message("Payment cancelled.");
-          },
-        },
+      const outcome = await openRazorpayCheckout({
+        orderId,
+        amountRupees,
+        bookingId,
+        customerName,
+        customerEmail,
+        customerPhone,
       });
-
-      rzp.open();
+      if (outcome === "ok") {
+        router.push(`/portal/bookings/${bookingId}`);
+        router.refresh();
+      }
     } finally {
       setBusy(false);
     }
@@ -149,7 +163,7 @@ export function RazorpayCheckoutButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-hover disabled:opacity-50"
+      className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary-hover disabled:opacity-50"
     >
       {busy ? "Loading…" : (children ?? "Pay with Razorpay")}
     </button>

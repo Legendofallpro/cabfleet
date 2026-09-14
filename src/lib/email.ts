@@ -53,7 +53,7 @@ export interface InvoiceEmailParams {
   to: string;
   customerName: string;
   invoiceNumber: string;
-  pdfUrl: string;
+  invoiceUrl: string;
   bookingRef: string;
 }
 
@@ -79,15 +79,15 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<void
       <p style="font-size:15px;margin:0 0 16px;">Hi ${params.customerName},</p>
       <p style="font-size:14px;color:#374151;margin:0 0 24px;">
         Your invoice <strong>${params.invoiceNumber}</strong> for booking
-        <strong>#${params.bookingRef}</strong> is ready.
+        <strong>#${params.bookingRef}</strong> is ready. Sign in to view it.
       </p>
-      <a href="${params.pdfUrl}"
+      <a href="${params.invoiceUrl}"
          style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
-        Download Invoice PDF
+        View invoice
       </a>
       <p style="font-size:12px;color:#9ca3af;margin:24px 0 0;">
         If the button above doesn't work, copy this link into your browser:<br/>
-        <a href="${params.pdfUrl}" style="color:#2563eb;word-break:break-all;">${params.pdfUrl}</a>
+        <a href="${params.invoiceUrl}" style="color:#2563eb;word-break:break-all;">${params.invoiceUrl}</a>
       </p>
     </div>
     <div style="background:#f3f4f6;padding:16px 32px;text-align:center;">

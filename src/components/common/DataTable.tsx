@@ -28,27 +28,27 @@ type Props<Row> = {
  */
 export function DataTable<Row>({ columns, rows, empty, rowKey }: Props<Row>) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+    <div className="overflow-hidden rounded-2xl border border-default bg-surface-elevated">
       <div className="max-w-full overflow-x-auto">
         <Table className="text-sm">
-          <TableHeader className="border-b border-gray-100 dark:border-gray-800">
+          <TableHeader className="border-b border-default">
             <TableRow>
               {columns.map((col, i) => (
                 <TableCell
                   key={i}
                   isHeader
-                  className={`px-5 py-3 text-left font-medium text-gray-500 dark:text-gray-400 ${col.headerClassName ?? ""}`}
+                  className={`px-5 py-3 text-left font-medium text-muted ${col.headerClassName ?? ""}`}
                 >
                   {col.header}
                 </TableCell>
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <TableBody className="divide-y divide-default">
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  className="px-5 py-10 text-center text-gray-400 dark:text-gray-600"
+                  className="px-5 py-10 text-center text-muted"
                   // colSpan via inline attr workaround (table component doesn't support it)
                   {...{ colSpan: columns.length }}
                 >
@@ -59,12 +59,12 @@ export function DataTable<Row>({ columns, rows, empty, rowKey }: Props<Row>) {
               rows.map((row) => (
                 <TableRow
                   key={rowKey(row)}
-                  className="hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                  className="hover:bg-surface-inset"
                 >
                   {columns.map((col, i) => (
                     <TableCell
                       key={i}
-                      className={`px-5 py-4 text-gray-700 dark:text-gray-300 ${col.className ?? ""}`}
+                      className={`px-5 py-4 text-default ${col.className ?? ""}`}
                     >
                       {col.cell(row)}
                     </TableCell>

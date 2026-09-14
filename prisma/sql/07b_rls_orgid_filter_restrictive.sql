@@ -1,3 +1,11 @@
+-- DO NOT APPLY — drops deny-all and would open PostgREST.
+--
+-- This file replaces `deny_direct_api_access` with an orgId JWT filter so
+-- PostgREST could read tenant tables. CabFleet does not use PostgREST for
+-- domain data. Applying this as written would expose Booking/Payment/etc.
+-- to the public anon key. Keep deny-all + FORCE RLS from
+-- prisma/migrations/20260914150000_rls_force_deny_postgrest.
+--
 -- Phase 7 W1 — Tenant-scoped RLS (RESTRICTIVE phase) — apply after 07a soak
 --
 -- This file replaces the `deny_direct_api_access` restrictive policy from

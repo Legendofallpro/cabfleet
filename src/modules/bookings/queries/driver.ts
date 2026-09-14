@@ -4,10 +4,13 @@
  */
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { bookingDetailInclude } from "@/modules/bookings/includes";
+import {
+  bookingDetailInclude,
+  openClaimBookingInclude,
+} from "@/modules/bookings/includes";
 import type { BookingDetail } from "@/modules/bookings/types";
 
-const driverListInclude = {
+const myTripListInclude = {
   branch: { select: { id: true, code: true, name: true } },
   bookingType: { select: { id: true, name: true } },
   customer: {
@@ -23,9 +26,25 @@ const driverListInclude = {
   },
 } as const;
 
+const openClaimListInclude = {
+  branch: { select: { id: true, code: true, name: true } },
+  bookingType: { select: { id: true, name: true } },
+  customer: {
+    include: {
+      profile: { select: { id: true, fullName: true } },
+    },
+  },
+  assignedDriver: {
+    include: { profile: { select: { id: true, fullName: true } } },
+  },
+  claimedBy: {
+    include: { profile: { select: { id: true, fullName: true } } },
+  },
+} as const;
+
 /**
  * Bookings currently OPEN_FOR_CLAIM — scoped to the driver's branch.
- * Only drivers whose branch matches the booking's branch may see (and claim) them.
+ * Customer PII is name-only until the driver claims or is assigned.
  */
 export async function listOpenForClaimBookings(branchId: string) {
   return db.booking.findMany({
@@ -34,7 +53,7 @@ export async function listOpenForClaimBookings(branchId: string) {
       branchId,
       deletedAt: null,
     },
-    include: driverListInclude,
+    include: openClaimListInclude,
     orderBy: { pickupAt: "asc" },
     take: 50,
   });
@@ -53,7 +72,7 @@ export async function listMyTrips(driverId: string) {
         { assignedDriverId: driverId },
       ],
     },
-    include: driverListInclude,
+    include: myTripListInclude,
     orderBy: [{ pickupAt: "desc" }],
     take: 100,
   });
@@ -69,7 +88,7 @@ export async function getDriverBookingDetail(
   bookingId: string,
   access: DriverBookingDetailAccess,
 ): Promise<BookingDetail | null> {
-  const booking = await db.booking.findFirst({
+  const head = await db.booking.findFirst({
     where: {
       id: bookingId,
       deletedAt: null,
@@ -82,7 +101,22 @@ export async function getDriverBookingDetail(
         { assignedDriverId: access.driverId },
       ],
     },
-    include: bookingDetailInclude,
+    select: {
+      id: true,
+      status: true,
+      claimedByDriverId: true,
+      assignedDriverId: true,
+    },
+  });
+  if (!head) return null;
+
+  const owned =
+    head.claimedByDriverId === access.driverId ||
+    head.assignedDriverId === access.driverId;
+
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, deletedAt: null },
+    include: owned ? bookingDetailInclude : openClaimBookingInclude,
   });
   return booking as BookingDetail | null;
 }

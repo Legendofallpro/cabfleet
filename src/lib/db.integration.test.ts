@@ -156,4 +156,11 @@ describeIntegration("cross-org isolation (db.ts $extends interceptor)", () => {
     expect(orgIds.has(orgAId)).toBe(true);
     expect(orgIds.has(orgBId)).toBe(true);
   });
+
+  it("findFirst by id cannot read another org's row", async () => {
+    const leaked = await runWithOrg(orgAId, () =>
+      db.branch.findFirst({ where: { id: branchBId } }),
+    );
+    expect(leaked).toBeNull();
+  });
 });

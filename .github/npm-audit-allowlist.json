@@ -1,0 +1,15 @@
+{
+  "comment": "Production npm audit --omit=dev high/critical packages we cannot bump mid-phase (Next/Prisma/maplibre). Remove an entry only after a real upgrade. CI fails if a NEW package appears.",
+  "packages": [
+    "axios",
+    "baseline-browser-mapping",
+    "browserslist",
+    "form-data",
+    "maplibre-gl",
+    "nanoid",
+    "next",
+    "postcss",
+    "qs",
+    "sharp"
+  ]
+}

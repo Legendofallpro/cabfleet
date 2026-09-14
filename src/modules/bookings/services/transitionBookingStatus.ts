@@ -85,6 +85,9 @@ export type TxCurrentBooking = {
   version: number;
   assignedDriverId: string | null;
   assignedVehicleId: string | null;
+  fareEstimate?: { toString(): string } | number | null;
+  tollAmount?: { toString(): string } | number;
+  parkingAmount?: { toString(): string } | number;
 };
 
 /**
@@ -141,6 +144,12 @@ export async function applyBookingTransitionTx(
   if (toStatus === BookingStatus.CLAIMED) {
     if (opts.claimedByDriverId !== undefined) updateData.claimedByDriverId = opts.claimedByDriverId;
     updateData.claimedAt = now;
+  }
+
+  if (toStatus === BookingStatus.COMPLETED) {
+    const base = Number(current.fareEstimate ?? 0);
+    const extras = Number(current.tollAmount ?? 0) + Number(current.parkingAmount ?? 0);
+    updateData.fareFinal = Math.round((base + extras) * 100) / 100;
   }
 
   const updated = await tx.booking.update({
@@ -203,6 +212,9 @@ export async function transitionBookingStatus(
       assignedDriverId: true,
       assignedVehicleId: true,
       suspiciousLocationCount: true,
+      fareEstimate: true,
+      tollAmount: true,
+      parkingAmount: true,
     },
   });
   if (!current) {

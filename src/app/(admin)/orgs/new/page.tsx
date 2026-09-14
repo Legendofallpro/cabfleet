@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewOrgPage() {
   const session = await getSessionUser();
-  if (!session || session.profile.role !== "SUPER_ADMIN") redirect("/");
+  if (!session || session.profile.role !== "SUPER_ADMIN") redirect("/dashboard");
 
   return (
     <div>

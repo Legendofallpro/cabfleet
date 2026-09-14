@@ -69,7 +69,7 @@ function basePolicy(): Record<CspDirective, string[]> {
     "base-uri": ["'self'"],
     "object-src": ["'none'"],
     "frame-ancestors": ["'none'"],
-    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "img-src": ["'self'", "data:", "blob:"],
     "font-src": ["'self'", "data:"],
     // Next 15 RSC needs 'unsafe-inline' + 'unsafe-eval' for hydration. Nonces
     // are a follow-up tightening (S17 follow-up).

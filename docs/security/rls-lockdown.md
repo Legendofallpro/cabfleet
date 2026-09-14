@@ -2,6 +2,20 @@
 
 Addresses Supabase security advisor finding: `rls_disabled_in_public`.
 
+**Source of truth:** Prisma migrations, especially
+[`prisma/migrations/20260914150000_rls_force_deny_postgrest/migration.sql`](../../prisma/migrations/20260914150000_rls_force_deny_postgrest/migration.sql).
+`prisma migrate deploy` applies ENABLE + FORCE RLS, the restrictive
+`deny_direct_api_access` policy, and `REVOKE ALL … FROM anon, authenticated`
+for every domain table.
+
+The numbered files under [`prisma/sql/`](../../prisma/sql/) are **emergency
+SQL-editor copies** for incidents. Do not treat them as the deploy path.
+Never apply [`07b_rls_orgid_filter_restrictive.sql`](../../prisma/sql/07b_rls_orgid_filter_restrictive.sql)
+as written — it drops deny-all and would open PostgREST.
+
+CI: `npm run check:structure` runs `scripts/check-rls-coverage.ts` so every
+`model` in `schema.prisma` is listed in the deny-PostgREST migration.
+
 ---
 
 ## Why this matters
@@ -18,56 +32,64 @@ This app never queries domain tables via PostgREST or the Supabase client SDK. A
 |---|---|---|
 | Prisma (`DATABASE_URL` / `DIRECT_URL`) | postgres superuser | No — superuser bypasses RLS |
 | Supabase service-role admin client | service_role | No — Supabase bypasses RLS for service role |
-| PostgREST (Supabase Data API) | anon / authenticated | **Yes** |
+| PostgREST (Supabase Data API) | anon / authenticated | **Yes** — deny all + FORCE + REVOKE |
 
-Correct posture: every domain table should deny all PostgREST access for both `anon` and `authenticated`.
+Correct posture: every domain table should deny all PostgREST access for both `anon` and `authenticated`. Table owners are also subject to RLS (`FORCE ROW LEVEL SECURITY`); the Prisma role remains a superuser so the app is unaffected.
 
 ---
 
 ## Table inventory and policy intent
 
-| Table | Risk | RLS | FORCE RLS | Policy intent |
-|---|---|---|---|---|
-| `_prisma_migrations` | Internal infra | ✅ | ✅ | Full deny + REVOKE grants |
-| `"Branch"` | High — tenant config | ✅ | — | Deny all PostgREST |
-| `"Profile"` | High — user PII | ✅ | — | Deny all PostgREST |
-| `"Driver"` | High — PII + operations | ✅ | — | Deny all PostgREST |
-| `"Staff"` | High — PII + operations | ✅ | — | Deny all PostgREST |
-| `"Customer"` | High — PII + financials | ✅ | — | Deny all PostgREST |
-| `"Vehicle"` | High — fleet data | ✅ | — | Deny all PostgREST |
-| `"VehicleAssignment"` | Medium — operational | ✅ | — | Deny all PostgREST |
-| `"BookingType"` | Medium — config | ✅ | — | Deny all PostgREST |
-| `"Booking"` | High — core transactional | ✅ | — | Deny all PostgREST |
-| `"AssignmentHistory"` | Medium — audit trail | ✅ | — | Deny all PostgREST |
-| `"PricingRule"` | Medium — financial config | ✅ | — | Deny all PostgREST |
-| `"DispatchRule"` | Medium — operational config | ✅ | — | Deny all PostgREST |
-| `"Payment"` | High — financial | ✅ | — | Deny all PostgREST |
-| `"Invoice"` | High — financial | ✅ | — | Deny all PostgREST |
-| `"Attendance"` | High — HR / PII | ✅ | — | Deny all PostgREST |
-| `"Shift"` | Medium — operational | ✅ | — | Deny all PostgREST |
-| `"FuelLog"` | Low — operational | ✅ | — | Deny all PostgREST |
-| `"Expense"` | Medium — financial | ✅ | — | Deny all PostgREST |
-| `"MaintenanceLog"` | Low — operational | ✅ | — | Deny all PostgREST |
-| `"AuditLog"` | High — immutable audit | ✅ | — | Deny all PostgREST |
+26 Prisma models. All of them: ENABLE RLS, FORCE RLS, `deny_direct_api_access` (restrictive, `USING (false)`), `REVOKE ALL FROM anon, authenticated, PUBLIC`.
+
+| Table | Risk | Policy intent |
+|---|---|---|
+| `"Organization"` | High — tenant root | Deny all PostgREST |
+| `"Branch"` | High — tenant config | Deny all PostgREST |
+| `"Profile"` | High — user PII | Deny all PostgREST |
+| `"Driver"` | High — PII + operations | Deny all PostgREST |
+| `"Staff"` | High — PII + operations | Deny all PostgREST |
+| `"Customer"` | High — PII + financials | Deny all PostgREST |
+| `"Vehicle"` | High — fleet data | Deny all PostgREST |
+| `"VehicleAssignment"` | Medium — operational | Deny all PostgREST |
+| `"BookingType"` | Medium — config | Deny all PostgREST |
+| `"Booking"` | High — core transactional | Deny all PostgREST |
+| `"TripLocation"` | High — live GPS | Deny all PostgREST |
+| `"AssignmentHistory"` | Medium — audit trail | Deny all PostgREST |
+| `"PricingRule"` | Medium — financial config | Deny all PostgREST |
+| `"DispatchRule"` | Medium — operational config | Deny all PostgREST |
+| `"Payment"` | High — financial | Deny all PostgREST |
+| `"Refund"` | High — financial | Deny all PostgREST |
+| `"WebhookEvent"` | Medium — provider payloads | Deny all PostgREST |
+| `"Invoice"` | High — financial | Deny all PostgREST |
+| `"Attendance"` | High — HR / PII | Deny all PostgREST |
+| `"Shift"` | Medium — operational | Deny all PostgREST |
+| `"FuelLog"` | Low — operational | Deny all PostgREST |
+| `"Expense"` | Medium — financial | Deny all PostgREST |
+| `"MaintenanceLog"` | Low — operational | Deny all PostgREST |
+| `"NotificationOutbox"` | High — recipient PII | Deny all PostgREST |
+| `"NotificationLog"` | High — recipient PII | Deny all PostgREST |
+| `"AuditLog"` | High — immutable audit | Deny all PostgREST |
+| `_prisma_migrations` | Internal infra | Full deny + REVOKE (see `03_*`) |
 
 **`auth.*` tables** (e.g. `auth.users`) are managed by Supabase and are out of scope.
 
 ---
 
-## SQL files to apply
+## SQL files (emergency only)
 
-Apply in order in the Supabase SQL editor:
+Apply in the Supabase SQL editor only when `migrate deploy` cannot run:
 
-1. [`prisma/sql/03_rls_hotfix_prisma_migrations.sql`](../../prisma/sql/03_rls_hotfix_prisma_migrations.sql) — immediate hotfix for `_prisma_migrations`
-2. [`prisma/sql/04_rls_lockdown_all_tables.sql`](../../prisma/sql/04_rls_lockdown_all_tables.sql) — RLS + deny policies for all 20 domain tables
+1. [`prisma/sql/03_rls_hotfix_prisma_migrations.sql`](../../prisma/sql/03_rls_hotfix_prisma_migrations.sql) — `_prisma_migrations`
+2. Re-run the deny-PostgREST migration SQL (or the matching blocks in `04` / `08`–`11`)
 
-Both files are **idempotent** and safe to re-run.
+Both styles are **idempotent**.
 
 ---
 
 ## Verification
 
-After applying, run this audit query in the Supabase SQL editor:
+After deploy, run this audit query in the Supabase SQL editor (same query the security advisor uses):
 
 ```sql
 select
@@ -81,7 +103,7 @@ where t.schemaname = 'public'
 order by rls_enabled, t.tablename;
 ```
 
-**Expected:** every row shows `rls_enabled = true`. Domain tables show `policy_count >= 1`. `_prisma_migrations` shows `rls_forced = true`.
+**Expected:** every domain table shows `rls_enabled = true`, `rls_forced = true`, and `policy_count >= 1`. `_prisma_migrations` shows `rls_forced = true`.
 
 Also check the Supabase Dashboard → **Advisors → Security** tab. The `rls_disabled_in_public` finding should no longer appear.
 
@@ -113,4 +135,7 @@ Monitor **Supabase Dashboard → Logs → PostgREST** for `401`/`403` errors aft
 
 > See `AGENTS.md` Section 12 for the enforced rule.
 
-Every new Prisma model must be accompanied by a corresponding SQL block in `prisma/sql/04_rls_lockdown_all_tables.sql` (or a new numbered file) that enables RLS and adds the `deny_direct_api_access` restrictive policy before the migration is applied to production.
+Every new Prisma model must be added to
+`prisma/migrations/YYYYMMDDHHMMSS_rls_force_deny_postgrest` (or a follow-up
+migration that ENABLE + FORCE + deny-all + REVOKE). `scripts/check-rls-coverage.ts`
+fails CI if the model name is missing from that file.

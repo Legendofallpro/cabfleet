@@ -39,7 +39,7 @@ export function ActiveTripBanner({ trip }: ActiveTripBannerProps) {
       <p className="mt-0.5 text-sm text-muted">→ {trip.dropAddress}</p>
       <div className="mt-2 flex items-center justify-between text-xs text-muted">
         <span>{format(new Date(trip.pickupAt), "dd MMM, h:mm a")}</span>
-        <span className="font-medium text-primary">View trip →</span>
+        <span className="font-medium text-primary">Open trip</span>
       </div>
     </Link>
   );

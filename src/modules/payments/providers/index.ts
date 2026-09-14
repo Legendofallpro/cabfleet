@@ -4,13 +4,17 @@
  * Selection rule:
  *   - `PAYMENT_GATEWAY=RAZORPAY` AND all three Razorpay env vars set →
  *     `RazorpayPaymentProvider`.
- *   - Anything else → `ManualPaymentProvider` (safe fallback).
+ *   - `PAYMENT_GATEWAY=RAZORPAY` with incomplete env → throw (fail-closed).
+ *   - Anything else → `ManualPaymentProvider`.
+ *
+ * Desk Record Payment never uses this factory — it always captures via
+ * ManualPaymentProvider. Customer Pay now is the only Razorpay charge path.
  *
  * The provider is selected lazily once per process. Tests can clear the
  * cache via `__resetPaymentProviderForTests()`.
  */
 import { env } from "@/lib/env";
-import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/errors";
 import { ManualPaymentProvider } from "@/modules/payments/providers/ManualPaymentProvider";
 import { RazorpayPaymentProvider } from "@/modules/payments/providers/RazorpayPaymentProvider";
 import type { PaymentProvider } from "@/modules/payments/providers/PaymentProvider";
@@ -26,12 +30,10 @@ export function getPaymentProvider(): PaymentProvider {
       !env.RAZORPAY_KEY_SECRET ||
       !env.RAZORPAY_WEBHOOK_SECRET
     ) {
-      logger.warn(
-        { gateway: env.PAYMENT_GATEWAY },
-        "payment.provider.razorpay_env_incomplete.falling_back_to_manual",
+      throw new AppError(
+        "INTERNAL",
+        "Razorpay is enabled but RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, or RAZORPAY_WEBHOOK_SECRET is missing.",
       );
-      cached = new ManualPaymentProvider();
-      return cached;
     }
     cached = new RazorpayPaymentProvider();
     return cached;

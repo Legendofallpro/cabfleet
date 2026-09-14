@@ -17,8 +17,8 @@ import {
 
 const METHOD_OPTIONS = [
  { value: "CASH", label: "Cash" },
- { value: "CARD", label: "Card" },
  { value: "UPI", label: "UPI" },
+ { value: "CARD", label: "Card" },
  { value: "BANK_TRANSFER", label: "Bank Transfer" },
  { value: "CHEQUE", label: "Cheque" },
 ];
@@ -58,14 +58,6 @@ export function RecordPaymentForm({ bookingId, defaultAmount }: Props) {
     } else {
      toast.error(result.error.message);
     }
-    return;
-   }
-   // Phase 7 W3: gateway payments return a checkoutUrl for the customer
-   // to complete the charge. Manual payments are CAPTURED immediately and
-   // land directly on the detail page.
-   if (result.data.checkoutUrl) {
-    toast.success("Redirecting you to checkout…");
-    window.location.href = result.data.checkoutUrl;
     return;
    }
    toast.success("Payment recorded successfully.");

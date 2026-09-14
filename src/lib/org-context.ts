@@ -45,6 +45,8 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   "AssignmentHistory",
   "AuditLog",
   "TripLocation",
+  "NotificationOutbox",
+  "NotificationLog",
 ]);
 
 export type OrgContext =
@@ -80,4 +82,44 @@ export function runWithOrg<T>(orgId: string, fn: () => Promise<T>): Promise<T> {
  */
 export function runWithoutOrg<T>(reason: string, fn: () => Promise<T>): Promise<T> {
   return storage.run({ mode: "BYPASS", reason }, fn);
+}
+
+export function runInOrgContext<T>(ctx: OrgContext, fn: () => Promise<T>): Promise<T> {
+  return storage.run(ctx, fn);
+}
+
+/**
+ * If ALS is empty, resolve org from the current session. Does not bind ALS
+ * (callers that need sticky context should `runInOrgContext` / `runWithOrg`).
+ * Fail closed in production or when MULTI_ORG_ENABLED if there is no session.
+ */
+export async function ensureOrgContext(): Promise<OrgContext | undefined> {
+  const existing = getOrgContext();
+  if (existing) return existing;
+
+  const { getSessionUser } = await import("@/lib/auth/session");
+  const session = await getSessionUser();
+  if (session?.profile.orgId) {
+    return { mode: "ORG", orgId: session.profile.orgId };
+  }
+  if (session?.profile.role === "SUPER_ADMIN") {
+    return { mode: "BYPASS", reason: "super_admin_session" };
+  }
+
+  const { env } = await import("@/lib/env");
+  const failClosed = env.NODE_ENV === "production" || env.MULTI_ORG_ENABLED;
+  if (failClosed) {
+    const { AppError } = await import("@/lib/errors");
+    throw new AppError("INTERNAL", "org context required");
+  }
+  return undefined;
+}
+
+export function orgIdFromContext(ctx: OrgContext | undefined): string | null {
+  if (!ctx || ctx.mode === "BYPASS") return null;
+  return ctx.orgId;
+}
+
+export async function rawSqlOrgId(): Promise<string | null> {
+  return orgIdFromContext(await ensureOrgContext());
 }

@@ -10,6 +10,9 @@ import { ok, err } from "@/lib/result";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import {
   createBookingSchema,
+  createDeskBookingSchema,
+  updatePendingBookingSchema,
+  estimateFareSchema,
   assignDriverSchema,
   cancelBookingSchema,
   transitionSchema,
@@ -17,11 +20,15 @@ import {
 } from "@/modules/bookings/validators/booking";
 import {
   createBooking,
+  createDeskBooking,
+  updatePendingBooking,
   assignDriverToBooking,
   cancelBooking,
   transitionByStaff,
 } from "@/modules/bookings/services/booking.service";
+import { estimateFare } from "@/modules/pricing/services/fareCalculator";
 import { softDeleteBooking } from "@/modules/bookings/services/softDeleteBooking";
+import { maybeGenerateInvoiceOnComplete } from "@/modules/invoices/services/maybeGenerateOnComplete";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Create
@@ -40,21 +47,85 @@ export const createBookingAction = action(
     let scopedInput = input;
     if (actor.profile.role === "CUSTOMER") {
       const customer = await getOrCreateCustomer(actor.profile.id);
+      if (customer.staffManaged) {
+        return err({
+          code: "FORBIDDEN",
+          message: "This account cannot use the customer app.",
+        });
+      }
       if (input.customerId && input.customerId !== customer.id) {
         return err({
           code: "FORBIDDEN",
           message: "You can only create bookings for yourself.",
         });
       }
-      scopedInput = { ...input, customerId: customer.id };
+      scopedInput = {
+        ...input,
+        customerId: customer.id,
+        quotedFare: null,
+        tollAmount: null,
+        parkingAmount: null,
+      };
     }
 
     const result = await createBooking(scopedInput, { id: actor.profile.id });
     revalidatePath("/bookings");
+    revalidatePath("/portal/bookings");
     // Return only the id — the full BookingDetail contains Prisma Decimal fields
     // which React cannot serialize across the server→client boundary.
     if (!result.ok) return result;
     return ok({ id: result.data.id });
+  },
+);
+
+export const createDeskBookingAction = action(
+  "bookings.create_desk",
+  createDeskBookingSchema,
+  async (input) => {
+    const actor = await requirePermission(PERMISSIONS.BOOKING_CREATE);
+    if (actor.profile.role === "CUSTOMER") {
+      return err({
+        code: "FORBIDDEN",
+        message: "Use the customer booking form.",
+      });
+    }
+    const result = await createDeskBooking(input, { id: actor.profile.id });
+    revalidatePath("/bookings");
+    revalidatePath("/customers");
+    if (!result.ok) return result;
+    return ok({ id: result.data.id });
+  },
+);
+
+export const updatePendingBookingAction = action(
+  "bookings.update_pending",
+  updatePendingBookingSchema,
+  async (input) => {
+    const actor = await requirePermission(PERMISSIONS.BOOKING_CREATE);
+    const result = await updatePendingBooking(input, { id: actor.profile.id }, {
+      customerProfileId: actor.profile.role === "CUSTOMER" ? actor.profile.id : undefined,
+    });
+    if (!result.ok) return result;
+    revalidatePath("/bookings");
+    revalidatePath(`/bookings/${input.bookingId}`);
+    revalidatePath("/portal/bookings");
+    revalidatePath(`/portal/bookings/${input.bookingId}`);
+    return ok({ id: result.data.id });
+  },
+);
+
+export const estimateFareAction = action(
+  "bookings.estimate_fare",
+  estimateFareSchema,
+  async (input) => {
+    await requirePermission(PERMISSIONS.BOOKING_CREATE);
+    const fare = await estimateFare({
+      bookingTypeId: input.bookingTypeId,
+      branchId: input.branchId,
+      distanceKm: input.distanceKm ?? undefined,
+    });
+    if (!fare) return ok({ total: null as number | null });
+    return ok({ total: fare.total });
   },
 );
 
@@ -123,6 +194,12 @@ export const transitionBookingAction = action(
     revalidatePath("/bookings");
     revalidatePath(`/bookings/${input.bookingId}`);
     if (!result.ok) return result;
+    if (input.toStatus === BookingStatus.COMPLETED) {
+      await maybeGenerateInvoiceOnComplete(input.bookingId, {
+        id: actor.profile.id,
+      });
+      revalidatePath("/invoices");
+    }
     return ok({ id: result.data.id });
   },
 );

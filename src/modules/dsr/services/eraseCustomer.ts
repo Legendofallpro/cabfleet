@@ -40,6 +40,7 @@
  * to keep this PR focused.
  */
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
@@ -68,6 +69,11 @@ export type EraseCustomerOutput = {
     tripLocations: number;
   };
 };
+
+function sha256Hex(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return createHash("sha256").update(value).digest("hex");
+}
 
 export async function eraseCustomer(
   input: EraseCustomerInput,
@@ -179,14 +185,8 @@ export async function eraseCustomer(
         diff: {
           dsrRequestId: input.dsrRequestId,
           before: {
-            email: profile.email,
-            phone: profile.phone,
-            fullName: profile.fullName,
-          },
-          after: {
-            email: tombstoneEmail,
-            phone: null,
-            fullName: "Erased",
+            emailHash: sha256Hex(profile.email),
+            phoneHash: sha256Hex(profile.phone),
           },
           notificationLogsDeleted: logsDeleted.count,
           notificationOutboxDeleted: outboxDeleted.count,

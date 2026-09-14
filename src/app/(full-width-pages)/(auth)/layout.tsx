@@ -29,8 +29,8 @@ export default function AuthLayout({
           alt="Logo"
          />
         </Link>
-        <p className="text-center text-muted /60">
-         Free and Open-Source Tailwind CSS Admin Dashboard Template
+        <p className="text-center text-muted">
+         Book a cab. Dispatch a trip. Drive with CabFleet.
         </p>
        </div>
       </div>

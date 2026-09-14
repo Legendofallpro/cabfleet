@@ -16,9 +16,16 @@ export const metadata: Metadata = {
   description: "Manage your password and notification preferences",
 };
 
-export default async function AdminAccountSettingsPage() {
+export default async function AdminAccountSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mfa?: string }>;
+}) {
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/profile/account");
+
+  const { mfa } = await searchParams;
+  const mfaRequired = mfa === "required";
 
   const notificationDefaults = parseNotificationPrefsFormValues(
     session.profile.notificationPrefs,
@@ -33,6 +40,17 @@ export default async function AdminAccountSettingsPage() {
           Edit profile
         </Link>
       </p>
+
+      {mfaRequired && (
+        <div className="rounded-xl border border-warning bg-warning-subtle px-4 py-3 text-sm text-on-warning-subtle">
+          Staff and admin sign-in now requires an authenticator app. Add one
+          below, then{" "}
+          <Link href="/dashboard" className="font-medium underline">
+            open the desk
+          </Link>
+          . If this page stays after you confirm, sign out and sign in again.
+        </div>
+      )}
 
       <SurfaceCard title="Security">
         <p className="mb-4 text-sm text-muted">

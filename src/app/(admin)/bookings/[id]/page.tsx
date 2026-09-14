@@ -17,10 +17,15 @@ import {
 import { listAssignableDrivers } from "@/modules/drivers/queries/driver";
 import { listAssignableVehicles } from "@/modules/vehicles/queries/vehicle";
 import { getInvoiceForBooking } from "@/modules/invoices/queries/invoice";
-import { listPaymentsForBooking } from "@/modules/payments/queries/payment";
+import { listPaymentsForBooking, getBookingOutstanding } from "@/modules/payments/queries/payment";
 import { GenerateInvoiceButton } from "@/modules/invoices/components/GenerateInvoiceButton";
+import { DownloadInvoiceButton } from "@/modules/invoices/components/DownloadInvoiceButton";
 import { ClearSuspiciousButton } from "@/modules/tracking/components/ClearSuspiciousButton";
+import { WhatsAppShareButton } from "@/modules/bookings/components/WhatsAppShareButton";
+import { InviteCustomerToPortalButton } from "@/modules/customers/components/InviteCustomerToPortalButton";
+import { BookingPendingEditForm } from "@/modules/bookings/components/BookingPendingEditForm";
 import { DetailRow } from "@/components/common/DetailRow";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
 
@@ -52,9 +57,10 @@ export default async function BookingDetailPage({
    ])
   : [{ rows: [] as Awaited<ReturnType<typeof listAssignableDrivers>>["rows"] }, { rows: [] as Awaited<ReturnType<typeof listAssignableVehicles>>["rows"] }];
 
- const [invoice, payments] = await Promise.all([
+ const [invoice, payments, due] = await Promise.all([
   getInvoiceForBooking(booking.id),
   listPaymentsForBooking(booking.id),
+  getBookingOutstanding(booking.id),
  ]);
 
  const bookingRef = booking.id.slice(-8).toUpperCase();
@@ -76,7 +82,31 @@ export default async function BookingDetailPage({
     {/* Summary */}
      <SurfaceCard
       title={<span className="text-base font-semibold">Booking #{bookingRef}</span>}
-      actions={<BookingStatusActions bookingId={booking.id} status={booking.status} />}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <WhatsAppShareButton
+            phone={booking.customer.profile.phone}
+            text={[
+              `CabFleet booking ${bookingRef}`,
+              dtFmt.format(new Date(booking.pickupAt)),
+              `${booking.pickupAddress} → ${booking.dropAddress}`,
+              booking.fareEstimate != null ? `Fare ₹${Math.round(Number(booking.fareEstimate))}` : null,
+              booking.customer.staffManaged
+                ? null
+                : `Track: ${env.NEXT_PUBLIC_APP_URL}/portal/bookings/${booking.id}`,
+            ]
+              .filter(Boolean)
+              .join("\n")}
+          />
+          {booking.customer.staffManaged ? (
+            <InviteCustomerToPortalButton
+              customerId={booking.customer.id}
+              phone={booking.customer.profile.phone}
+            />
+          ) : null}
+          <BookingStatusActions bookingId={booking.id} status={booking.status} />
+        </div>
+      }
      >
       <dl className="divide-y divide-default">
        <DetailRow label="Status" value={
@@ -86,9 +116,10 @@ export default async function BookingDetailPage({
        } />
        <DetailRow label="Customer" value={
         <span>
-         {booking.customer.profile.fullName ?? booking.customer.profile.email}
-         {" "}
-         <span className="text-xs text-muted">({booking.customer.profile.email})</span>
+         {booking.customer.profile.fullName ?? booking.customer.profile.phone ?? "Guest"}
+         {booking.customer.profile.phone ? (
+          <span className="text-xs text-muted"> · {booking.customer.profile.phone}</span>
+         ) : null}
         </span>
        } />
        <DetailRow label="Branch" value={`${booking.branch.name} (${booking.branch.code})`} />
@@ -96,7 +127,9 @@ export default async function BookingDetailPage({
        <DetailRow label="Dispatch mode" value={DISPATCH_MODE_LABEL[booking.dispatchMode]} />
        <DetailRow label="Pickup at" value={dtFmt.format(new Date(booking.pickupAt))} />
        <DetailRow label="Pickup address" value={booking.pickupAddress} />
+       <DetailRow label="Pickup landmark" value={booking.pickupLandmark} />
        <DetailRow label="Drop address" value={booking.dropAddress} />
+       <DetailRow label="Drop landmark" value={booking.dropLandmark} />
        <DetailRow label="Passengers" value={booking.passengers} />
        <DetailRow
         label="Distance"
@@ -107,11 +140,43 @@ export default async function BookingDetailPage({
         value={booking.fareEstimate != null ? currency.format(Number(booking.fareEstimate)) : null}
        />
        <DetailRow
+        label="Toll"
+        value={Number(booking.tollAmount) > 0 ? currency.format(Number(booking.tollAmount)) : null}
+       />
+       <DetailRow
+        label="Parking"
+        value={Number(booking.parkingAmount) > 0 ? currency.format(Number(booking.parkingAmount)) : null}
+       />
+       <DetailRow
         label="Final fare"
         value={booking.fareFinal != null ? currency.format(Number(booking.fareFinal)) : null}
        />
+       <DetailRow label="Notes" value={booking.notes} />
       </dl>
      </SurfaceCard>
+
+     {booking.status === BookingStatus.PENDING && (
+      <SurfaceCard title="Edit pending booking">
+       <BookingPendingEditForm
+        variant="staff"
+        cancelHref={`/bookings/${booking.id}`}
+        defaults={{
+         bookingId: booking.id,
+         pickupAtIso: booking.pickupAt.toISOString(),
+         pickupAddress: booking.pickupAddress,
+         pickupLandmark: booking.pickupLandmark,
+         dropAddress: booking.dropAddress,
+         dropLandmark: booking.dropLandmark,
+         distanceKm: booking.distanceKm != null ? Number(booking.distanceKm) : null,
+         passengers: booking.passengers,
+         notes: booking.notes,
+         fareEstimate: booking.fareEstimate != null ? Number(booking.fareEstimate) : null,
+         tollAmount: Number(booking.tollAmount ?? 0),
+         parkingAmount: Number(booking.parkingAmount ?? 0),
+        }}
+       />
+      </SurfaceCard>
+     )}
 
      {/* Assigned resources */}
      {booking.assignedDriver && (
@@ -188,9 +253,13 @@ export default async function BookingDetailPage({
          <DetailRow
           label="PDF"
           value={
-           <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            Download
-           </a>
+           <span className="flex flex-wrap items-center gap-3">
+            <DownloadInvoiceButton invoiceId={invoice.id} label="Download" />
+            <WhatsAppShareButton
+             phone={booking.customer.profile.phone}
+             text={`CabFleet invoice ${invoice.number}\n${env.NEXT_PUBLIC_APP_URL}/portal/bookings/${booking.id}`}
+            />
+           </span>
           }
          />
         )}
@@ -205,13 +274,19 @@ export default async function BookingDetailPage({
       title="Payments"
       actions={
        <Link
-        href={`/payments/new?bookingId=${booking.id}&amount=${booking.fareFinal ?? booking.fareEstimate ?? ""}`}
+        href={`/payments/new?bookingId=${booking.id}&amount=${due && due.outstanding > 0 ? due.outstanding : (due?.breakdown.total ?? "")}`}
         className="text-xs text-primary hover:underline"
        >
         + Record payment
        </Link>
       }
      >
+      {due && due.outstanding > 0 && (
+       <p className="mb-2 text-xs text-muted">
+        Outstanding {currency.format(due.outstanding)}
+        {due.breakdown.gst > 0 ? ` (incl. GST ${due.breakdown.gstRate}%)` : ""}
+       </p>
+      )}
       {payments.length === 0 ? (
        <p className="text-xs text-muted">No payments recorded.</p>
       ) : (

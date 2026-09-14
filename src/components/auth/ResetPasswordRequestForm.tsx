@@ -51,7 +51,7 @@ export default function ResetPasswordRequestForm() {
    <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
     <Link
      href="/signin"
-     className="inline-flex items-center text-sm text-muted transition-colors hover:text-default dark:text-muted dark:hover:text-gray-300"
+     className="inline-flex items-center text-sm text-muted transition-colors hover:text-default"
     >
      Back to sign in
     </Link>

@@ -44,7 +44,7 @@ export default async function RefundsQueuePage() {
     (session.profile.role !== "ADMIN" &&
       session.profile.role !== "SUPER_ADMIN")
   ) {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   const [{ rows: pending }, { rows: recent }] = await Promise.all([

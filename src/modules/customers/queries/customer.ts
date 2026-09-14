@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { BookingStatus } from "@prisma/client";
 // getOrCreateCustomer performs a write — it lives in services/ not here.
 export type { CustomerRow } from "@/modules/customers/services/customer.service";
 
@@ -14,7 +15,10 @@ export async function getCustomerBooking(id: string, profileId: string) {
       bookingType: { select: { name: true } },
       branch: { select: { name: true, code: true } },
       assignedDriver: {
-        include: { profile: { select: { fullName: true } } },
+        include: { profile: { select: { fullName: true, phone: true } } },
+      },
+      claimedBy: {
+        include: { profile: { select: { fullName: true, phone: true } } },
       },
       assignedVehicle: {
         select: { registrationNumber: true, make: true, model: true },
@@ -23,6 +27,30 @@ export async function getCustomerBooking(id: string, profileId: string) {
   });
   if (!booking || booking.customer.profileId !== profileId) return null;
   return booking;
+}
+
+const OPEN_STATUSES: BookingStatus[] = [
+  BookingStatus.PENDING,
+  BookingStatus.OPEN_FOR_CLAIM,
+  BookingStatus.CLAIMED,
+  BookingStatus.ASSIGNED,
+  BookingStatus.DRIVER_EN_ROUTE,
+  BookingStatus.IN_PROGRESS,
+];
+
+/** Next open trip for the customer home card (non-terminal, soonest pickup). */
+export async function getActiveCustomerBooking(customerId: string) {
+  return db.booking.findFirst({
+    where: {
+      customerId,
+      deletedAt: null,
+      status: { in: OPEN_STATUSES },
+    },
+    include: {
+      bookingType: { select: { id: true, name: true } },
+    },
+    orderBy: { pickupAt: "asc" },
+  });
 }
 
 export type CustomerBookingRow = {

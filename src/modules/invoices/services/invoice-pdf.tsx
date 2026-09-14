@@ -130,13 +130,17 @@ const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" });
 const currency = new Intl.NumberFormat("en-IN", {
  style: "currency",
  currency: "INR",
- maximumFractionDigits: 0,
+ maximumFractionDigits: 2,
 });
 
 export type InvoicePDFData = {
  invoiceNumber: string;
  issuedAt: Date;
  dueAt?: Date | null;
+ orgName: string;
+ gstin?: string | null;
+ gstRate: number;
+ sacCode: string;
  customerName: string;
  customerEmail: string;
  customerPhone?: string | null;
@@ -144,22 +148,27 @@ export type InvoicePDFData = {
  pickupAddress: string;
  dropAddress: string;
  pickupAt: Date;
- fareEstimate?: number | null;
- fareFinal?: number | null;
  bookingRef: string;
+ transport: number;
+ toll: number;
+ parking: number;
+ gst: number;
+ total: number;
 };
 
 export function InvoicePDF({ data }: { data: InvoicePDFData }) {
- const fare = data.fareFinal ?? data.fareEstimate ?? 0;
+ const showGst = data.gstRate > 0 && data.gst > 0;
 
  return (
   <Document>
    <Page size="A4" style={styles.page}>
-    {/* Header */}
     <View style={styles.header}>
      <View>
-      <Text style={styles.companyName}>CabFleet</Text>
+      <Text style={styles.companyName}>{data.orgName}</Text>
       <Text style={styles.companyTagline}>Fleet Management &amp; Transportation</Text>
+      {data.gstin ? (
+       <Text style={styles.companyTagline}>GSTIN: {data.gstin}</Text>
+      ) : null}
      </View>
      <View>
       <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -171,7 +180,6 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      </View>
     </View>
 
-    {/* Bill to */}
     <View style={styles.section}>
      <Text style={styles.sectionTitle}>Bill To</Text>
      <Text style={{ fontFamily: "Helvetica-Bold", marginBottom: 2 }}>
@@ -183,7 +191,6 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      )}
     </View>
 
-    {/* Booking details */}
     <View style={styles.section}>
      <Text style={styles.sectionTitle}>Booking Details</Text>
      <View style={styles.row}>
@@ -213,30 +220,50 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      </View>
     </View>
 
-    {/* Line items */}
     <View style={styles.section}>
      <Text style={styles.sectionTitle}>Charges</Text>
      <View style={styles.tableHeader}>
       <Text style={[styles.tableHeaderText, styles.col1]}>Description</Text>
-      <Text style={[styles.tableHeaderText, styles.col2]}>Qty</Text>
+      <Text style={[styles.tableHeaderText, styles.col2]}>SAC</Text>
       <Text style={[styles.tableHeaderText, styles.col3]}>Amount</Text>
      </View>
      <View style={styles.tableRow}>
-      <Text style={styles.col1}>Transportation Service</Text>
-      <Text style={styles.col2}>1</Text>
-      <Text style={styles.col3}>{currency.format(fare)}</Text>
+      <Text style={styles.col1}>Passenger transport</Text>
+      <Text style={styles.col2}>{data.sacCode}</Text>
+      <Text style={styles.col3}>{currency.format(data.transport)}</Text>
      </View>
+     {data.toll > 0 && (
+      <View style={styles.tableRow}>
+       <Text style={styles.col1}>Toll</Text>
+       <Text style={styles.col2}>—</Text>
+       <Text style={styles.col3}>{currency.format(data.toll)}</Text>
+      </View>
+     )}
+     {data.parking > 0 && (
+      <View style={styles.tableRow}>
+       <Text style={styles.col1}>Parking</Text>
+       <Text style={styles.col2}>—</Text>
+       <Text style={styles.col3}>{currency.format(data.parking)}</Text>
+      </View>
+     )}
+     {showGst && (
+      <View style={styles.tableRow}>
+       <Text style={styles.col1}>GST {data.gstRate}%</Text>
+       <Text style={styles.col2}>—</Text>
+       <Text style={styles.col3}>{currency.format(data.gst)}</Text>
+      </View>
+     )}
     </View>
 
-    {/* Total */}
     <View style={styles.totalBox}>
      <Text style={styles.totalLabel}>Total</Text>
-     <Text style={styles.totalValue}>{currency.format(fare)}</Text>
+     <Text style={styles.totalValue}>{currency.format(data.total)}</Text>
     </View>
 
-    {/* Footer */}
     <View style={styles.footer}>
-     <Text style={styles.footerText}>CabFleet — Thank you for your business.</Text>
+     <Text style={styles.footerText}>
+      {data.orgName} — Thank you for your business.
+     </Text>
      <Text style={styles.footerText}>Invoice #{data.invoiceNumber}</Text>
     </View>
    </Page>

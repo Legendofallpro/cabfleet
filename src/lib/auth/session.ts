@@ -39,8 +39,8 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const user = await getRawAuthUser();
   if (!user) return null;
 
-  const profile = await db.profile.findUnique({
-    where: { id: user.id },
+  const profile = await db.profile.findFirst({
+    where: { id: user.id, deletedAt: null },
   });
 
   if (!profile) return null;

@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import React from "react";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { getCurrentAal } from "@/lib/auth/aal";
+import { staffMustChallengeAal2 } from "@/lib/auth/aal-paths";
 import { getRoleHome } from "@/lib/auth/redirects";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import AdminShell from "@/app/(admin)/_components/AdminShell";
 import type { HeaderUser } from "@/layout/header-user";
 import { getHeaderNotificationSummary } from "@/modules/notifications/queries/notification";
@@ -21,12 +26,22 @@ export default async function AdminLayout({
  children: React.ReactNode;
 }) {
  const session = await getSessionUser();
- if (!session) redirect("/signin?redirectTo=/");
+ if (!session) redirect("/signin?redirectTo=/dashboard");
 
  switch (session.profile.role) {
   case "SUPER_ADMIN":
   case "ADMIN":
   case "STAFF": {
+   const pathname = (await headers()).get("x-pathname") ?? "";
+   if (!pathname) {
+    logger.warn("auth.mfa.pathname_missing");
+   }
+   if (env.STAFF_AAL2_REQUIRED !== false) {
+    const aal = await getCurrentAal();
+    if (staffMustChallengeAal2({ aal, pathname, required: true })) {
+     redirect("/profile/account?mfa=required");
+    }
+   }
    const headerUser: HeaderUser = {
     fullName: session.profile.fullName,
     email: session.profile.email,

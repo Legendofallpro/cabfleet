@@ -10,8 +10,7 @@
  *
  * Failure modes that callers MUST handle:
  *   - Missing API credentials → provider throws on construction. The
- *     factory (`providers/index.ts`) falls back to Manual when env is
- *     incomplete, so this only fires for misconfigured prod deploys.
+ *     factory (`providers/index.ts`) fails closed when env is incomplete.
  *   - Razorpay API errors → bubble up as Error; payment.service.ts maps
  *     to AppError and the transaction rolls back.
  */

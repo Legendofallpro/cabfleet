@@ -208,7 +208,9 @@ Staff cash/UPI; customer **Pay now** (Razorpay test, server amount, IDOR); auto-
 
 ### Wave 4 — Landing and chrome
 
-Public `/` landing (Book / Staff sign-in / Driver sign-in). Strip TailAdmin dead UI. Token-migrate layout/form. Docs sync. Location consent after book if missed. Then CSP enforce.
+Public `/` landing (Book / Staff sign-in / Driver sign-in). Staff desk at `/dashboard`. Strip TailAdmin dead UI. Token-migrate layout/form. Docs sync. Location consent after book if missed. Then CSP enforce.
+
+Implemented on `feat/wave1-desk-customer-driver` (this program branch).
 
 ## 10. Architecture constraints (unchanged)
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSourceIp,
   parseAllowList,
+  resolveRazorpayEventId,
   verifyHmacSha256,
 } from "@/lib/webhooks";
 
@@ -95,5 +96,18 @@ describe("parseAllowList", () => {
   it("returns an empty array for undefined / empty input", () => {
     expect(parseAllowList(undefined)).toEqual([]);
     expect(parseAllowList("")).toEqual([]);
+  });
+});
+
+describe("resolveRazorpayEventId", () => {
+  it("reads x-razorpay-event-id and ignores a missing body id", () => {
+    const req = new Request("https://example.com/", {
+      headers: { "x-razorpay-event-id": "evt_test" },
+    });
+    expect(resolveRazorpayEventId(req)).toBe("evt_test");
+  });
+
+  it("returns null when the header is missing", () => {
+    expect(resolveRazorpayEventId(new Request("https://example.com/"))).toBeNull();
   });
 });

@@ -9,14 +9,14 @@
  * can reclaim it. Hard-delete of tenant data is out of scope here — that
  * lives in W2's DSR `eraseCustomer` cascade.
  */
-import type { Organization } from "@prisma/client";
+import type { Organization, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { runWithoutOrg } from "@/lib/org-context";
 import { tombstoneUniqueValue } from "@/lib/soft-delete";
-import type { OrgInput } from "@/modules/orgs/validators/org";
+import type { OrgInput, UpdateOrgGstInput } from "@/modules/orgs/validators/org";
 
 type Actor = { id: string };
 
@@ -145,5 +145,53 @@ export async function softDeleteOrg(
     });
 
     return ok(true);
+  });
+}
+
+/**
+ * Tenant ADMIN (own org) and SUPER_ADMIN (any org) update GSTIN + rate.
+ * Snapshotted onto invoices at issue time — editing here does not rewrite old PDFs.
+ */
+export async function updateOrgGst(
+  input: UpdateOrgGstInput,
+  actor: { id: string; role: Role; orgId: string | null },
+): Promise<Result<Organization>> {
+  return runWithoutOrg("service:updateOrgGst", async () => {
+    if (actor.role !== "SUPER_ADMIN") {
+      if (!actor.orgId || actor.orgId !== input.orgId) {
+        throw new AppError(
+          "FORBIDDEN",
+          "You can only update GST for your own organization.",
+        );
+      }
+    }
+
+    const current = await db.organization.findFirst({
+      where: { id: input.orgId, deletedAt: null },
+    });
+    if (!current) throw new AppError("NOT_FOUND", "Organization not found.");
+
+    const gstin = input.gstin === "" ? null : input.gstin;
+    const gstRate = input.gstRate;
+
+    const org = await db.$transaction(async (tx) => {
+      const updated = await tx.organization.update({
+        where: { id: input.orgId },
+        data: { gstin, gstRate },
+      });
+      await writeAudit(tx, {
+        entity: "Organization",
+        entityId: input.orgId,
+        action: "UPDATE",
+        byProfileId: actor.id,
+        diff: {
+          before: { gstin: current.gstin, gstRate: current.gstRate },
+          after: { gstin: updated.gstin, gstRate: updated.gstRate },
+        },
+      });
+      return updated;
+    });
+
+    return ok(org);
   });
 }

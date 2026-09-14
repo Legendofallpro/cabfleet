@@ -167,7 +167,8 @@ export async function checkLimit(
 export const LIMITS = {
   /** Auth endpoints (sign-in, sign-up, password reset). */
   auth: { windowMs: 60_000, max: 10 },
-  /** Per-actor server action default. */
+  /** Public signup / claim-portal. Tighter than generic actions. */
+  signup: { windowMs: 60_000, max: 5 },
   action: { windowMs: 60_000, max: 60 },
   /** API routes (cron etc.). */
   api: { windowMs: 60_000, max: 30 },
@@ -187,13 +188,18 @@ export const LIMITS = {
   apiWrite: { windowMs: 60_000, max: 60 },
 } as const;
 
-/** Best-effort client IP extraction from common proxy headers. */
+/** Best-effort client IP extraction from platform headers (not client-controlled XFF). */
 export function getClientIp(req: { headers: Headers }): string {
+  const vercel = req.headers.get("x-vercel-forwarded-for");
+  if (vercel) return vercel.split(",")[0]!.trim();
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return (
-    req.headers.get("x-real-ip") ??
-    req.headers.get("cf-connecting-ip") ??
-    "unknown"
-  );
+  if (fwd) {
+    const parts = fwd.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[parts.length - 1] ?? "unknown";
+  }
+  return "unknown";
 }

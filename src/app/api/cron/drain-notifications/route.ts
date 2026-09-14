@@ -19,7 +19,7 @@
  *   { "crons": [{ "path": "/api/cron/drain-notifications", "schedule": "* * * * *" }] }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "@/lib/env";
+import { cronAuthGuard } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { runWithoutOrg } from "@/lib/org-context";
@@ -38,21 +38,8 @@ function pickNextAttemptAt(nextAttempts: number): Date {
 }
 
 async function handler(req: NextRequest) {
-  if (!env.CRON_SECRET) {
-    logger.warn(
-      { path: "/api/cron/drain-notifications" },
-      "cron.disabled.no_secret",
-    );
-    return NextResponse.json({ error: "Cron disabled" }, { status: 503 });
-  }
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    logger.warn(
-      { path: "/api/cron/drain-notifications" },
-      "cron.unauthorized",
-    );
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = cronAuthGuard(req, "/api/cron/drain-notifications");
+  if (denied) return denied;
 
   // The drain crosses org boundaries (one cron, many orgs), so bypass the
   // tenant filter explicitly. The reason is captured for audit.

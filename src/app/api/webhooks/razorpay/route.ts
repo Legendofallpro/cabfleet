@@ -11,7 +11,6 @@
  *   400 — body is not valid JSON, missing event id / created_at
  *   401 — signature mismatch
  *   403 — source IP outside the allow-list (S25)
- *   408 — event older than the 5-minute replay window (S4)
  *   503 — RAZORPAY_WEBHOOK_SECRET unset (fail-closed in non-prod)
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -21,6 +20,7 @@ import {
   assertSourceIp,
   parseAllowList,
   readRawBody,
+  resolveRazorpayEventId,
   verifyHmacSha256,
   withIdempotency,
 } from "@/lib/webhooks";
@@ -71,11 +71,10 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   const event = json as {
-    id?: string;
     event?: string;
     created_at?: number;
   };
-  const eventId = event.id;
+  const eventId = resolveRazorpayEventId(req);
   const eventCreatedAtSec = event.created_at;
   if (!eventId || !eventCreatedAtSec) {
     return NextResponse.json(
@@ -111,9 +110,6 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   );
 
   if (!result.ok) {
-    if (result.reason === "stale") {
-      return NextResponse.json({ error: "Stale event" }, { status: 408 });
-    }
     logger.error(
       { eventId, reason: result.reason, message: result.message },
       "razorpay.webhook.error",

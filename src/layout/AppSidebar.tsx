@@ -17,6 +17,8 @@ import {
   TimeIcon,
   UserCircleIcon,
   BoxIcon,
+  BellIcon,
+  ListIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -30,7 +32,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    path: "/",
+    path: "/dashboard",
   },
   {
     icon: <CalenderIcon />,
@@ -78,6 +80,16 @@ const navItems: NavItem[] = [
     path: "/invoices",
   },
   {
+    icon: <BellIcon />,
+    name: "Notifications",
+    path: "/notifications",
+  },
+  {
+    icon: <ListIcon />,
+    name: "Audit",
+    path: "/audit",
+  },
+  {
     icon: <DollarLineIcon />,
     name: "Expenses",
     path: "/expenses",
@@ -96,6 +108,9 @@ const othersItems: NavItem[] = [
     subItems: [
       { name: "Branches", path: "/settings/branches" },
       { name: "Dispatch Rules", path: "/settings/dispatch" },
+      { name: "Pricing", path: "/settings/pricing" },
+      { name: "Booking types", path: "/settings/booking-types" },
+      { name: "GST", path: "/settings/gst" },
       { name: "General", path: "/settings" },
       // Phase 7 W1: SUPER_ADMIN-only — tenant ADMINs who click the link
       // are bounced by the page-level role check.
@@ -148,7 +163,7 @@ const AppSidebar: React.FC = () => {
                   className={`ml-auto w-5 h-5 transition-transform duration-200  ${
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
-                      ? "rotate-180 text-brand-500"
+                      ? "rotate-180 text-primary"
                       : ""
                   }`}
                 />
@@ -303,13 +318,13 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-surface-elevated text-default h-screen transition-all duration-300 ease-in-out z-50 border-r border-default 
         ${
           isExpanded || isMobileOpen
-            ? "w-[290px]"
+            ? "w-72"
             : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
+            ? "w-72"
+            : "w-20"
         }
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
@@ -321,7 +336,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/">
+        <Link href="/dashboard">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <Image
@@ -354,7 +369,7 @@ const AppSidebar: React.FC = () => {
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-muted ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
@@ -371,7 +386,7 @@ const AppSidebar: React.FC = () => {
 
             <div className="">
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-muted ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"

@@ -18,6 +18,7 @@
  * doesn't filter by `orgId`.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cronAuthGuard } from "@/lib/cron-auth";
 import { env } from "@/lib/env";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -26,17 +27,8 @@ import { runWithoutOrg } from "@/lib/org-context";
 export const dynamic = "force-dynamic";
 
 async function handler(req: NextRequest) {
-  if (!env.CRON_SECRET) {
-    logger.warn(
-      { path: "/api/cron/prune-notifications" },
-      "cron.disabled.no_secret",
-    );
-    return NextResponse.json({ error: "Cron disabled" }, { status: 503 });
-  }
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = cronAuthGuard(req, "/api/cron/prune-notifications");
+  if (denied) return denied;
 
   return runWithoutOrg("cron:prune-notifications", async () => {
     const now = Date.now();

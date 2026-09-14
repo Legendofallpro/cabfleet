@@ -12,6 +12,14 @@ describe("composeCsp", () => {
     expect(out).not.toContain("maptiler.com");
   });
 
+  it("does not allow arbitrary https: images in the base policy", () => {
+    const out = composeCsp({});
+    const img = out.split("; ").find((d) => d.startsWith("img-src"))!;
+    const tokens = img.split(" ").slice(1);
+    expect(tokens).not.toContain("https:");
+    expect(tokens).toEqual(expect.arrayContaining(["'self'", "data:", "blob:"]));
+  });
+
   it("adds Razorpay hosts when razorpay flag set", () => {
     const out = composeCsp({ razorpay: true });
     for (const host of RAZORPAY_CSP["script-src"] ?? []) {

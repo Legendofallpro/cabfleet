@@ -6,6 +6,7 @@ import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { runWithoutOrg } from "@/lib/org-context";
 import type { Driver } from "@prisma/client";
 import type {
   InviteDriverInput,
@@ -39,9 +40,9 @@ export async function inviteDriver(
 ): Promise<Result<Driver>> {
   await assertBranch(input.branchId);
 
-  const dupeLicense = await db.driver.findUnique({
-    where: { licenseNumber: input.licenseNumber },
-  });
+  const dupeLicense = await runWithoutOrg("driver.license_dup_check", () =>
+    db.driver.findFirst({ where: { licenseNumber: input.licenseNumber } }),
+  );
   if (dupeLicense) {
     throw new AppError("CONFLICT", "License number already registered.", {
       fieldErrors: { licenseNumber: ["Already in use"] },
@@ -125,9 +126,9 @@ export async function updateDriver(
   if (input.branchId !== current.profile.branchId) await assertBranch(input.branchId);
 
   if (input.licenseNumber !== current.licenseNumber) {
-    const dupe = await db.driver.findUnique({
-      where: { licenseNumber: input.licenseNumber },
-    });
+    const dupe = await runWithoutOrg("driver.license_dup_check", () =>
+      db.driver.findFirst({ where: { licenseNumber: input.licenseNumber } }),
+    );
     if (dupe) {
       throw new AppError("CONFLICT", "License number already registered.", {
         fieldErrors: { licenseNumber: ["Already in use"] },

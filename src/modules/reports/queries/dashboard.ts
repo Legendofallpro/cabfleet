@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { rawSqlOrgId } from "@/lib/org-context";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -29,12 +30,14 @@ export async function getAvailableVehicleCount(): Promise<number> {
 }
 
 export async function getTodayRevenue(): Promise<number> {
+  const orgId = await rawSqlOrgId();
   const result = await db.$queryRaw<{ total: Prisma.Decimal | null }[]>`
     SELECT SUM(amount) AS total
     FROM "Payment"
     WHERE status = 'CAPTURED'
       AND "capturedAt" >= ${startOfToday()}
       AND "deletedAt" IS NULL
+      AND (${orgId}::text IS NULL OR "orgId" = ${orgId})
   `;
   return Number(result[0]?.total ?? 0);
 }

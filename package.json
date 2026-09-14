@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:csp": "playwright test e2e/csp.spec.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -19,7 +21,7 @@
     "load-test:claim": "npx tsx scripts/load-test-claim.ts",
     "setup:avatar-bucket": "tsx scripts/setup-avatar-bucket.ts",
     "check:tokens": "tsx scripts/check-ui-tokens.ts",
-    "check:structure": "tsx scripts/check-structure.ts"
+    "check:structure": "tsx scripts/check-structure.ts && tsx scripts/check-rls-coverage.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -60,6 +62,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.62.1",
     "@svgr/webpack": "^8.1.0",
     "@types/node": "^20.19.25",
     "@types/pg": "^8.20.0",

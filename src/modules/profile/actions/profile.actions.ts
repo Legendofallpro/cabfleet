@@ -121,7 +121,7 @@ export const ensureAvatarsBucketAction = action(
   "profile.ensureAvatarsBucket",
   z.object({}),
   async () => {
-    await requireRole([Role.SUPER_ADMIN, Role.ADMIN, Role.STAFF, Role.CUSTOMER, Role.DRIVER]);
+    await requireRole([Role.SUPER_ADMIN]);
     const result = await ensureAvatarsBucket();
     return ok(result);
   },
@@ -131,7 +131,7 @@ export const recordMfaAuditAction = action(
   "profile.mfaAudit",
   mfaAuditSchema,
   async (input) => {
-    const actor = await requireRole([...SELF_SERVICE_ROLES]);
+    const actor = await requireRole([...SELF_SERVICE_ROLES], { allowAal1: true });
     await writeAuditStandalone({
       entity: "Profile",
       entityId: actor.profile.id,

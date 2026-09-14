@@ -5,7 +5,7 @@
  *
  *   requestRefund(input, actor)    → REQUESTED   (actor = requestedBy)
  *   approveRefund({refundId}, actor) → PROCESSING (actor = approvedBy; MUST != requestedBy)
- *                                  → calls provider.refund()
+ *                                  → claims the row, then calls provider.refund()
  *                                  → webhook later flips to SUCCEEDED / FAILED
  *   rejectRefund({refundId, reason}, actor) → REJECTED (actor = approvedBy; MUST != requestedBy)
  *
@@ -14,6 +14,7 @@
  */
 import type { Refund, Payment, RefundStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { currentOrgId } from "@/lib/org-context";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
@@ -25,45 +26,51 @@ import type {
 
 type Actor = { id: string };
 
+const OPEN_REFUND_STATUSES = ["REQUESTED", "PROCESSING", "SUCCEEDED"] as const;
+
 export async function requestRefund(
   input: RequestRefundInput,
   actor: Actor,
 ): Promise<Result<Refund>> {
-  const payment = await db.payment.findFirst({
-    where: { id: input.paymentId, deletedAt: null },
-  });
-  if (!payment) throw new AppError("NOT_FOUND", "Payment not found.");
-  if (payment.status !== "CAPTURED") {
-    throw new AppError(
-      "CONFLICT",
-      "Only captured payments can be refunded.",
-    );
-  }
-
-  // Sum already-refunded amounts so partial-refund stacking respects the
-  // original capture. Decimal comparison via Number is fine here because
-  // Payment.amount is decimal(10,2) — well within float safety.
-  const priorRefunds = await db.refund.findMany({
-    where: {
-      paymentId: payment.id,
-      status: { in: ["REQUESTED", "PROCESSING", "SUCCEEDED"] },
-    },
-    select: { amount: true },
-  });
-  const refundedSoFar = priorRefunds.reduce(
-    (sum, r) => sum + Number(r.amount),
-    0,
-  );
-  const remaining = Number(payment.amount) - refundedSoFar;
-  if (input.amount > remaining + 0.005) {
-    throw new AppError(
-      "VALIDATION",
-      `Refund exceeds the remaining capturable amount (₹${remaining.toFixed(2)}).`,
-      { fieldErrors: { amount: ["Exceeds remaining capturable amount"] } },
-    );
-  }
-
   const refund = await db.$transaction(async (tx) => {
+    const orgId = currentOrgId();
+    const locked = await tx.$queryRaw<{ id: string; status: string; amount: unknown }[]>`
+      SELECT id, status, amount
+      FROM "Payment"
+      WHERE id = ${input.paymentId}
+        AND "deletedAt" IS NULL
+        AND (${orgId}::text IS NULL OR "orgId" = ${orgId})
+      FOR UPDATE
+    `;
+    const payment = locked[0];
+    if (!payment) throw new AppError("NOT_FOUND", "Payment not found.");
+    if (payment.status !== "CAPTURED") {
+      throw new AppError(
+        "CONFLICT",
+        "Only captured payments can be refunded.",
+      );
+    }
+
+    const priorRefunds = await tx.refund.findMany({
+      where: {
+        paymentId: payment.id,
+        status: { in: [...OPEN_REFUND_STATUSES] },
+      },
+      select: { amount: true },
+    });
+    const refundedSoFar = priorRefunds.reduce(
+      (sum, r) => sum + Number(r.amount),
+      0,
+    );
+    const remaining = Number(payment.amount) - refundedSoFar;
+    if (input.amount > remaining + 0.005) {
+      throw new AppError(
+        "VALIDATION",
+        `Refund exceeds the remaining capturable amount (₹${remaining.toFixed(2)}).`,
+        { fieldErrors: { amount: ["Exceeds remaining capturable amount"] } },
+      );
+    }
+
     const created = await tx.refund.create({
       data: {
         paymentId: payment.id,
@@ -119,45 +126,103 @@ export async function approveRefund(
   refundId: string,
   actor: Actor,
 ): Promise<Result<Refund>> {
-  const current = await loadRefundOr404(refundId);
-  assertStatus(current, "REQUESTED");
-  assertDifferentActor(current, actor);
-
-  // Provider call happens INSIDE the DB transaction to keep the status
-  // flip and the audit row atomic. The provider call is short (a single
-  // HTTP POST to Razorpay) and idempotent against `providerPaymentId`,
-  // so a re-run after a crash redoes the same refund without effect.
-  const provider = getPaymentProvider();
-  const refundResult = await provider.refund({
-    paymentId: current.paymentId,
-    amount: Number(current.amount),
-    reason: current.reason,
-    providerPaymentId: current.payment.txnRef ?? null,
-  });
-
-  const updated = await db.$transaction(async (tx) => {
-    const next = await tx.refund.update({
-      where: { id: current.id },
-      data: {
-        status: "PROCESSING",
-        approvedById: actor.id,
-        providerRefundId: refundResult.refundRef,
-      },
+  const claimed = await db.$transaction(async (tx) => {
+    const current = await tx.refund.findFirst({
+      where: { id: refundId },
+      include: { payment: true },
     });
+    if (!current) throw new AppError("NOT_FOUND", "Refund not found.");
+    assertStatus(current, "REQUESTED");
+    assertDifferentActor(current, actor);
+
+    const orgId = currentOrgId();
+    await tx.$queryRaw`
+      SELECT id FROM "Payment"
+      WHERE id = ${current.paymentId}
+        AND (${orgId}::text IS NULL OR "orgId" = ${orgId})
+      FOR UPDATE
+    `;
+    await tx.$queryRaw`
+      SELECT id FROM "Refund"
+      WHERE id = ${refundId}
+        AND (${orgId}::text IS NULL OR "orgId" = ${orgId})
+      FOR UPDATE
+    `;
+
+    const priorRefunds = await tx.refund.findMany({
+      where: {
+        paymentId: current.paymentId,
+        status: { in: [...OPEN_REFUND_STATUSES] },
+        NOT: { id: refundId },
+      },
+      select: { amount: true },
+    });
+    const refundedSoFar = priorRefunds.reduce(
+      (sum, r) => sum + Number(r.amount),
+      0,
+    );
+    const remaining = Number(current.payment.amount) - refundedSoFar;
+    if (Number(current.amount) > remaining + 0.005) {
+      throw new AppError(
+        "VALIDATION",
+        `Refund exceeds the remaining capturable amount (₹${remaining.toFixed(2)}).`,
+      );
+    }
+
+    const claimedRows = await tx.refund.updateMany({
+      where: { id: refundId, status: "REQUESTED" },
+      data: { status: "PROCESSING", approvedById: actor.id },
+    });
+    if (claimedRows.count !== 1) {
+      throw new AppError(
+        "CONFLICT",
+        "Refund is no longer awaiting approval.",
+      );
+    }
+
+    const next = await tx.refund.findFirst({
+      where: { id: refundId },
+      include: { payment: true },
+    });
+    if (!next) throw new AppError("NOT_FOUND", "Refund not found.");
     await writeAudit(tx, {
       entity: "Refund",
       entityId: next.id,
       action: "UPDATE",
       byProfileId: actor.id,
       diff: {
-        before: { status: current.status },
-        after: { status: next.status, providerRefundId: refundResult.refundRef },
+        before: { status: "REQUESTED" },
+        after: { status: "PROCESSING" },
       },
     });
     return next;
   });
 
-  return ok(updated);
+  if (claimed.providerRefundId) {
+    return ok(claimed);
+  }
+
+  const provider = getPaymentProvider();
+  try {
+    const refundResult = await provider.refund({
+      paymentId: claimed.paymentId,
+      amount: Number(claimed.amount),
+      reason: claimed.reason,
+      providerPaymentId: claimed.payment.txnRef ?? null,
+    });
+
+    const updated = await db.refund.update({
+      where: { id: claimed.id },
+      data: { providerRefundId: refundResult.refundRef },
+    });
+    return ok(updated);
+  } catch (err) {
+    await db.refund.updateMany({
+      where: { id: claimed.id, status: "PROCESSING" },
+      data: { status: "REQUESTED", approvedById: null, failureReason: String(err) },
+    });
+    throw err;
+  }
 }
 
 export async function rejectRefund(

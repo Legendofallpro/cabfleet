@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
 import { tombstoneUniqueValue } from "@/lib/soft-delete";
+import { runWithoutOrg } from "@/lib/org-context";
 import type { Vehicle } from "@prisma/client";
 import type { VehicleInput } from "@/modules/vehicles/validators/vehicle";
 
@@ -23,9 +24,11 @@ export async function createVehicle(
 ): Promise<Result<Vehicle>> {
   await assertBranch(input.branchId);
 
-  const dupe = await db.vehicle.findUnique({
-    where: { registrationNumber: input.registrationNumber },
-  });
+  const dupe = await runWithoutOrg("vehicle.registration_dup_check", () =>
+    db.vehicle.findFirst({
+      where: { registrationNumber: input.registrationNumber },
+    }),
+  );
   if (dupe) {
     throw new AppError("CONFLICT", "Vehicle with this registration already exists.", {
       fieldErrors: { registrationNumber: ["Already in use"] },
@@ -60,9 +63,11 @@ export async function updateVehicle(
   if (input.branchId !== current.branchId) await assertBranch(input.branchId);
 
   if (input.registrationNumber !== current.registrationNumber) {
-    const dupe = await db.vehicle.findUnique({
-      where: { registrationNumber: input.registrationNumber },
-    });
+    const dupe = await runWithoutOrg("vehicle.registration_dup_check", () =>
+      db.vehicle.findFirst({
+        where: { registrationNumber: input.registrationNumber },
+      }),
+    );
     if (dupe) {
       throw new AppError("CONFLICT", "Vehicle with this registration already exists.", {
         fieldErrors: { registrationNumber: ["Already in use"] },

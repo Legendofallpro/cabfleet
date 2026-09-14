@@ -1,3 +1,8 @@
+-- DO NOT RE-APPLY THIS FILE IN PRODUCTION.
+-- It trusts client-controlled `raw_user_meta_data.role` and can mint ADMIN
+-- at signup. Live projects must keep 06 + 13 (role locked to CUSTOMER,
+-- org always `default`). Re-running this file reopens privilege escalation.
+--
 -- Sync Supabase auth.users -> public.Profile (1:1).
 -- Runs on insert and update of auth.users so app data tracks identity.
 -- Apply this in the Supabase SQL editor AFTER the first `prisma migrate deploy`

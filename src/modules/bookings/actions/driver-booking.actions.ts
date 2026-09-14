@@ -17,6 +17,7 @@ import {
   ensureCanClaim,
   getDriverForProfile,
 } from "@/modules/drivers/services/eligibility";
+import { maybeGenerateInvoiceOnComplete } from "@/modules/invoices/services/maybeGenerateOnComplete";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Claim an OPEN_FOR_CLAIM booking
@@ -94,6 +95,11 @@ export const driverTransitionAction = action(
     revalidatePath(`/driver/trips/${input.bookingId}`);
 
     if (!result.ok) return result;
+    if (input.toStatus === BookingStatus.COMPLETED) {
+      await maybeGenerateInvoiceOnComplete(input.bookingId, {
+        id: actor.profile.id,
+      });
+    }
     return ok({ id: result.data.id });
   },
 );

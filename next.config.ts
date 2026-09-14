@@ -8,8 +8,7 @@ import { composeCsp } from "./src/lib/csp";
  * (Phase 7 W0 §7.8 S17). Flip `PAYMENT_GATEWAY=RAZORPAY` or
  * `REALTIME_TRACKING_ENABLED=true` and the policy widens accordingly.
  *
- * Still report-only — switch to enforcing CSP once the new `e2e:csp`
- * Playwright job (S17 follow-up) is green on prod reports for ≥1 week.
+ * Wave 4: enforcing Content-Security-Policy (no longer Report-Only).
  */
 const csp = composeCsp();
 
@@ -26,11 +25,11 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(self), payment=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "off" },
-  // Report-only first; flip to "Content-Security-Policy" once clean.
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   images: {
     remotePatterns: [
       {

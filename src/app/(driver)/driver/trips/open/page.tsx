@@ -54,9 +54,7 @@ export default async function OpenTripsPage() {
 
       {bookings.length === 0 ? (
         <SurfaceCard padding="lg">
-          <p className="text-sm text-muted text-center">
-            No open trips right now. Check back in a moment.
-          </p>
+          <p className="text-sm text-muted text-center">No open trips.</p>
         </SurfaceCard>
       ) : (
         bookings.map((booking) => (

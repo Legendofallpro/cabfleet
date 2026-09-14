@@ -10,14 +10,14 @@ import { toast } from "sonner";
 import { TextField } from "@/components/common/form/TextField";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
-import { sanitizeRedirectTo } from "@/lib/auth/redirects";
+import { getPostAuthRedirectAction } from "@/lib/auth/post-auth-redirect.action";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signInSchema, type SignInValues } from "@/lib/auth/validators";
 import { recordMfaAuditAction } from "@/modules/profile/actions/profile.actions";
 
 export default function SignInForm() {
   const searchParams = useSearchParams();
-  const redirectTo = sanitizeRedirectTo(searchParams.get("redirectTo")) ?? "/";
+  const requestedRedirect = searchParams.get("redirectTo");
 
   const [showPassword, setShowPassword] = useState(false);
   const [mfaChallenge, setMfaChallenge] = useState<{
@@ -38,7 +38,8 @@ export default function SignInForm() {
   });
 
   async function completeSignIn() {
-    window.location.assign(redirectTo);
+    const dest = await getPostAuthRedirectAction(requestedRedirect);
+    window.location.assign(dest);
   }
 
   async function onSubmit(values: SignInValues) {
@@ -155,7 +156,7 @@ export default function SignInForm() {
           className="inline-flex items-center text-sm text-muted transition-colors hover:text-default"
         >
           <ChevronLeftIcon />
-          Back to dashboard
+          Back to home
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">

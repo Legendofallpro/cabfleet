@@ -31,7 +31,7 @@ export function CancelBookingButton({ bookingId }: { bookingId: string }) {
    type="button"
    onClick={handleCancel}
    disabled={pending}
-   className="text-xs font-medium text-error-600 hover:underline disabled:opacity-50 dark:text-error-400"
+   className="text-xs font-medium text-error hover:underline disabled:opacity-50"
   >
    {pending ? "Cancelling…" : phase === "confirming" ? "Tap again to confirm" : "Cancel"}
   </button>

@@ -219,7 +219,6 @@ export async function recordLocation(
   if (broadcastPoints.length > 0) {
     void broadcastLocations({
       bookingId: input.bookingId,
-      driverId: input.driverId,
       points: broadcastPoints,
     });
   }

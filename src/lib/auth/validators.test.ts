@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   resetPasswordRequestSchema,
   setPasswordSchema,
+  signUpSchema,
 } from "@/lib/auth/validators";
 
 describe("resetPasswordRequestSchema", () => {
@@ -45,5 +46,30 @@ describe("setPasswordSchema", () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("signUpSchema", () => {
+  const valid = {
+    firstName: "Priya",
+    lastName: "Nair",
+    phone: "9876543210",
+    email: "priya@gmail.com",
+    password: "password1",
+    agreed: true as const,
+  };
+
+  it("accepts name, Indian mobile, email, and password", () => {
+    expect(signUpSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a non-Indian mobile", () => {
+    expect(signUpSchema.safeParse({ ...valid, phone: "123" }).success).toBe(false);
+  });
+
+  it("rejects .invalid emails", () => {
+    expect(
+      signUpSchema.safeParse({ ...valid, email: "x@staff.cabfleet.invalid" }).success,
+    ).toBe(false);
   });
 });

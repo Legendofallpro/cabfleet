@@ -64,7 +64,7 @@ export default async function OrgsPage({
 }) {
   const session = await getSessionUser();
   if (!session || session.profile.role !== "SUPER_ADMIN") {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   const { q, page, pageSize } = parsePageParams(await searchParams);

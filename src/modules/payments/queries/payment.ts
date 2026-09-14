@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { gstBreakdown, roundMoney } from "@/modules/invoices/gst";
 
 const paymentSelect = {
   id: true,
@@ -61,4 +62,48 @@ export async function getPayment(id: string) {
     where: { id, deletedAt: null },
     select: paymentSelect,
   });
+}
+
+export async function sumCapturedForBooking(bookingId: string): Promise<number> {
+  const agg = await db.payment.aggregate({
+    where: { bookingId, deletedAt: null, status: "CAPTURED" },
+    _sum: { amount: true },
+  });
+  return Number(agg._sum.amount ?? 0);
+}
+
+export type BookingOutstanding = {
+  breakdown: ReturnType<typeof gstBreakdown>;
+  captured: number;
+  outstanding: number;
+};
+
+export async function getBookingOutstanding(
+  bookingId: string,
+): Promise<BookingOutstanding | null> {
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, deletedAt: null },
+    select: {
+      fareEstimate: true,
+      fareFinal: true,
+      tollAmount: true,
+      parkingAmount: true,
+      org: { select: { gstRate: true } },
+    },
+  });
+  if (!booking) return null;
+
+  const breakdown = gstBreakdown({
+    fareEstimate: booking.fareEstimate != null ? Number(booking.fareEstimate) : null,
+    fareFinal: booking.fareFinal != null ? Number(booking.fareFinal) : null,
+    tollAmount: Number(booking.tollAmount ?? 0),
+    parkingAmount: Number(booking.parkingAmount ?? 0),
+    gstRate: booking.org?.gstRate ?? 0,
+  });
+  const captured = await sumCapturedForBooking(bookingId);
+  return {
+    breakdown,
+    captured,
+    outstanding: roundMoney(Math.max(0, breakdown.total - captured)),
+  };
 }

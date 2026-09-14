@@ -27,3 +27,25 @@ export const updateOrgSchema = orgInputSchema.extend({
 export type UpdateOrgFormValues = z.input<typeof updateOrgSchema>;
 
 export const orgIdSchema = z.object({ id: z.string().min(1) });
+
+/** 15-character Indian GSTIN. Empty string is allowed (stored as null). */
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+export const updateOrgGstSchema = z.object({
+  orgId: z.string().min(1),
+  gstin: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .refine((v) => v === "" || GSTIN_REGEX.test(v), {
+      message: "Enter a valid 15-character GSTIN, or leave blank",
+    }),
+  gstRate: z.coerce
+    .number()
+    .refine((n) => n === 0 || n === 5 || n === 12, {
+      message: "GST rate must be 0, 5, or 12",
+    }),
+});
+
+export type UpdateOrgGstFormValues = z.input<typeof updateOrgGstSchema>;
+export type UpdateOrgGstInput = z.infer<typeof updateOrgGstSchema>;

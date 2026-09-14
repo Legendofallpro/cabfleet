@@ -45,6 +45,7 @@ import {
   setIdempotencyEntry,
   __clearIdempotencyForTests,
 } from "@/lib/idempotency";
+import { applyMobileCors, mobileCorsPreflight } from "@/lib/cors";
 
 const STATUS_FOR_CODE: Record<AppErrorCode, number> = {
   UNAUTHENTICATED: 401,
@@ -268,10 +269,15 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
     req: Request,
     routeCtx?: DynamicRouteContext<TParams>,
   ): Promise<NextResponse> {
+    if (req.method === "OPTIONS") {
+      return mobileCorsPreflight(req);
+    }
+    const cors = (res: NextResponse) => applyMobileCors(req, res);
+
     if (!env.API_V1_ENABLED) {
       // Fail-closed so a half-deployed v1 cannot answer requests in
       // staging/prod accidentally.
-      return errorResponse("FORBIDDEN", "API v1 is disabled.");
+      return cors(errorResponse("FORBIDDEN", "API v1 is disabled."));
     }
 
     const url = new URL(req.url);
@@ -282,7 +288,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
       maxBodyBytes,
       opts.schema,
     );
-    if (!bodyOutcome.ok) return bodyOutcome.response;
+    if (!bodyOutcome.ok) return cors(bodyOutcome.response);
 
     const params = ((await routeCtx?.params) ?? {}) as TParams;
 
@@ -293,7 +299,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
         user = await requireApiAuth(req);
       } catch (err) {
         const payload = toAppErrorPayload(err);
-        return errorResponse(payload.code as AppErrorCode, payload.message);
+        return cors(errorResponse(payload.code as AppErrorCode, payload.message));
       }
 
       // 3. Permission.
@@ -306,7 +312,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
           },
           "api.forbidden.missing_permission",
         );
-        return errorResponse("FORBIDDEN", "You do not have access to this resource.");
+        return cors(errorResponse("FORBIDDEN", "You do not have access to this resource."));
       }
     }
 
@@ -318,7 +324,8 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
         opts.rateLimit.opts,
       );
       if (!limit.success) {
-        return new NextResponse(
+        return cors(
+          new NextResponse(
           JSON.stringify({
             error: {
               code: "RATE_LIMITED",
@@ -335,6 +342,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
               ).toString(),
             },
           },
+        ),
         );
       }
     }
@@ -350,21 +358,25 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
       // is rejected, both to make collisions less likely and to make the
       // store-bound nature explicit to clients.
       if (idempotencyHeader.length > 128 || !/^[A-Za-z0-9_\-.:]+$/.test(idempotencyHeader)) {
-        return errorResponse(
+        return cors(
+          errorResponse(
           "VALIDATION",
           "Idempotency-Key must be ≤128 chars, alphanumerics + - _ . :",
+        ),
         );
       }
       idempotencyKey = makeIdempotencyKey(user, url, idempotencyHeader);
       const cached = await getIdempotencyEntry(idempotencyKey);
       if (cached) {
-        return new NextResponse(cached.body, {
+        return cors(
+          new NextResponse(cached.body, {
           status: cached.status,
           headers: {
             "content-type": cached.contentType,
             "idempotent-replay": "true",
           },
-        });
+        }),
+        );
       }
     }
 
@@ -382,14 +394,16 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
       try {
         const allowed = await opts.ownership(ctx);
         if (!allowed) {
-          return errorResponse("NOT_FOUND", "Resource not found.");
+          return cors(errorResponse("NOT_FOUND", "Resource not found."));
         }
       } catch (err) {
         const payload = toAppErrorPayload(err);
-        return errorResponse(
-          payload.code as AppErrorCode,
-          payload.message,
-          payload.fieldErrors ? { fieldErrors: payload.fieldErrors } : undefined,
+        return cors(
+          errorResponse(
+            payload.code as AppErrorCode,
+            payload.message,
+            payload.fieldErrors ? { fieldErrors: payload.fieldErrors } : undefined,
+          ),
         );
       }
     }
@@ -454,7 +468,7 @@ export function withApiHandler<TBody = undefined, TParams = Record<string, strin
       );
     }
 
-    return response;
+    return cors(response);
   };
 }
 

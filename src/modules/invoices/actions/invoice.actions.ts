@@ -3,15 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { action } from "@/lib/actions";
-import { requirePermission } from "@/lib/auth/requireRole";
+import { requirePermission, requireRole } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { ok } from "@/lib/result";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { generateInvoice } from "@/modules/invoices/services/generateInvoice";
 import { generateInvoiceSchema } from "@/modules/invoices/validators/invoice";
 import { voidInvoice } from "@/modules/invoices/services/voidInvoice";
+import { mintInvoiceDownloadUrl } from "@/modules/invoices/services/invoice-download.service";
 import { sendInvoiceEmail } from "@/lib/email";
 import { getInvoice } from "@/modules/invoices/queries/invoice";
+import { portalInvoiceUrl } from "@/modules/invoices/invoice-storage";
 
 export const generateInvoiceAction = action(
   "invoice.generate",
@@ -24,16 +27,15 @@ export const generateInvoiceAction = action(
       revalidatePath("/invoices");
       revalidatePath(`/bookings/${input.bookingId}`);
 
-      // Send email to customer (non-blocking — don't fail the action if email fails)
       try {
         const invoice = await getInvoice(result.data.id);
-        if (invoice?.booking.customer.profile.email && invoice.pdfUrl) {
+        if (invoice?.booking.customer.profile.email) {
           await sendInvoiceEmail({
             to: invoice.booking.customer.profile.email,
             customerName:
               invoice.booking.customer.profile.fullName ?? "Customer",
             invoiceNumber: invoice.number,
-            pdfUrl: invoice.pdfUrl,
+            invoiceUrl: portalInvoiceUrl(env.NEXT_PUBLIC_APP_URL, invoice.bookingId),
             bookingRef: invoice.bookingId.slice(-8).toUpperCase(),
           });
         }
@@ -50,7 +52,7 @@ export const generateInvoiceAction = action(
 );
 
 const voidInvoiceSchema = z.object({
-  invoiceId: z.string().uuid("Invalid invoice id"),
+  invoiceId: z.string().min(1, "Invoice is required"),
 });
 
 export const voidInvoiceAction = action(
@@ -67,5 +69,17 @@ export const voidInvoiceAction = action(
     revalidatePath(`/portal/bookings/${result.data.bookingId}`);
 
     return ok(invoiceId);
+  },
+);
+
+export const downloadInvoiceAction = action(
+  "invoice.download",
+  z.object({ invoiceId: z.string().min(1, "Invoice is required") }),
+  async ({ invoiceId }) => {
+    const actor = await requireRole(["SUPER_ADMIN", "ADMIN", "STAFF", "CUSTOMER"]);
+    return mintInvoiceDownloadUrl(invoiceId, {
+      id: actor.profile.id,
+      role: actor.profile.role,
+    });
   },
 );

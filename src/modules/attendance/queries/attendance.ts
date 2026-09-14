@@ -69,8 +69,8 @@ export async function listAttendance(opts: ListAttendanceOpts = {}) {
 }
 
 export async function getAttendanceForDate(profileId: string, date: Date) {
-  return db.attendance.findUnique({
-    where: { profileId_date: { profileId, date } },
+  return db.attendance.findFirst({
+    where: { profileId, date },
     select: attendanceSelect,
   });
 }

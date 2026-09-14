@@ -6,6 +6,7 @@ import { tombstoneUniqueValue } from "@/lib/soft-delete";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { runWithoutOrg } from "@/lib/org-context";
 import type { Staff } from "@prisma/client";
 import type {
   InviteStaffInput,
@@ -29,7 +30,9 @@ export async function inviteStaff(
 ): Promise<Result<Staff>> {
   await assertBranch(input.branchId);
 
-  const dupe = await db.staff.findUnique({ where: { employeeId: input.employeeId } });
+  const dupe = await runWithoutOrg("staff.employee_id_dup_check", () =>
+    db.staff.findFirst({ where: { employeeId: input.employeeId } }),
+  );
   if (dupe) {
     throw new AppError("CONFLICT", "Employee ID already in use.", {
       fieldErrors: { employeeId: ["Already in use"] },
@@ -109,7 +112,9 @@ export async function updateStaff(
   if (input.branchId !== current.profile.branchId) await assertBranch(input.branchId);
 
   if (input.employeeId !== current.employeeId) {
-    const dupe = await db.staff.findUnique({ where: { employeeId: input.employeeId } });
+    const dupe = await runWithoutOrg("staff.employee_id_dup_check", () =>
+      db.staff.findFirst({ where: { employeeId: input.employeeId } }),
+    );
     if (dupe) {
       throw new AppError("CONFLICT", "Employee ID already in use.", {
         fieldErrors: { employeeId: ["Already in use"] },

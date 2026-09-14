@@ -12,6 +12,8 @@ import { TextField } from "@/components/common/form/TextField";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signUpSchema, type SignUpValues } from "@/lib/auth/validators";
+import { prepareCustomerSignupAction } from "@/modules/customers/actions/signup.actions";
+import { toE164 } from "@/lib/utils/phone";
 
 export default function SignUpForm() {
  const router = useRouter();
@@ -27,6 +29,7 @@ export default function SignUpForm() {
   defaultValues: {
    firstName: "",
    lastName: "",
+   phone: "",
    email: "",
    password: "",
    agreed: false as unknown as true,
@@ -34,13 +37,29 @@ export default function SignUpForm() {
  });
 
  async function onSubmit(values: SignUpValues) {
+  const fullName = `${values.firstName} ${values.lastName}`.trim();
+  const parsedPhone = toE164(values.phone, "IN");
+  const phone = parsedPhone.ok ? parsedPhone.e164 : values.phone;
+  const prepared = await prepareCustomerSignupAction({
+   email: values.email,
+   password: values.password,
+   phone,
+   fullName,
+  });
+  if (!prepared.ok) {
+   toast.error(prepared.error.message);
+   return;
+  }
+
   const supabase = getSupabaseBrowserClient();
+
   const { data, error } = await supabase.auth.signUp({
    email: values.email,
    password: values.password,
    options: {
     data: {
-     full_name: `${values.firstName} ${values.lastName}`.trim(),
+     full_name: fullName,
+     phone,
     },
    },
   });
@@ -72,10 +91,10 @@ export default function SignUpForm() {
    <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
     <Link
      href="/"
-     className="inline-flex items-center text-sm text-muted transition-colors hover:text-default dark:text-muted dark:hover:text-gray-300"
+     className="inline-flex items-center text-sm text-muted transition-colors hover:text-default"
     >
      <ChevronLeftIcon />
-     Back to dashboard
+     Back to home
     </Link>
    </div>
    <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
@@ -108,13 +127,23 @@ export default function SignUpForm() {
        />
       </div>
       <TextField
-       label="Email"
-       type="email"
-       required
-       placeholder="Enter your email"
-       autoComplete="email"
-       {...register("email")}
-       error={errors.email?.message}
+        label="Email"
+        type="email"
+        required
+        placeholder="Enter your email"
+        autoComplete="email"
+        {...register("email")}
+        error={errors.email?.message}
+      />
+      <TextField
+        label="Mobile"
+        type="tel"
+        required
+        inputMode="numeric"
+        placeholder="10-digit Indian mobile"
+        autoComplete="tel"
+        {...register("phone")}
+        error={errors.phone?.message}
       />
       <div className="relative">
        <TextField

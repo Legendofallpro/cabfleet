@@ -57,8 +57,8 @@ export default async function ReportsPage({ searchParams }: Props) {
  const totalTrips = tripsStatus.reduce((s, r) => s + r.count, 0);
  const completedTrips = tripsStatus.find((r) => r.status === "COMPLETED")?.count ?? 0;
 
- const fromStr = from.toISOString().slice(0, 10);
- const toStr = defaultTo.toISOString().slice(0, 10);
+ const fromStr = params.from ?? defaultFrom.toISOString().slice(0, 10);
+ const toStr = params.to ?? defaultTo.toISOString().slice(0, 10);
 
  return (
   <div>

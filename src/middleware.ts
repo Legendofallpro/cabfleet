@@ -1,22 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { checkLimit, getClientIp, LIMITS } from "@/lib/rate-limit";
-
-const PUBLIC_PATHS = [
-  "/signin",
-  "/signup",
-  "/reset-password",
-  "/set-password",
-  "/error-404",
-  "/auth-error",
-  "/auth/callback",
-];
+import { isPublicPath } from "@/lib/auth/public-paths";
 
 /** Paths that should be IP rate-limited at the edge (anti brute-force). */
 const AUTH_PATHS = ["/signin", "/signup", "/reset-password", "/auth/callback"];
-
-const isPublic = (pathname: string) =>
-  PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 const isAuthPath = (pathname: string) =>
   AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -78,7 +66,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (!user && !isPublic(pathname)) {
+  if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/signin";
     url.searchParams.set("redirectTo", pathname);

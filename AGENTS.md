@@ -266,6 +266,8 @@ const STATUS_COLOR = { PRESENT: "bg-success-100 text-success-700" };
 | Status badge | [src/components/common/StatusBadge.tsx](src/components/common/StatusBadge.tsx) |
 | Booking status labels + helpers (client-safe) | [src/modules/bookings/booking.constants.ts](src/modules/bookings/booking.constants.ts) |
 | Admin shell | [src/app/(admin)/layout.tsx](src/app/(admin)/layout.tsx) + [_components/AdminShell.tsx](src/app/(admin)/_components/AdminShell.tsx) |
+| Staff desk | `/dashboard` — [src/app/(admin)/dashboard/page.tsx](src/app/(admin)/dashboard/page.tsx) |
+| Public landing | `/` — [src/app/page.tsx](src/app/page.tsx) |
 | Sidebar nav config | [src/layout/AppSidebar.tsx](src/layout/AppSidebar.tsx) |
 | UI styling guide | [docs/ui-styling.md](docs/ui-styling.md) |
 | `cn()` class helper | [src/lib/cn.ts](src/lib/cn.ts) |

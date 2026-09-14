@@ -7,15 +7,15 @@
  * provider. If the provider says CAPTURED, we apply the same audit + state
  * change the webhook path would have applied; if FAILED, we mark it
  * failed; if still pending, we leave it alone and try again on the next
- * tick (until the row exceeds the abandon window — 24h — at which point
+ * tick (until the row exceeds the abandon window — 72h — at which point
  * we flip it to FAILED with a `reason=reconcile_timeout` note in the
- * audit log).
+ * audit log). FAILED rows are re-fetched so a late capture is applied.
  *
  * Schedule (vercel.json): every 15 minutes.
  * Auth: `Authorization: Bearer ${env.CRON_SECRET}` — same as drain/prune.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "@/lib/env";
+import { cronAuthGuard } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { writeAudit } from "@/lib/audit";
@@ -25,16 +25,12 @@ import { getPaymentProvider } from "@/modules/payments/providers";
 export const dynamic = "force-dynamic";
 
 const RECONCILE_AFTER_MS = 30 * 60 * 1000;
-const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000;
+const ABANDON_AFTER_MS = 72 * 60 * 60 * 1000;
 const BATCH_SIZE = 25;
 
 async function handler(req: NextRequest) {
-  if (!env.CRON_SECRET) {
-    return NextResponse.json({ error: "Cron disabled" }, { status: 503 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = cronAuthGuard(req, "/api/cron/reconcile-payments");
+  if (denied) return denied;
 
   const provider = getPaymentProvider();
   if (provider.name === "MANUAL") {
@@ -48,7 +44,7 @@ async function handler(req: NextRequest) {
 
     const stuck = await db.payment.findMany({
       where: {
-        status: "PENDING",
+        status: { in: ["PENDING", "FAILED"] },
         deletedAt: null,
         providerOrderId: { not: null },
         createdAt: { lt: reconcileBefore },
@@ -119,8 +115,8 @@ async function handler(req: NextRequest) {
           continue;
         }
 
-        // Still PENDING per provider — abandon if too old.
-        if (row.createdAt < abandonBefore) {
+        // Still PENDING per provider — abandon PENDING rows after 72h only.
+        if (row.status === "PENDING" && row.createdAt < abandonBefore) {
           await db.$transaction(async (tx) => {
             await tx.payment.update({
               where: { id: row.id },
@@ -149,10 +145,24 @@ async function handler(req: NextRequest) {
       }
     }
 
+    const processingRefunds = await db.refund.findMany({
+      where: {
+        status: "PROCESSING",
+        providerRefundId: { not: null },
+      },
+      take: BATCH_SIZE,
+      select: { id: true, providerRefundId: true, paymentId: true },
+    });
+    logger.info(
+      { processing: processingRefunds.length },
+      "cron.reconcile-payments.processing_refunds",
+    );
+
     return NextResponse.json({
       checked: stuck.length,
       reconciled,
       abandoned,
+      processingRefunds: processingRefunds.length,
     });
   });
 }

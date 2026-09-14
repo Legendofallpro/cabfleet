@@ -126,6 +126,10 @@ model Organization {
   id        String    @id @default(cuid())
   slug      String    @unique
   name      String
+  /// Indian GSTIN. Optional — invoices omit the GSTIN line when null.
+  gstin     String?
+  /// Snapshot source for invoices. Allowed values: 0, 5, 12. Rate 0 hides tax lines.
+  gstRate   Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -202,7 +206,7 @@ model Profile {
   orgId             String?
   email             String  @unique
   fullName          String?
-  phone             String?
+  phone             String? @unique
   avatarUrl         String?
   role              Role    @default(CUSTOMER)
   branchId          String?
@@ -315,6 +319,8 @@ model Customer {
   loyaltyTier   String?
   totalBookings Int     @default(0)
   totalSpend    Decimal @default(0) @db.Decimal(12, 2)
+  /// Desk-created guest with a synthetic email; cannot use /portal until invited.
+  staffManaged  Boolean @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -419,9 +425,12 @@ model Booking {
   status        BookingStatus @default(PENDING)
   dispatchMode  DispatchMode  @default(MANUAL)
 
-  pickupAt      DateTime
-  pickupAddress String
-  dropAddress   String
+  pickupAt        DateTime
+  pickupAddress   String
+  pickupLandmark  String?
+  dropAddress     String
+  dropLandmark    String?
+  notes           String?
   // Geocoded coordinates. Added in W1 (cheaper to ship now than a second
   // migration in W5). Populated by GeocodingService in W5.
   pickupLat     Decimal? @db.Decimal(9, 6)
@@ -443,8 +452,10 @@ model Booking {
   assignedVehicleId String?
 
   // Money
-  fareEstimate Decimal? @db.Decimal(10, 2)
-  fareFinal    Decimal? @db.Decimal(10, 2)
+  fareEstimate  Decimal? @db.Decimal(10, 2)
+  fareFinal     Decimal? @db.Decimal(10, 2)
+  tollAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  parkingAmount Decimal  @default(0) @db.Decimal(10, 2)
 
   // Concurrency control (optimistic locking; incremented on every transition)
   version Int @default(0)
@@ -636,7 +647,7 @@ model Payment {
   // Phase 7 W3: provider's Order id (Razorpay creates an Order, then a Payment
   // against that Order). Set on charge(); webhook updates Payment.txnRef with
   // the captured payment id. Null for the MANUAL provider.
-  providerOrderId String?
+  providerOrderId String? @unique
   txnRef          String?
   capturedAt      DateTime?
   createdById     String?       @db.Uuid
@@ -654,7 +665,6 @@ model Payment {
   @@index([bookingId])
   @@index([status])
   @@index([deletedAt])
-  @@index([providerOrderId])
 }
 
 // Refund — Phase 7 W3 §7.5 S12.
@@ -683,10 +693,11 @@ model Refund {
   // Provider's refund id (e.g. rfnd_XYZ for Razorpay). Set when status
   // moves to PROCESSING. Used by the webhook handler to bind a refund.*
   // event back to this row.
-  providerRefundId String?
+  providerRefundId String? @unique
   // Four-eyes audit columns. requestedById must NOT equal approvedById —
   // enforced by `approveRefund` service.
-  requestedById    String       @db.Uuid
+  // Null for off-platform (Razorpay dashboard) refunds recorded by webhook.
+  requestedById    String?      @db.Uuid
   approvedById     String?      @db.Uuid
   // Set when status transitions to SUCCEEDED via webhook.
   processedAt      DateTime?
@@ -698,13 +709,12 @@ model Refund {
 
   org         Organization? @relation(fields: [orgId], references: [id])
   payment     Payment       @relation(fields: [paymentId], references: [id])
-  requestedBy Profile       @relation("RefundRequestedBy", fields: [requestedById], references: [id])
+  requestedBy Profile?      @relation("RefundRequestedBy", fields: [requestedById], references: [id])
   approvedBy  Profile?      @relation("RefundApprovedBy", fields: [approvedById], references: [id])
 
   @@index([orgId])
   @@index([paymentId])
   @@index([status])
-  @@index([providerRefundId])
 }
 
 // Webhook idempotency store (Phase 7 W3).
@@ -743,6 +753,10 @@ model Invoice {
   issuedAt  DateTime      @default(now())
   dueAt     DateTime?
   status    InvoiceStatus @default(DRAFT)
+  /// GSTIN / rate / SAC snapshotted at issue time so later org edits don't rewrite history.
+  gstin     String?
+  gstRate   Int           @default(0)
+  sacCode   String        @default("9964")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

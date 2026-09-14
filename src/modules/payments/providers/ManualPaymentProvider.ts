@@ -9,8 +9,8 @@ import type {
 
 /**
  * Manual (cash/offline) provider. Records the payment as immediately
- * captured — no external gateway call, no checkout redirect. Used for the
- * Phase 5 MVP and as the safe fallback whenever `PAYMENT_GATEWAY != RAZORPAY`.
+ * captured — no external gateway call, no checkout redirect. Desk Record
+ * Payment always uses this provider, even when Razorpay is enabled.
  */
 export class ManualPaymentProvider implements PaymentProvider {
   readonly name = "MANUAL" as const;

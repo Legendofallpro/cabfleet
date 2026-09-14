@@ -68,7 +68,7 @@ export async function deleteShift(
   id: string,
   actor: Actor,
 ): Promise<Result<Shift>> {
-  const existing = await db.shift.findUnique({ where: { id } });
+  const existing = await db.shift.findFirst({ where: { id } });
   if (!existing) throw new AppError("NOT_FOUND", "Shift not found.");
 
   const shift = await db.$transaction(async (tx) => {

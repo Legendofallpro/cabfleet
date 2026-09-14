@@ -15,6 +15,7 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { err, ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
+import { currentOrgId } from "@/lib/org-context";
 import type { BookingDetail } from "@/modules/bookings/types";
 import { applyBookingTransitionTx } from "@/modules/bookings/services/transitionBookingStatus";
 
@@ -33,6 +34,7 @@ export async function claimBooking(
   input: ClaimBookingInput,
 ): Promise<Result<BookingDetail>> {
   const { bookingId, driverId, byProfileId } = input;
+  const orgId = currentOrgId();
 
   const result = await db.$transaction(
     async (tx) => {
@@ -45,6 +47,7 @@ export async function claimBooking(
         WHERE id = ${bookingId}
           AND status = 'OPEN_FOR_CLAIM'
           AND "deletedAt" IS NULL
+          AND (${orgId}::text IS NULL OR "orgId" = ${orgId})
         FOR UPDATE SKIP LOCKED
       `;
 

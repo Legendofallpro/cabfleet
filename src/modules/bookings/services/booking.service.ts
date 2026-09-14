@@ -10,9 +10,13 @@ import { bookingDetailInclude } from "@/modules/bookings/includes";
 import { resolveDispatchPolicy } from "@/modules/dispatch/services/resolveDispatchPolicy";
 import type {
   CreateBookingInput,
+  CreateDeskBookingInput,
+  UpdatePendingBookingInput,
   AssignDriverInput,
   CancelBookingInput,
 } from "@/modules/bookings/validators/booking";
+import { findOrCreateStaffCustomer } from "@/modules/customers/services/customer.service";
+import { isTerminalStatus } from "@/modules/bookings/booking.constants";
 import type { BookingDetail } from "@/modules/bookings/types";
 
 type Actor = { id: string };
@@ -49,7 +53,7 @@ export async function createBooking(
   }
 
   // Estimate fare (non-blocking — proceed even if no rule exists)
-  const fare = await estimateFare({
+  const calculatorFare = await estimateFare({
     bookingTypeId: input.bookingTypeId,
     branchId: input.branchId,
     distanceKm: input.distanceKm ?? undefined,
@@ -57,6 +61,11 @@ export async function createBooking(
     logger.warn({ err: e }, "Fare estimation failed; continuing without estimate");
     return null;
   });
+
+  const fareEstimate =
+    input.quotedFare != null && input.quotedFare > 0
+      ? input.quotedFare
+      : (calculatorFare?.total ?? null);
 
   // Resolve dispatch policy — determines dispatchMode and initial status.
   // The form no longer sends dispatchMode; it is always set by this resolver.
@@ -86,10 +95,15 @@ export async function createBooking(
         status: BookingStatus.PENDING,
         pickupAt: input.pickupAt,
         pickupAddress: input.pickupAddress,
+        pickupLandmark: input.pickupLandmark ?? null,
         dropAddress: input.dropAddress,
+        dropLandmark: input.dropLandmark ?? null,
+        notes: input.notes ?? null,
         distanceKm: input.distanceKm ?? null,
         passengers: input.passengers,
-        fareEstimate: fare?.total ?? null,
+        fareEstimate,
+        tollAmount: input.tollAmount ?? 0,
+        parkingAmount: input.parkingAmount ?? 0,
         claimTimeoutAt,
         createdById: actor.id,
         // §W5 S15: capture the consent stamp at create time. Customers
@@ -110,7 +124,7 @@ export async function createBooking(
         after: {
           status: BookingStatus.PENDING,
           dispatchMode: resolvedMode,
-          fareEstimate: fare?.total,
+          fareEstimate,
           claimTimeoutAt,
         },
       },
@@ -137,6 +151,123 @@ export async function createBooking(
   }
 
   return ok(booking);
+}
+
+export async function createDeskBooking(
+  input: CreateDeskBookingInput,
+  actor: Actor,
+): Promise<Result<BookingDetail>> {
+  const customerResult = await findOrCreateStaffCustomer(
+    { phone: input.phone, fullName: input.fullName },
+    actor,
+  );
+  if (!customerResult.ok) return customerResult;
+
+  return createBooking(
+    {
+      branchId: input.branchId,
+      customerId: customerResult.data.id,
+      bookingTypeId: input.bookingTypeId,
+      pickupAt: input.pickupAt,
+      pickupAddress: input.pickupAddress,
+      pickupLandmark: input.pickupLandmark,
+      dropAddress: input.dropAddress,
+      dropLandmark: input.dropLandmark,
+      distanceKm: input.distanceKm,
+      passengers: input.passengers,
+      notes: input.notes,
+      quotedFare: input.quotedFare,
+      tollAmount: input.tollAmount,
+      parkingAmount: input.parkingAmount,
+      locationConsent: input.locationConsent,
+    },
+    actor,
+  );
+}
+
+export async function updatePendingBooking(
+  input: UpdatePendingBookingInput,
+  actor: Actor,
+  opts?: { customerProfileId?: string },
+): Promise<Result<BookingDetail>> {
+  const booking = await db.booking.findFirst({
+    where: { id: input.bookingId, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      branchId: true,
+      bookingTypeId: true,
+      customer: { select: { profileId: true } },
+    },
+  });
+  if (!booking) {
+    throw new AppError("NOT_FOUND", "Booking not found.");
+  }
+  if (booking.status !== BookingStatus.PENDING) {
+    throw new AppError("VALIDATION", "Only pending bookings can be edited.");
+  }
+  if (opts?.customerProfileId && booking.customer.profileId !== opts.customerProfileId) {
+    throw new AppError("FORBIDDEN", "You can only edit your own booking.");
+  }
+
+  const isCustomerEdit = Boolean(opts?.customerProfileId);
+
+  const calculatorFare = isCustomerEdit
+    ? null
+    : await estimateFare({
+        bookingTypeId: booking.bookingTypeId,
+        branchId: booking.branchId,
+        distanceKm: input.distanceKm ?? undefined,
+      }).catch(() => null);
+
+  const fareEstimate =
+    !isCustomerEdit && input.quotedFare != null && input.quotedFare > 0
+      ? input.quotedFare
+      : (calculatorFare?.total ?? undefined);
+
+  const updated = await db.$transaction(async (tx) => {
+    const saved = await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        pickupAt: input.pickupAt,
+        pickupAddress: input.pickupAddress,
+        pickupLandmark: input.pickupLandmark ?? null,
+        dropAddress: input.dropAddress,
+        dropLandmark: input.dropLandmark ?? null,
+        notes: input.notes ?? null,
+        distanceKm: input.distanceKm ?? null,
+        passengers: input.passengers,
+        ...(isCustomerEdit
+          ? {}
+          : {
+              fareEstimate: fareEstimate ?? null,
+              tollAmount: input.tollAmount ?? 0,
+              parkingAmount: input.parkingAmount ?? 0,
+            }),
+      },
+      include: bookingDetailInclude,
+    });
+
+    await writeAudit(tx, {
+      entity: "Booking",
+      entityId: saved.id,
+      action: "UPDATE",
+      byProfileId: actor.id,
+      diff: {
+        after: {
+          pickupAt: saved.pickupAt,
+          pickupAddress: saved.pickupAddress,
+          dropAddress: saved.dropAddress,
+          fareEstimate: saved.fareEstimate,
+        },
+      },
+    });
+
+    return saved as BookingDetail;
+  });
+
+  logger.info({ bookingId: updated.id, by: actor.id }, "booking.update_pending");
+  return ok(updated);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -245,4 +376,44 @@ export async function transitionByStaff(
     byProfileId: actor.id,
     reason,
   });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Location consent (does not change status)
+// ──────────────────────────────────────────────────────────────────────────────
+
+export async function grantLocationConsent(
+  bookingId: string,
+  actor: Actor & { customerId: string },
+): Promise<Result<{ id: string }>> {
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, customerId: actor.customerId, deletedAt: null },
+    select: { id: true, status: true, locationConsentAt: true },
+  });
+  if (!booking) {
+    throw new AppError("NOT_FOUND", "Booking not found.");
+  }
+  if (isTerminalStatus(booking.status)) {
+    throw new AppError("VALIDATION", "This trip has already ended.");
+  }
+  if (booking.locationConsentAt) {
+    return ok({ id: booking.id });
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { locationConsentAt: new Date() },
+    });
+    await writeAudit(tx, {
+      entity: "Booking",
+      entityId: booking.id,
+      action: "UPDATE",
+      byProfileId: actor.id,
+      diff: { after: { locationConsentAt: true } },
+    });
+  });
+
+  logger.info({ bookingId: booking.id, by: actor.id }, "booking.location_consent");
+  return ok({ id: booking.id });
 }

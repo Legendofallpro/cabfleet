@@ -16,7 +16,7 @@ export default async function EditOrgPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getSessionUser();
-  if (!session || session.profile.role !== "SUPER_ADMIN") redirect("/");
+  if (!session || session.profile.role !== "SUPER_ADMIN") redirect("/dashboard");
 
   const { id } = await params;
   const org = await getOrg(id);

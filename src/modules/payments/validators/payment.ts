@@ -12,3 +12,9 @@ export const createPaymentSchema = z.object({
 
 export type PaymentFormValues = z.input<typeof createPaymentSchema>;
 export type PaymentInput = z.infer<typeof createPaymentSchema>;
+
+export const customerCheckoutSchema = z.object({
+  bookingId: z.string().min(1, "Booking is required"),
+});
+
+export type CustomerCheckoutInput = z.infer<typeof customerCheckoutSchema>;

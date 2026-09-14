@@ -1,168 +1,71 @@
-# Web App Security
+# Web App Security (CabFleet)
 
-## 1. Authentication
+This is the CabFleet-specific control set. Generic SaaS boilerplate (Clerk, etc.) does not apply. Architecture: [docs/architecture.md](architecture.md). RLS runbook: [docs/security/rls-lockdown.md](security/rls-lockdown.md). CSP: [docs/security/csp-policy.md](security/csp-policy.md).
 
-A robust authentication mechanism is your first line of defence against unauthorised access. Relying on a well-supported, trusted authentication library (for instance, Clerk) can streamline the process of user login, registration, and session handling.
+## 1. Authentication (Supabase Auth)
 
-- **Use a trusted auth library:** Libraries or platforms with active development, community support, and frequent security patches reduce the risks associated with custom, ad-hoc code.
-- **Enable multi-factor authentication (MFA):** MFA adds an extra layer of security by requiring users to provide additional evidence of identity (e.g., a one-time code on their phone).
-- **Handle password reset & session management:** Ensure secure password reset workflows (such as time-limited links or tokens) and strict session expiration policies to minimise the likelihood of unauthorised usage.
-- **Authenticate every API request:** Each request should include verifiable tokens or credentials to confirm the user's identity and authority. This prevents malicious actors from bypassing the authentication layer.
+- Browser sessions use `@supabase/ssr` `getUser()` in middleware (not `getSession()`).
+- Staff (`SUPER_ADMIN` / `ADMIN` / `STAFF`) mutations require AAL2 when `STAFF_AAL2_REQUIRED=true` (`requireRole` / `requirePermission`). Playwright sets the flag false.
+- Desk guests are not linked via public signup. Staff issues a 24h HMAC claim URL (`/claim-portal`).
+- Soft-deleted profiles (`deletedAt`) cannot authenticate.
+- Enable **CAPTCHA / bot protection** in the Supabase dashboard (Authentication → Attack protection). Login hits Supabase Auth directly, so the Next `/signin` IP limiter is not enough on its own.
 
----
+## 2. Middleware and redirects
 
-## 2. Middleware Protection
+- Non-public routes require a signed-in user. Role checks live in layouts + server actions.
+- `sanitizeRedirectTo` rejects `//`, `\`, `@`, encoded slashes, and anything outside `[a-zA-Z0-9/_#?&=.-]`.
+- After password/MFA sign-in, navigation uses `getPostAuthRedirectAction` (role home), never a raw query param.
 
-Middleware can act as a gatekeeper within your application, providing a central point for enforcing security policies and permissions.
+## 3. RBAC
 
-- **Add middleware to protect sensitive routes:** Use middleware layers to verify authentication status and user role before granting access to confidential features or data.
-- **Validate user identity and permissions:** Always confirm that the requesting entity is indeed allowed to perform the requested operation. This minimises the risk of privilege escalation attacks.
+Roles: `SUPER_ADMIN`, `ADMIN`, `STAFF`, `DRIVER`, `CUSTOMER`. Every server action starts with `requireRole` or `requirePermission`. REST v1 uses `withApiHandler` + `PERMISSIONS.*`.
 
----
+## 4. Secrets and env
 
-## 3. Role-Based Access Control (RBAC)
+- App code reads env only through `src/lib/env.ts`.
+- Never put `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, or `CRON_SECRET` in client bundles.
+- Cron endpoints use constant-time Bearer comparison (`src/lib/cron-auth.ts`) and refuse to run without `CRON_SECRET`.
 
-RBAC ensures that users can only access functions and data relevant to their role (e.g., admin, user, guest). This principle limits the damage that can be done if an account is compromised or misused.
+## 5. Errors and logging
 
-- **Define user roles:** Assign roles based on business requirements—examples may include admins with full access, general users with limited privileges, and guests with minimal capabilities.
-- **Restrict access based on roles:** Use checks within your code or database queries to allow or deny access depending on the user's assigned role. This helps enforce the principle of least privilege.
+- Clients see `AppError` codes/messages. Internals stay in pino.
+- Logger redacts email, phone, password, token, gstin, licenseNumber, recipient, fullName.
 
----
+## 6. Input validation
 
-## 4. Sensitive Data Handling
+- Server actions wrap `action(name, zodSchema, fn)`. REST v1 parses JSON with a size cap.
 
-Safeguarding credentials, API keys, and other secrets is paramount to preventing malicious actors from exploiting them.
+## 7. Database and tenancy
 
-- **Store secrets in `.env` files:** Keep sensitive information out of your public codebase by storing it in local environment variables rather than in source code.
-- **NEVER expose secrets to client-side code:** Client-side code is easily viewed in the browser, so secrets must stay on the server side only.
-- **Add `.env` to `.gitignore`:** Prevent accidental commits of sensitive data to version control by ignoring environment files and other confidential resources.
-
----
-
-## 5. Error Handling
-
-Proper error handling helps maintain a good user experience without inadvertently revealing details that attackers could use.
-
-- **Show user-friendly and generic error messages:** Provide basic information such as "Something went wrong" or "Invalid credentials," rather than revealing database or system details.
-- **Log detailed error messages only on the server:** Capture stack traces, query logs, and other diagnostic data in secure server logs, where they can assist debugging but remain hidden from users.
-
----
-
-## 6. Input Validation
-
-User input is a common attack vector, making thorough validation and sanitisation essential.
-
-- **Sanitise and validate all user input:** Protect against malicious input by filtering out disallowed characters, applying length limits, and verifying data types.
-- **Prevent SQL injection, XSS, and other attacks:** Use parameterised queries, escaping mechanisms, and content-security policies to minimise the risk of injecting harmful code.
-
----
-
-## 7. Database Security
-
-How data is stored, accessed, and queried is a cornerstone of any secure system.
-
-- **Use a trusted ORM or platform:** ORMs (Object-Relational Mappers) such as Prisma, Sequelize, or a secure platform like Supabase can abstract away many low-level security pitfalls.
-- **Enable Row-Level Security (RLS) where possible:** RLS allows fine-grained control over which rows can be accessed by which user, adding another layer of data protection. See [`docs/security/rls-lockdown.md`](security/rls-lockdown.md) for the table-level RLS policy inventory, apply order, verification checklist, and rollback procedure for this project.
-- **Avoid writing raw queries directly:** Parameterised queries and abstractions help prevent injection vulnerabilities and reduce the scope for human error.
-
----
+- **Prisma is the only writer.** PostgREST is deny-all: ENABLE + FORCE RLS, restrictive `deny_direct_api_access`, `REVOKE ALL FROM anon, authenticated`.
+- `migrate deploy` is the source of truth (`20260914150000_rls_force_deny_postgrest`). Do **not** apply `prisma/sql/07b_*` as written.
+- Tenant reads/writes go through the Prisma org extension. RSC paths lazy-bind `profile.orgId` from the session and fail closed in production / when `MULTI_ORG_ENABLED`.
+- Never `db.booking.update({ status })` outside `transitionBookingStatus` / `claimBooking`.
 
 ## 8. Hosting
 
-Where you deploy your application can significantly impact security. Managed platforms often come with built-in safeguards.
+- Vercel + Supabase. HSTS, `X-Frame-Options: DENY`, enforcing CSP from `src/lib/csp.ts`.
 
-- **Host on secure, managed platforms:** Services like Vercel, AWS, or GCP frequently update their underlying infrastructure to address new threats.
-- **Ensure firewall, DDoS protection, and automatic updates:** A well-configured firewall, distributed denial-of-service (DDoS) defences, and regularly patched servers guard against the most common and disruptive attacks.
+## 9. Payments
 
----
+- Razorpay webhooks: HMAC on the raw body, event id from `x-razorpay-event-id`, fail-closed if the webhook secret is unset.
+- Desk Record Payment is always Manual. Customer Pay now is the only Razorpay order path.
+- Refunds are four-eyes (`requestRefund` / `approveRefund`). Do not auto-approve via `REFUND_AUTO_APPROVE_LIMIT_INR`.
 
-## 9. Secure Communications
+## 10. PII
 
-Ensuring data transmission security is crucial to protect sensitive information.
+- Invoice PDFs live in a private `invoices` bucket; signed URLs last 60–300s after an ownership check. WhatsApp/email share `/portal/bookings/{id}`.
+- Live GPS uses private Realtime channels (`trip:{bookingId}`) with JWT authorization. Keep `REALTIME_TRACKING_ENABLED=false` until `prisma/sql/15_realtime_private_trip.sql` is applied.
+- Open-claim trip lists expose customer name only.
+- DSR erasure writes sha256(email/phone) into `AuditLog.diff`, not plaintext.
 
-- **Enforce HTTPS:** Ensure your application strictly uses HTTPS to encrypt data in transit.
-- **Regularly update SSL/TLS certificates:** Automate certificate renewal processes (e.g., via Let's Encrypt).
-- **Use secure HTTP headers:** Implement headers such as `Strict-Transport-Security`, `X-Content-Type-Options`, and `Content-Security-Policy`.
+## 11. Abuse controls
 
----
+- Upstash (or in-memory) rate limits on auth HTML, server actions, and `/api/v1`.
+- Client IP prefers `x-vercel-forwarded-for` / `cf-connecting-ip` over leftmost `X-Forwarded-For`.
+- `MOBILE_APP_ORIGIN` is the CORS allow-list for `/api/v1`.
+- CI runs `npm audit --omit=dev --audit-level=high` and fails the job on high/critical production advisories.
 
-## 10. Logging and Monitoring
+## 12. Privacy / DSR
 
-Monitoring provides visibility into potential attacks and unusual activities.
-
-- **Implement real-time monitoring and alerts:** Detect and respond swiftly to suspicious activities.
-- **Regularly audit logs:** Periodically review logs for anomalies and security incidents.
-- **Protect logs from tampering:** Store logs securely to prevent attackers from altering evidence.
-
----
-
-## 11. Security Testing and Audits
-
-Regular testing helps identify vulnerabilities proactively.
-
-- **Conduct regular vulnerability scans:** Use automated scanners (e.g., OWASP ZAP, Burp Suite) regularly.
-- **Perform penetration testing:** Schedule periodic manual penetration tests.
-- **Static and dynamic code analysis:** Include automated tools to scan code repositories and deployed apps for vulnerabilities.
-
----
-
-## 12. Backup and Disaster Recovery
-
-Reliable backups protect your data from accidental loss or malicious compromise.
-
-- **Regular automated backups:** Set up scheduled backups, stored securely and remotely.
-- **Test backup restoration regularly:** Ensure backups are usable in emergencies.
-- **Implement disaster recovery plans:** Clearly define how you'll restore services in case of a severe security incident.
-
----
-
-## 13. Dependency Management
-
-Third-party libraries often introduce security risks.
-
-- **Regularly update dependencies:** Keep third-party libraries up-to-date to mitigate vulnerabilities.
-- **Use automated dependency scanners:** Tools like Dependabot or Snyk can identify outdated or vulnerable packages.
-- **Review dependency licences and security history:** Avoid libraries with poor security records or unsupported maintenance.
-
----
-
-## 14. Rate Limiting and Anti-Abuse
-
-Protect your application from brute-force and automated attacks.
-
-- **Implement rate limiting on APIs and authentication routes:** Protects against brute-force and credential-stuffing attacks.
-- **Use CAPTCHA or similar verification techniques:** Prevent automated bots from abusing resources.
-- **Monitor for anomalous usage patterns:** Identify suspicious or automated behaviours promptly.
-
----
-
-## 15. Data Privacy Compliance
-
-Respecting user privacy isn't just ethical—it's also legally required.
-
-- **Comply with privacy regulations (GDPR, CCPA, Australian Privacy Principles):** Clearly disclose data collection and use practices.
-- **Implement user consent management:** Allow users control over their data.
-- **Data anonymisation and encryption:** Protect sensitive user data both at rest and during processing.
-
----
-
-## 16. Incident Response & Security Awareness
-
-Preparing your team for security incidents and ensuring continual awareness can drastically reduce the impact of security breaches.
-
-- **Create an Incident Response Plan:** Clearly define roles and actions for security breaches.
-- **Regularly train team members:** Conduct periodic security training to maintain awareness.
-- **Perform tabletop exercises:** Regularly simulate incidents to test readiness.
-
----
-
-## 17. Infrastructure as Code (IaC) Security
-
-If you're deploying cloud infrastructure through code (Terraform, CloudFormation), this area is critical.
-
-- **Scan infrastructure code for misconfigurations:** Use automated scanning tools (e.g., Checkov, Bridgecrew).
-- **Enforce the principle of least privilege for cloud resources:** Ensure cloud resources have minimal required permissions.
-
----
-
-*By implementing these security best practices, you can help protect your application, safeguard user data, and maintain the trust of your users and stakeholders.*
+- `eraseCustomer` scrubs Profile/Customer PII, deletes notification rows keyed by recipient, and retains Payment/Invoice for tax retention.

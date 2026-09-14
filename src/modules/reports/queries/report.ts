@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { rawSqlOrgId } from "@/lib/org-context";
 
 export type ReportPeriod = "day" | "week" | "month";
 
@@ -21,6 +22,7 @@ export interface RevenuePeriodRow {
 
 export async function revenueByPeriod(opts: ReportRangeOpts): Promise<RevenuePeriodRow[]> {
   const trunc = opts.period === "month" ? "month" : opts.period === "week" ? "week" : "day";
+  const orgId = await rawSqlOrgId();
 
   const rows = await db.$queryRaw<{ period: Date; total: Prisma.Decimal; count: bigint }[]>`
     SELECT
@@ -32,6 +34,7 @@ export async function revenueByPeriod(opts: ReportRangeOpts): Promise<RevenuePer
       AND p."capturedAt" >= ${opts.from}
       AND p."capturedAt" <= ${opts.to}
       AND p."deletedAt" IS NULL
+      AND (${orgId}::text IS NULL OR p."orgId" = ${orgId})
     GROUP BY 1
     ORDER BY 1 ASC
   `;
@@ -191,6 +194,7 @@ export async function topCustomersBySpend(opts: {
   to: Date;
   limit?: number;
 }): Promise<TopCustomerRow[]> {
+  const orgId = await rawSqlOrgId();
   const rows = await db.$queryRaw<
     { customerId: string; totalSpend: Prisma.Decimal; bookingCount: bigint }[]
   >`
@@ -205,6 +209,8 @@ export async function topCustomersBySpend(opts: {
       AND p."capturedAt" <= ${opts.to}
       AND p."deletedAt" IS NULL
       AND b."deletedAt" IS NULL
+      AND (${orgId}::text IS NULL OR p."orgId" = ${orgId})
+      AND (${orgId}::text IS NULL OR b."orgId" = ${orgId})
     GROUP BY b."customerId"
     ORDER BY "totalSpend" DESC
     LIMIT ${opts.limit ?? 10}

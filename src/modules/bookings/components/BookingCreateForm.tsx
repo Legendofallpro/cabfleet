@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -10,164 +10,246 @@ import { TextField } from "@/components/common/form/TextField";
 import { SelectField } from "@/components/common/form/SelectField";
 import { TextareaField } from "@/components/common/form/TextareaField";
 import { FormActions } from "@/components/common/FormActions";
-import { createBookingSchema, type CreateBookingFormValues } from "@/modules/bookings/validators/booking";
-import { createBookingAction } from "@/modules/bookings/actions/booking.actions";
+import {
+  createDeskBookingSchema,
+  type CreateDeskBookingFormValues,
+} from "@/modules/bookings/validators/booking";
+import { createDeskBookingAction, estimateFareAction } from "@/modules/bookings/actions/booking.actions";
+import { lookupCustomerByPhoneAction } from "@/modules/customers/actions/customer.actions";
 
 type Branch = { id: string; name: string; code: string };
-type Customer = { id: string; profile: { fullName: string | null; email: string } };
 type BookingType = { id: string; name: string };
 
 type Props = {
- branches: Branch[];
- customers: Customer[];
- bookingTypes: BookingType[];
+  branches: Branch[];
+  bookingTypes: BookingType[];
 };
 
-// Build local-datetime string for "now" rounded to next 15 minutes
 function defaultPickupAt() {
- const d = new Date();
- d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
- return d.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+  const d = new Date();
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function BookingCreateForm({ branches, customers, bookingTypes }: Props) {
- const router = useRouter();
- const [pending, startTransition] = useTransition();
+export function BookingCreateForm({ branches, bookingTypes }: Props) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [knownCustomer, setKnownCustomer] = useState<string | null>(null);
+  const [estimate, setEstimate] = useState<number | null>(null);
 
- const form = useForm<CreateBookingFormValues>({
-  resolver: zodResolver(createBookingSchema),
-  defaultValues: {
-   branchId: branches[0]?.id ?? "",
-   customerId: "",
-   bookingTypeId: "",
-   pickupAt: defaultPickupAt(),
-   pickupAddress: "",
-   dropAddress: "",
-   distanceKm: undefined,
-   passengers: 1,
-   notes: "",
-  },
- });
-
- const {
-  register,
-  handleSubmit,
-  formState: { errors },
-  setError,
-  control,
- } = form;
-
- const bookingTypeId = useWatch({ control, name: "bookingTypeId" });
- void bookingTypeId; // suppress unused warning; reserved for review/hint display
-
- const onSubmit = (values: CreateBookingFormValues) => {
-  startTransition(async () => {
-   const result = await createBookingAction(values);
-   if (!result.ok) {
-    if (result.error.fieldErrors) {
-     Object.entries(result.error.fieldErrors).forEach(([field, msgs]) => {
-      setError(field as keyof CreateBookingFormValues, { message: msgs[0] });
-     });
-    }
-    toast.error(result.error.message);
-    return;
-   }
-   toast.success("Booking created successfully.");
-   router.push(`/bookings/${result.data.id}`);
+  const form = useForm<CreateDeskBookingFormValues>({
+    resolver: zodResolver(createDeskBookingSchema),
+    defaultValues: {
+      branchId: branches[0]?.id ?? "",
+      bookingTypeId: "",
+      phone: "",
+      fullName: "",
+      pickupAt: defaultPickupAt(),
+      pickupAddress: "",
+      pickupLandmark: "",
+      dropAddress: "",
+      dropLandmark: "",
+      distanceKm: undefined,
+      passengers: 1,
+      notes: "",
+      quotedFare: undefined,
+      tollAmount: 0,
+      parkingAmount: 0,
+    },
   });
- };
 
- return (
-  <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-    <SelectField
-     label="Branch"
-     required
-     error={errors.branchId?.message}
-     options={branches.map((b) => ({ value: b.id, label: `${b.name} (${b.code})` }))}
-     placeholder="Select branch"
-     {...register("branchId")}
-    />
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    setError,
+    formState: { errors },
+    control,
+  } = form;
 
-    <SelectField
-     label="Customer"
-     required
-     error={errors.customerId?.message}
-     options={customers.map((c) => ({
-      value: c.id,
-      label: c.profile.fullName
-       ? `${c.profile.fullName} — ${c.profile.email}`
-       : c.profile.email,
-     }))}
-     placeholder="Select customer"
-     {...register("customerId")}
-    />
+  const phone = useWatch({ control, name: "phone" });
+  const branchId = useWatch({ control, name: "branchId" });
+  const bookingTypeId = useWatch({ control, name: "bookingTypeId" });
+  const distanceKm = useWatch({ control, name: "distanceKm" });
 
-    <SelectField
-     label="Booking Type"
-     required
-     error={errors.bookingTypeId?.message}
-     placeholder="Select a booking type"
-     options={bookingTypes.map((bt) => ({ value: bt.id, label: bt.name }))}
-     {...register("bookingTypeId")}
-    />
+  async function lookupPhone() {
+    if (!phone || String(phone).replace(/\D/g, "").length < 10) {
+      setKnownCustomer(null);
+      return;
+    }
+    const result = await lookupCustomerByPhoneAction({ phone: String(phone) });
+    if (result.ok && result.data) {
+      setKnownCustomer(result.data.profile.fullName ?? result.data.profile.phone ?? "Existing customer");
+      setValue("fullName", result.data.profile.fullName ?? "");
+    } else {
+      setKnownCustomer(null);
+    }
+  }
 
-    <TextField
-     label="Pickup Date & Time"
-     type="datetime-local"
-     required
-     error={errors.pickupAt?.message}
-     {...register("pickupAt")}
-    />
+  useEffect(() => {
+    if (!branchId || !bookingTypeId) return;
+    void estimateFareAction({
+      bookingTypeId: String(bookingTypeId),
+      branchId: String(branchId),
+      distanceKm: distanceKm ? Number(distanceKm) : null,
+    }).then((result) => {
+      if (result.ok) setEstimate(result.data.total);
+    });
+  }, [branchId, bookingTypeId, distanceKm]);
 
-    <TextField
-     label="Passengers"
-     type="number"
-     min={1}
-     max={60}
-     required
-     error={errors.passengers?.message}
-     {...register("passengers")}
-    />
-   </div>
+  const onSubmit = (values: CreateDeskBookingFormValues) => {
+    startTransition(async () => {
+      const result = await createDeskBookingAction(values);
+      if (!result.ok) {
+        if (result.error.fieldErrors) {
+          Object.entries(result.error.fieldErrors).forEach(([field, msgs]) => {
+            setError(field as keyof CreateDeskBookingFormValues, { message: msgs[0] });
+          });
+        }
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Booking created.");
+      router.push(`/bookings/${result.data.id}`);
+    });
+  };
 
-   <TextField
-    label="Pickup Address"
-    required
-    placeholder="e.g. 12 MG Road, Bangalore"
-    error={errors.pickupAddress?.message}
-    {...register("pickupAddress")}
-   />
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <TextField
+        label="Mobile"
+        required
+        inputMode="tel"
+        placeholder="10-digit mobile"
+        error={errors.phone?.message}
+        {...register("phone")}
+        onBlur={() => {
+          void lookupPhone();
+        }}
+      />
+      {knownCustomer ? (
+        <p className="text-sm text-muted">Existing customer: {knownCustomer}</p>
+      ) : null}
+      <TextField
+        label="Customer name"
+        required
+        placeholder="Name as given on the call"
+        error={errors.fullName?.message}
+        {...register("fullName")}
+      />
 
-   <TextField
-    label="Drop Address"
-    required
-    placeholder="e.g. Kempegowda International Airport"
-    error={errors.dropAddress?.message}
-    {...register("dropAddress")}
-   />
+      <SelectField
+        label="Branch"
+        required
+        options={branches.map((b) => ({ value: b.id, label: `${b.name} (${b.code})` }))}
+        error={errors.branchId?.message}
+        {...register("branchId")}
+      />
+      <SelectField
+        label="Ride type"
+        required
+        placeholder="Select type"
+        options={bookingTypes.map((t) => ({ value: t.id, label: t.name }))}
+        error={errors.bookingTypeId?.message}
+        {...register("bookingTypeId")}
+      />
 
-   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-    <TextField
-     label="Distance (km)"
-     type="number"
-     min={0}
-     step="0.1"
-     placeholder="Leave blank if unknown"
-     error={errors.distanceKm?.message}
-     hint="Used to calculate fare estimate"
-     {...register("distanceKm")}
-    />
-   </div>
+      <TextField
+        label="Pickup date and time"
+        type="datetime-local"
+        required
+        error={errors.pickupAt?.message}
+        {...register("pickupAt")}
+      />
+      <TextField
+        label="Pickup"
+        required
+        placeholder="Address"
+        error={errors.pickupAddress?.message}
+        {...register("pickupAddress")}
+      />
+      <TextField
+        label="Pickup landmark"
+        placeholder="Opp. metro, near temple"
+        error={errors.pickupLandmark?.message}
+        {...register("pickupLandmark")}
+      />
+      <TextField
+        label="Drop"
+        required
+        placeholder="Address"
+        error={errors.dropAddress?.message}
+        {...register("dropAddress")}
+      />
+      <TextField
+        label="Drop landmark"
+        error={errors.dropLandmark?.message}
+        {...register("dropLandmark")}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Distance (km)"
+          type="number"
+          step="0.1"
+          min={0}
+          error={errors.distanceKm?.message}
+          {...register("distanceKm")}
+        />
+        <TextField
+          label="Passengers"
+          type="number"
+          min={1}
+          max={60}
+          required
+          error={errors.passengers?.message}
+          {...register("passengers")}
+        />
+      </div>
 
-   <TextareaField
-    label="Notes"
-    placeholder="Any special instructions for the driver or staff…"
-    error={errors.notes?.message}
-    {...register("notes")}
-   />
+      <p className="text-sm text-default">
+        Estimate:{" "}
+        {estimate != null ? (
+          <span className="font-semibold">₹{Math.round(estimate)}</span>
+        ) : (
+          <span className="text-muted">Add type (and km) to estimate</span>
+        )}
+      </p>
+      <TextField
+        label="Quoted ₹"
+        type="number"
+        min={0}
+        hint="Leave blank to use the estimate"
+        error={errors.quotedFare?.message}
+        {...register("quotedFare")}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Toll ₹"
+          type="number"
+          min={0}
+          error={errors.tollAmount?.message}
+          {...register("tollAmount")}
+        />
+        <TextField
+          label="Parking ₹"
+          type="number"
+          min={0}
+          error={errors.parkingAmount?.message}
+          {...register("parkingAmount")}
+        />
+      </div>
+      <TextareaField
+        label="Notes"
+        error={errors.notes?.message}
+        {...register("notes")}
+      />
 
-   <FormActions cancelHref="/bookings" submitting={pending} submitLabel="Create Booking" />
-  </form>
- );
+      <FormActions
+        submitLabel="Save booking"
+        submitting={pending}
+        cancelHref="/bookings"
+      />
+    </form>
+  );
 }

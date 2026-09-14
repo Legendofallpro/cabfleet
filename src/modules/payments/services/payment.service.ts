@@ -4,10 +4,13 @@ import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
 import { getPaymentProvider } from "@/modules/payments/providers";
-import type { ChargeStatus } from "@/modules/payments/providers/PaymentProvider";
+import { ManualPaymentProvider } from "@/modules/payments/providers/ManualPaymentProvider";
+import type { ChargeStatus, PaymentProvider } from "@/modules/payments/providers/PaymentProvider";
 import type { PaymentInput } from "@/modules/payments/validators/payment";
 
 type Actor = { id: string };
+
+export type CreatePaymentMode = "desk" | "gateway";
 
 type PaymentRecord = {
   id: string;
@@ -24,11 +27,6 @@ type PaymentRecord = {
   deletedAt: Date | null;
 };
 
-/**
- * Maps the provider-layer `ChargeStatus` to the persisted `PaymentStatus`
- * enum value. Single source of truth so the service + the webhook handler
- * stay in lock-step.
- */
 const STATUS_MAP: Record<ChargeStatus, "PENDING" | "CAPTURED" | "FAILED"> = {
   PENDING: "PENDING",
   CAPTURED: "CAPTURED",
@@ -36,20 +34,19 @@ const STATUS_MAP: Record<ChargeStatus, "PENDING" | "CAPTURED" | "FAILED"> = {
 };
 
 /**
- * Create a payment for a booking (Phase 7 W3 §3.4).
+ * Create a payment for a booking.
  *
- * - Resolves the provider via the factory (`PAYMENT_GATEWAY` env).
- * - Calls `provider.charge` which returns `{ providerRef, status, checkoutUrl? }`.
- * - Persists `Payment` with the provider-returned status — Razorpay payments
- *   are PENDING until the webhook flips them to CAPTURED; manual payments
- *   are CAPTURED at creation.
- * - Returns the persisted payment AND any `checkoutUrl` the caller must
- *   redirect to (Razorpay Checkout).
+ * - `desk` (default): staff Record Payment. Always Manual — cash/UPI/card
+ *   already collected at the desk. Never creates a Razorpay Order.
+ * - `gateway`: customer Pay now. Uses the configured Razorpay provider.
  */
 export async function createPayment(
   input: PaymentInput,
   actor: Actor,
+  options: { mode?: CreatePaymentMode } = {},
 ): Promise<Result<{ payment: PaymentRecord; checkoutUrl?: string }>> {
+  const mode: CreatePaymentMode = options.mode ?? "desk";
+
   const booking = await db.booking.findFirst({
     where: { id: input.bookingId, deletedAt: null },
     select: {
@@ -67,7 +64,13 @@ export async function createPayment(
     throw new AppError("NOT_FOUND", "Booking not found.");
   }
 
-  const provider = getPaymentProvider();
+  const provider: PaymentProvider =
+    mode === "desk" ? new ManualPaymentProvider() : getPaymentProvider();
+
+  if (mode === "gateway" && provider.name !== "RAZORPAY") {
+    throw new AppError("VALIDATION", "Online payment is not available.");
+  }
+
   const charge = await provider.charge({
     bookingId: input.bookingId,
     amount: input.amount,
@@ -80,9 +83,6 @@ export async function createPayment(
 
   const payment = await db.$transaction(async (tx) => {
     const status = STATUS_MAP[charge.status];
-    // Manual payments capture immediately; gateway payments capture via webhook.
-    // For both, providerOrderId is what links the row to the provider; for
-    // Manual, providerRef IS the txnRef so we mirror it.
     const isManualImmediate = provider.name === "MANUAL";
     const created = await tx.payment.create({
       data: {
@@ -108,6 +108,7 @@ export async function createPayment(
           amount: Number(created.amount),
         },
         provider: provider.name,
+        mode,
       },
     });
 
@@ -119,6 +120,7 @@ export async function createPayment(
       paymentId: payment.id,
       bookingId: input.bookingId,
       provider: provider.name,
+      mode,
       status: payment.status,
       by: actor.id,
     },
@@ -127,6 +129,6 @@ export async function createPayment(
 
   return ok({
     payment,
-    checkoutUrl: charge.checkoutUrl,
+    checkoutUrl: mode === "gateway" ? charge.checkoutUrl : undefined,
   });
 }

@@ -5,6 +5,7 @@ const AUTH_PATH_PREFIXES = [
   "/signup",
   "/reset-password",
   "/set-password",
+  "/claim-portal",
   "/auth/callback",
 ] as const;
 
@@ -13,7 +14,7 @@ export function getRoleHome(role: Role): string {
     case "SUPER_ADMIN":
     case "ADMIN":
     case "STAFF":
-      return "/";
+      return "/dashboard";
     case "DRIVER":
       return "/driver";
     case "CUSTOMER":
@@ -23,14 +24,26 @@ export function getRoleHome(role: Role): string {
 
 export function sanitizeRedirectTo(redirectTo?: string | null): string | null {
   if (!redirectTo) return null;
-  if (!redirectTo.startsWith("/")) return null;
-  if (redirectTo.startsWith("//")) return null;
-  const [pathname] = redirectTo.split(/[?#]/, 1);
+  if (/%2f|%5c|%40/i.test(redirectTo)) return null;
+
+  let decoded = redirectTo;
+  try {
+    decoded = decodeURIComponent(redirectTo);
+  } catch {
+    return null;
+  }
+
+  if (!decoded.startsWith("/")) return null;
+  if (decoded.startsWith("//")) return null;
+  if (decoded.includes("\\") || decoded.includes("@") || decoded.includes("//")) return null;
+  if (!/^[a-zA-Z0-9/_#?&=.-]+$/.test(decoded)) return null;
+
+  const [pathname] = decoded.split(/[?#]/, 1);
   if (AUTH_PATH_PREFIXES.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return null;
   }
 
-  return redirectTo;
+  return decoded;
 }
 
 function isSegmentMatch(redirectTo: string, segment: string): boolean {
@@ -43,9 +56,9 @@ function isSegmentMatch(redirectTo: string, segment: string): boolean {
 function isRedirectAllowedForRole(redirectTo: string, role: Role): boolean {
   switch (role) {
     case "CUSTOMER":
-      return redirectTo === "/" || isSegmentMatch(redirectTo, "/portal");
+      return isSegmentMatch(redirectTo, "/portal");
     case "DRIVER":
-      return redirectTo === "/" || isSegmentMatch(redirectTo, "/driver");
+      return isSegmentMatch(redirectTo, "/driver");
     case "SUPER_ADMIN":
     case "ADMIN":
     case "STAFF":
@@ -55,7 +68,7 @@ function isRedirectAllowedForRole(redirectTo: string, role: Role): boolean {
 
 export function getPostAuthRedirect(redirectTo: string | null | undefined, role: Role): string {
   const safeRedirect = sanitizeRedirectTo(redirectTo);
-  if (!safeRedirect) return getRoleHome(role);
+  if (!safeRedirect || safeRedirect === "/") return getRoleHome(role);
 
   return isRedirectAllowedForRole(safeRedirect, role) ? safeRedirect : getRoleHome(role);
 }

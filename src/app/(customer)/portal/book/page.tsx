@@ -12,57 +12,44 @@ import { CustomerBookingForm } from "@/modules/bookings/components/CustomerBooki
 export const metadata: Metadata = { title: "Book a Ride | CabFleet" };
 
 export default async function BookPage() {
- const session = await getSessionUser();
- if (!session) redirect("/signin?redirectTo=/portal/book");
+  const session = await getSessionUser();
+  if (!session) redirect("/signin?redirectTo=/portal/book");
+  if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
 
- if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
+  const [customer, branch, bookingTypes] = await Promise.all([
+    getOrCreateCustomer(session.profile.id),
+    getDefaultBranch(),
+    listBookingTypes(),
+  ]);
 
- const [customer, branch, bookingTypes] = await Promise.all([
-  getOrCreateCustomer(session.profile.id),
-  getDefaultBranch(),
-  listBookingTypes(),
- ]);
+  if (!branch) {
+    return (
+      <div className="rounded-xl border border-warning bg-warning-subtle px-6 py-8 text-center">
+        <p className="font-medium text-on-warning-subtle">No branch configured yet.</p>
+        <p className="mt-1 text-sm text-on-warning-subtle">Please contact support to get started.</p>
+      </div>
+    );
+  }
 
- if (!branch) {
   return (
-   <div className="rounded-xl border border-warning-200 bg-warning-50 px-6 py-8 text-center dark:border-warning-800 dark:bg-warning-500/10">
-    <p className="font-medium text-warning-700 dark:text-warning-400">
-     No branch configured yet.
-    </p>
-    <p className="mt-1 text-sm text-warning-600 dark:text-warning-500">
-     Please contact support to get started.
-    </p>
-   </div>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-default">Book a ride</h1>
+        <p className="mt-1 text-sm text-muted">Three steps. We’ll confirm your booking right away.</p>
+      </div>
+      <SurfaceCard>
+        {bookingTypes.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted">
+            No ride types are available right now. Please try again later.
+          </p>
+        ) : (
+          <CustomerBookingForm
+            bookingTypes={bookingTypes}
+            defaultBranchId={branch.id}
+            defaultCustomerId={customer.id}
+          />
+        )}
+      </SurfaceCard>
+    </div>
   );
- }
-
- return (
-  <div className="mx-auto max-w-lg">
-   <div className="mb-6">
-    <h1 className="text-2xl font-bold text-default">
-     Book a Ride
-    </h1>
-    <p className="mt-1 text-sm text-muted">
-     {branch.name} &mdash; fill in the details and we&apos;ll confirm your booking.
-    </p>
-   </div>
-
-   <SurfaceCard>
-    {bookingTypes.length === 0 ? (
-     <div className="py-8 text-center">
-      <p className="text-sm text-muted">
-       No ride types are available right now. Please try again later or
-       contact support.
-      </p>
-     </div>
-    ) : (
-     <CustomerBookingForm
-      bookingTypes={bookingTypes}
-      defaultBranchId={branch.id}
-      defaultCustomerId={customer.id}
-     />
-    )}
-   </SurfaceCard>
-  </div>
- );
 }

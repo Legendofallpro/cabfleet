@@ -65,8 +65,8 @@ export async function checkOut(
   input: CheckOutInput,
   actor: Actor,
 ): Promise<Result<Attendance>> {
-  const existing = await db.attendance.findUnique({
-    where: { profileId_date: { profileId: input.profileId, date: input.date } },
+  const existing = await db.attendance.findFirst({
+    where: { profileId: input.profileId, date: input.date },
   });
   if (!existing) {
     throw new AppError("NOT_FOUND", "No check-in record found for this date.");

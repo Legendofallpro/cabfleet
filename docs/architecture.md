@@ -52,17 +52,18 @@ Why: 4 roles + ~12 entities + 1 team. Microservices are pure cost here. A monoli
 
 ### 1.3 Multi-role routing
 
-Four route groups under `src/app`, each with its own layout, sidebar, and middleware allow-list:
+Public landing at `/` plus four route groups under `src/app`, each with its own layout and middleware allow-list:
 
 ```
 src/app/
-├── (admin)/         → ADMIN | STAFF  (current layout)
-├── (driver)/        → DRIVER         (mobile-friendly, slim chrome)
-├── (customer)/      → CUSTOMER       (public landing + portal)
-└── (auth)/          → unauthenticated (current full-width pages)
+├── page.tsx              → public landing (`/`)
+├── (admin)/              → ADMIN | STAFF | SUPER_ADMIN  (desk at `/dashboard`)
+├── (driver)/             → DRIVER
+├── (customer)/           → CUSTOMER portal (`/portal`)
+└── (full-width-pages)/   → unauthenticated auth screens
 ```
 
-A single `middleware.ts` reads the Supabase session, fetches the role from a cached `Profile` row, and rejects mismatched routes. See section 3.
+`middleware.ts` treats `/` as public by exact match only (never as a prefix). Signed-in visitors to `/` are redirected to `getRoleHome(role)`. See section 3.
 
 ### 1.4 Dispatch architecture (the most important call in this doc)
 
@@ -404,7 +405,7 @@ prisma/
 - Add `(driver)` and `(customer)` route groups with empty layouts.
 - T3-env, sonner, shadcn init, react-hook-form, zod, vitest, playwright skeleton.
 - CI pipeline live.
-**Risk**: Supabase + Prisma cohabitation. **Mitigation**: keep all RLS off in MVP; Prisma is the only writer.
+**Risk**: Supabase + Prisma cohabitation. **Mitigation**: deny-PostgREST RLS is **required** (ENABLE + FORCE + `deny_direct_api_access` in Prisma migrations). Prisma remains the only writer (superuser bypasses RLS). Keeping RLS off is obsolete and unsafe — the public anon key is in the browser bundle.
 **Deliverable**: deploy preview where you can sign up, see role-correct shell, and nothing else.
 
 ### Phase 1 — Admin Core (1.5 weeks)

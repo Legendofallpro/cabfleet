@@ -102,6 +102,18 @@ export async function listAssignableDrivers({
   return { rows, total };
 }
 
+export function getOpenVehicleAssignment(driverId: string) {
+  return db.vehicleAssignment.findFirst({
+    where: { driverId, validTo: null },
+    include: {
+      vehicle: {
+        select: { id: true, registrationNumber: true, make: true, model: true },
+      },
+    },
+    orderBy: { validFrom: "desc" },
+  });
+}
+
 export function getDriver(id: string) {
   return db.driver.findFirst({
     where: { id, deletedAt: null },

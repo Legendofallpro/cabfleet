@@ -175,8 +175,8 @@ export async function getDriverSelfOverview(driverId: string, profileId: string)
     }),
 
     // Today's attendance record
-    db.attendance.findUnique({
-      where: { profileId_date: { profileId, date: todayStart } },
+    db.attendance.findFirst({
+      where: { profileId, date: todayStart },
       select: {
         status: true,
         checkIn: true,
