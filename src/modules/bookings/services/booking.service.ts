@@ -1,10 +1,11 @@
-import { BookingStatus, DispatchMode, DriverStatus, VehicleStatus } from "@prisma/client";
+import { BookingStatus, DispatchMode, DriverStatus, Prisma, VehicleStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { estimateFare } from "@/modules/pricing/services/fareCalculator";
+import { resolveBookingRoute } from "@/modules/geo/services/geocode";
 import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
 import { bookingDetailInclude } from "@/modules/bookings/includes";
 import { resolveDispatchPolicy } from "@/modules/dispatch/services/resolveDispatchPolicy";
@@ -20,6 +21,35 @@ import { isTerminalStatus } from "@/modules/bookings/booking.constants";
 import type { BookingDetail } from "@/modules/bookings/types";
 
 type Actor = { id: string };
+
+function decimalOrNull(value: number | null | undefined) {
+  return value == null ? null : new Prisma.Decimal(value);
+}
+
+/** Only persist coords/km when geocode actually returned them (do not wipe on miss). */
+function routeUpdate(route: {
+  pickupLat: number | null;
+  pickupLng: number | null;
+  dropLat: number | null;
+  dropLng: number | null;
+  distanceKm: number | null;
+}) {
+  return {
+    ...(route.pickupLat != null && route.pickupLng != null
+      ? {
+          pickupLat: decimalOrNull(route.pickupLat),
+          pickupLng: decimalOrNull(route.pickupLng),
+        }
+      : {}),
+    ...(route.dropLat != null && route.dropLng != null
+      ? {
+          dropLat: decimalOrNull(route.dropLat),
+          dropLng: decimalOrNull(route.dropLng),
+        }
+      : {}),
+    ...(route.distanceKm != null ? { distanceKm: decimalOrNull(route.distanceKm) } : {}),
+  };
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Create
@@ -52,11 +82,18 @@ export async function createBooking(
     });
   }
 
+  const route = await resolveBookingRoute({
+    pickupAddress: input.pickupAddress,
+    dropAddress: input.dropAddress,
+    distanceKm: input.distanceKm ?? null,
+  });
+  const distanceKm = route.distanceKm;
+
   // Estimate fare (non-blocking — proceed even if no rule exists)
   const calculatorFare = await estimateFare({
     bookingTypeId: input.bookingTypeId,
     branchId: input.branchId,
-    distanceKm: input.distanceKm ?? undefined,
+    distanceKm: distanceKm ?? undefined,
   }).catch((e) => {
     logger.warn({ err: e }, "Fare estimation failed; continuing without estimate");
     return null;
@@ -96,10 +133,14 @@ export async function createBooking(
         pickupAt: input.pickupAt,
         pickupAddress: input.pickupAddress,
         pickupLandmark: input.pickupLandmark ?? null,
+        pickupLat: decimalOrNull(route.pickupLat),
+        pickupLng: decimalOrNull(route.pickupLng),
         dropAddress: input.dropAddress,
         dropLandmark: input.dropLandmark ?? null,
+        dropLat: decimalOrNull(route.dropLat),
+        dropLng: decimalOrNull(route.dropLng),
         notes: input.notes ?? null,
-        distanceKm: input.distanceKm ?? null,
+        distanceKm: decimalOrNull(distanceKm),
         passengers: input.passengers,
         fareEstimate,
         tollAmount: input.tollAmount ?? 0,
@@ -212,12 +253,19 @@ export async function updatePendingBooking(
 
   const isCustomerEdit = Boolean(opts?.customerProfileId);
 
+  const route = await resolveBookingRoute({
+    pickupAddress: input.pickupAddress,
+    dropAddress: input.dropAddress,
+    distanceKm: input.distanceKm ?? null,
+  });
+  const distanceKm = route.distanceKm;
+
   const calculatorFare = isCustomerEdit
     ? null
     : await estimateFare({
         bookingTypeId: booking.bookingTypeId,
         branchId: booking.branchId,
-        distanceKm: input.distanceKm ?? undefined,
+        distanceKm: distanceKm ?? undefined,
       }).catch(() => null);
 
   const fareEstimate =
@@ -235,8 +283,8 @@ export async function updatePendingBooking(
         dropAddress: input.dropAddress,
         dropLandmark: input.dropLandmark ?? null,
         notes: input.notes ?? null,
-        distanceKm: input.distanceKm ?? null,
         passengers: input.passengers,
+        ...routeUpdate(route),
         ...(isCustomerEdit
           ? {}
           : {

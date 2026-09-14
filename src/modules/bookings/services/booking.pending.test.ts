@@ -22,6 +22,16 @@ vi.mock("@/modules/pricing/services/fareCalculator", () => ({
   estimateFare: vi.fn(),
 }));
 
+vi.mock("@/modules/geo/services/geocode", () => ({
+  resolveBookingRoute: vi.fn(async () => ({
+    pickupLat: null,
+    pickupLng: null,
+    dropLat: null,
+    dropLng: null,
+    distanceKm: null,
+  })),
+}));
+
 vi.mock("@/modules/bookings/includes", () => ({
   bookingDetailInclude: {},
 }));
@@ -40,6 +50,7 @@ vi.mock("@/modules/dispatch/services/resolveDispatchPolicy", () => ({
 
 import { db } from "@/lib/db";
 import { estimateFare } from "@/modules/pricing/services/fareCalculator";
+import { resolveBookingRoute } from "@/modules/geo/services/geocode";
 import { updatePendingBooking } from "./booking.service";
 
 const BASE_INPUT = {
@@ -61,6 +72,13 @@ describe("updatePendingBooking", () => {
       dropAddress: "B",
       fareEstimate: 500,
     } as never);
+    vi.mocked(resolveBookingRoute).mockResolvedValue({
+      pickupLat: null,
+      pickupLng: null,
+      dropLat: null,
+      dropLng: null,
+      distanceKm: null,
+    });
   });
 
   it("rejects edits when the booking is not PENDING", async () => {
@@ -125,5 +143,55 @@ describe("updatePendingBooking", () => {
         }),
       }),
     );
+  });
+
+  it("persists geocoded coords and filled km on a staff edit", async () => {
+    vi.mocked(db.booking.findFirst).mockResolvedValue({
+      id: "b1",
+      status: BookingStatus.PENDING,
+      branchId: "br1",
+      bookingTypeId: "bt1",
+      customer: { profileId: "p1" },
+    } as never);
+    vi.mocked(resolveBookingRoute).mockResolvedValue({
+      pickupLat: 12.9,
+      pickupLng: 77.6,
+      dropLat: 13.0,
+      dropLng: 77.7,
+      distanceKm: 12.5,
+    });
+    vi.mocked(estimateFare).mockResolvedValue({ total: 400 } as never);
+
+    await updatePendingBooking(BASE_INPUT, { id: "staff-1" });
+
+    const data = vi.mocked(db.booking.update).mock.calls[0][0].data as {
+      pickupLat: { toString(): string };
+      distanceKm: { toString(): string };
+    };
+    expect(Number(data.pickupLat)).toBe(12.9);
+    expect(Number(data.distanceKm)).toBe(12.5);
+  });
+
+  it("does not null out stored coords when geocode returns nothing", async () => {
+    vi.mocked(db.booking.findFirst).mockResolvedValue({
+      id: "b1",
+      status: BookingStatus.PENDING,
+      branchId: "br1",
+      bookingTypeId: "bt1",
+      customer: { profileId: "p1" },
+    } as never);
+    vi.mocked(resolveBookingRoute).mockResolvedValue({
+      pickupLat: null,
+      pickupLng: null,
+      dropLat: null,
+      dropLng: null,
+      distanceKm: null,
+    });
+
+    await updatePendingBooking(BASE_INPUT, { id: "staff-1" });
+
+    const data = vi.mocked(db.booking.update).mock.calls[0][0].data as Record<string, unknown>;
+    expect(data).not.toHaveProperty("pickupLat");
+    expect(data).not.toHaveProperty("distanceKm");
   });
 });

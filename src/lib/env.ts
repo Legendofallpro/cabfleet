@@ -119,6 +119,12 @@ export const env = createEnv({
     /** §4.1: TTL for the Idempotency-Key response cache. Default 24h. */
     API_V1_IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
 
+    /**
+     * Optional Mapbox token for server-side geocoding + driving distance.
+     * Unset → typed addresses stay as text; distanceKm stays staff/customer-entered.
+     */
+    MAPBOX_ACCESS_TOKEN: z.string().min(1).optional(),
+
     // ── Phase 7 W5: realtime tracking ────────────────────────────────────
     /**
      * §S15: how long to keep raw TripLocation points before pruning.
@@ -200,6 +206,7 @@ export const env = createEnv({
     LOCATION_MAX_SPEED_KPH: process.env.LOCATION_MAX_SPEED_KPH,
     LOCATION_FIRST_POINT_MAX_KM: process.env.LOCATION_FIRST_POINT_MAX_KM,
     LOCATION_SUSPICIOUS_THRESHOLD: process.env.LOCATION_SUSPICIOUS_THRESHOLD,
+    MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN,
     SUPPORT_EMAIL: process.env.SUPPORT_EMAIL,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

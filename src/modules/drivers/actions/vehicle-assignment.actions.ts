@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { action } from "@/lib/actions";
 import { requirePermission } from "@/lib/auth/requireRole";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { ok } from "@/lib/result";
+import { getOpenVehicleAssignment } from "@/modules/drivers/queries/driver";
 import {
   assignVehicleToDriver,
   endVehicleAssignment,
@@ -12,6 +15,16 @@ import {
   assignVehicleSchema,
   endVehicleAssignmentSchema,
 } from "@/modules/drivers/validators/vehicle-assignment";
+
+export const getPairedVehicleAction = action(
+  "driver.paired_vehicle",
+  z.object({ driverId: z.string().min(1) }),
+  async ({ driverId }) => {
+    await requirePermission(PERMISSIONS.BOOKING_ASSIGN);
+    const row = await getOpenVehicleAssignment(driverId);
+    return ok({ vehicleId: row?.vehicle.id ?? null });
+  },
+);
 
 export const assignVehicleAction = action(
   "driver.assign_vehicle",

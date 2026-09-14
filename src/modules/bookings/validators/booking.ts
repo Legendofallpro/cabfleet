@@ -68,6 +68,8 @@ export const estimateFareSchema = z.object({
   bookingTypeId: z.string().min(1),
   branchId: z.string().min(1),
   distanceKm: z.coerce.number().positive().optional().nullable(),
+  pickupAddress: z.string().max(300).optional(),
+  dropAddress: z.string().max(300).optional(),
 });
 
 export type EstimateFareInput = z.infer<typeof estimateFareSchema>;

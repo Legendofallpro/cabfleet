@@ -3,7 +3,6 @@ import Link from "next/link";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
-import { StatusBadge } from "@/components/common/StatusBadge";
 import {
  getTodayBookingCount,
  getActiveRidesCount,
@@ -11,9 +10,10 @@ import {
  getTodayRevenue,
  getActiveDriverCount,
  getPendingPaymentCount,
- getRecentBookings,
 } from "@/modules/reports/queries/dashboard";
-import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
+import { getDeskQueue } from "@/modules/bookings/queries/desk-queue";
+import { DeskQueue } from "@/modules/bookings/components/DeskQueue";
+import { DashboardAutoRefresh } from "./DashboardAutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +29,6 @@ const quickLinks = [
  { label: "View Reports", href: "/reports", description: "Fleet analytics and insights" },
 ];
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
 export default async function DashboardPage() {
  const [
   todayBookings,
@@ -39,7 +37,7 @@ export default async function DashboardPage() {
   todayRevenue,
   activeDrivers,
   pendingPayments,
-  recentBookings,
+  deskQueue,
  ] = await Promise.all([
   getTodayBookingCount(),
   getActiveRidesCount(),
@@ -47,11 +45,12 @@ export default async function DashboardPage() {
   getTodayRevenue(),
   getActiveDriverCount(),
   getPendingPaymentCount(),
-  getRecentBookings(8),
+  getDeskQueue(),
  ]);
 
  return (
   <div>
+   <DashboardAutoRefresh />
    <PageBreadcrumb pageTitle="Dashboard" />
    <div className="space-y-6">
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -67,53 +66,25 @@ export default async function DashboardPage() {
      <StatCard label="Pending Payments" value={pendingPayments.toString()} tone="error" />
     </div>
 
+    <DeskQueue
+     needsAssign={deskQueue.needsAssign}
+     openForClaim={deskQueue.openForClaim}
+     active={deskQueue.active}
+     unpaidCompleted={deskQueue.unpaidCompleted}
+    />
+
     <div className="grid grid-cols-12 gap-6">
      <div className="col-span-12 xl:col-span-8">
-      <SurfaceCard title="Recent Bookings">
-       <p className="mb-4 text-sm text-muted">Latest booking activity across the fleet.</p>
-       {recentBookings.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-muted">
-         <p className="text-sm">No bookings yet.</p>
-        </div>
-       ) : (
-        <div className="overflow-x-auto">
-         <table className="w-full text-left text-sm">
-          <thead>
-           <tr className="border-b border-default">
-            <th className="py-3 pr-4 font-medium text-muted">Customer</th>
-            <th className="py-3 pr-4 font-medium text-muted">Pickup</th>
-            <th className="py-3 pr-4 font-medium text-muted">Time</th>
-            <th className="py-3 font-medium text-muted">Status</th>
-           </tr>
-          </thead>
-          <tbody>
-           {recentBookings.map((b) => (
-            <tr key={b.id} className="border-b border-default last:border-0">
-             <td className="py-3 pr-4">
-              <Link
-               href={`/bookings/${b.id}`}
-               className="font-medium text-primary hover:underline"
-              >
-               {b.customer?.profile.fullName ?? b.customer?.profile.email ?? "—"}
-              </Link>
-             </td>
-             <td className="max-w-xs truncate py-3 pr-4 text-muted">
-              {b.pickupAddress}
-             </td>
-             <td className="py-3 pr-4 text-muted">
-              {b.pickupAt ? dtFmt.format(new Date(b.pickupAt)) : "—"}
-             </td>
-             <td className="py-3">
-              <StatusBadge tone={BOOKING_STATUS_TONE[b.status]}>
-               {BOOKING_STATUS_LABEL[b.status]}
-              </StatusBadge>
-             </td>
-            </tr>
-           ))}
-          </tbody>
-         </table>
-        </div>
-       )}
+      <SurfaceCard title="Quick book">
+       <p className="mb-4 text-sm text-muted">
+        Phone-first desk: new booking, then assign from the queues above.
+       </p>
+       <Link
+        href="/bookings/new"
+        className="inline-flex h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
+       >
+        New booking
+       </Link>
       </SurfaceCard>
      </div>
 

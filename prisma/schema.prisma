@@ -431,8 +431,7 @@ model Booking {
   dropAddress     String
   dropLandmark    String?
   notes           String?
-  // Geocoded coordinates. Added in W1 (cheaper to ship now than a second
-  // migration in W5). Populated by GeocodingService in W5.
+  // Geocoded coordinates. Filled by src/modules/geo when MAPBOX_ACCESS_TOKEN is set.
   pickupLat     Decimal? @db.Decimal(9, 6)
   pickupLng     Decimal? @db.Decimal(9, 6)
   dropLat       Decimal? @db.Decimal(9, 6)

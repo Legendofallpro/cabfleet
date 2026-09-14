@@ -27,6 +27,7 @@ import {
   transitionByStaff,
 } from "@/modules/bookings/services/booking.service";
 import { estimateFare } from "@/modules/pricing/services/fareCalculator";
+import { resolveBookingRoute } from "@/modules/geo/services/geocode";
 import { softDeleteBooking } from "@/modules/bookings/services/softDeleteBooking";
 import { maybeGenerateInvoiceOnComplete } from "@/modules/invoices/services/maybeGenerateOnComplete";
 
@@ -119,13 +120,27 @@ export const estimateFareAction = action(
   estimateFareSchema,
   async (input) => {
     await requirePermission(PERMISSIONS.BOOKING_CREATE);
+    let distanceKm = input.distanceKm ?? null;
+    if (
+      distanceKm == null &&
+      input.pickupAddress?.trim() &&
+      input.dropAddress?.trim()
+    ) {
+      const route = await resolveBookingRoute({
+        pickupAddress: input.pickupAddress,
+        dropAddress: input.dropAddress,
+      });
+      distanceKm = route.distanceKm;
+    }
     const fare = await estimateFare({
       bookingTypeId: input.bookingTypeId,
       branchId: input.branchId,
-      distanceKm: input.distanceKm ?? undefined,
+      distanceKm: distanceKm ?? undefined,
     });
-    if (!fare) return ok({ total: null as number | null });
-    return ok({ total: fare.total });
+    return ok({
+      total: fare?.total ?? null,
+      distanceKm,
+    });
   },
 );
 

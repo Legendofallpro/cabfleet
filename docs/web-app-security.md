@@ -58,6 +58,7 @@ Roles: `SUPER_ADMIN`, `ADMIN`, `STAFF`, `DRIVER`, `CUSTOMER`. Every server actio
 - Live GPS uses private Realtime channels (`trip:{bookingId}`) with JWT authorization. Keep `REALTIME_TRACKING_ENABLED=false` until `prisma/sql/15_realtime_private_trip.sql` is applied.
 - Open-claim trip lists expose customer name only.
 - DSR erasure writes sha256(email/phone) into `AuditLog.diff`, not plaintext.
+- `MAPBOX_ACCESS_TOKEN` is server-only (no `NEXT_PUBLIC_` geocode key). Unset means no geocode calls.
 
 ## 11. Abuse controls
 
@@ -69,3 +70,15 @@ Roles: `SUPER_ADMIN`, `ADMIN`, `STAFF`, `DRIVER`, `CUSTOMER`. Every server actio
 ## 12. Privacy / DSR
 
 - `eraseCustomer` scrubs Profile/Customer PII, deletes notification rows keyed by recipient, and retains Payment/Invoice for tax retention.
+
+## 13. Ops checklist (not product features)
+
+Apply before flipping live GPS or relying on pings in production:
+
+1. `prisma migrate deploy`, then SQL [`13_profile_sync_ignore_org_slug.sql`](../prisma/sql/13_profile_sync_ignore_org_slug.sql) and [`14_invoice_storage.sql`](../prisma/sql/14_invoice_storage.sql).
+2. Apply [`15_realtime_private_trip.sql`](../prisma/sql/15_realtime_private_trip.sql) in the Supabase SQL editor **and** enable Realtime Authorization for Broadcast in the dashboard. Only then set `REALTIME_TRACKING_ENABLED=true`.
+3. Enable CAPTCHA / bot protection on the Supabase Auth dashboard.
+4. Confirm staff MFA (AAL2) with `STAFF_AAL2_REQUIRED=true`.
+5. Razorpay: test-mode keys, webhook secret, and `PAYMENT_GATEWAY=RAZORPAY` only after webhook IP allow-list is set.
+6. Notifications: `NOTIFICATIONS_ENABLED`, Resend, and Twilio vars in `.env.example`. Leave `wa.me` Share on the desk as the fallback.
+

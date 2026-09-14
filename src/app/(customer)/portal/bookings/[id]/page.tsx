@@ -65,7 +65,9 @@ export default async function CustomerBookingDetailPage({
   const status = booking.status as BookingStatus;
 
   const showLiveMap =
-    ACTIVE_BOOKING_STATUSES.includes(status) && booking.locationConsentAt !== null;
+    env.REALTIME_TRACKING_ENABLED &&
+    ACTIVE_BOOKING_STATUSES.includes(status) &&
+    booking.locationConsentAt !== null;
   const showConsentPrompt =
     booking.locationConsentAt === null && !isTerminalStatus(status);
   const initialPoints = showLiveMap ? await listRecentForBooking(id, 200) : [];

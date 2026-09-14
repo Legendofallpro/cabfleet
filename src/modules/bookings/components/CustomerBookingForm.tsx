@@ -163,6 +163,7 @@ export function CustomerBookingForm({
   const [pending, startTransition] = useTransition();
   const [step, setStep] = useState(0);
   const [estimate, setEstimate] = useState<number | null>(null);
+  const [estimateKm, setEstimateKm] = useState<number | null>(null);
 
   const form = useForm<CreateBookingFormValues>({
     resolver: zodResolver(createBookingSchema),
@@ -203,15 +204,20 @@ export function CustomerBookingForm({
   const reviewNotes = useWatch({ control, name: "notes" });
 
   useEffect(() => {
-    if (!bookingTypeId || !defaultBranchId) return;
+    if (step !== 2 || !bookingTypeId || !defaultBranchId) return;
     void estimateFareAction({
       bookingTypeId,
       branchId: defaultBranchId,
       distanceKm: distanceKm ? Number(distanceKm) : null,
+      pickupAddress: reviewPickupAddress,
+      dropAddress: reviewDropAddress,
     }).then((result) => {
-      if (result.ok) setEstimate(result.data.total);
+      if (result.ok) {
+        setEstimate(result.data.total);
+        setEstimateKm(result.data.distanceKm ?? null);
+      }
     });
-  }, [bookingTypeId, defaultBranchId, distanceKm]);
+  }, [step, bookingTypeId, defaultBranchId, distanceKm, reviewPickupAddress, reviewDropAddress]);
 
   const goNext = async () => {
     if (step === 0) {
@@ -364,7 +370,9 @@ export function CustomerBookingForm({
           </dl>
           <p className="text-base font-semibold text-default">
             {estimate != null
-              ? `Estimated fare ${currency.format(estimate)}`
+              ? estimateKm != null
+                ? `Approx. ${currency.format(estimate)} for ${estimateKm} km`
+                : `Approx. ${currency.format(estimate)}`
               : "Operator will confirm the fare."}
           </p>
           <label className="flex items-start gap-3 rounded-xl border border-default bg-surface-inset p-4 text-sm text-default">

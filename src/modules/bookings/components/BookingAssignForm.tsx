@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useRef, useTransition } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ import {
  type AssignDriverFormValues,
 } from "@/modules/bookings/validators/booking";
 import { assignDriverAction } from "@/modules/bookings/actions/booking.actions";
+import { getPairedVehicleAction } from "@/modules/drivers/actions/vehicle-assignment.actions";
 
 type Driver = {
  id: string;
@@ -50,6 +51,8 @@ export function BookingAssignForm({
  const {
   register,
   handleSubmit,
+  control,
+  setValue,
   formState: { errors },
   setError,
  } = useForm<AssignDriverFormValues>({
@@ -61,6 +64,29 @@ export function BookingAssignForm({
    reason: "",
   },
  });
+
+ const driverId = useWatch({ control, name: "driverId" });
+ const seenDriverId = useRef<string | undefined>(undefined);
+
+ useEffect(() => {
+  if (!driverId) return;
+  const isFirstRun = seenDriverId.current === undefined;
+  seenDriverId.current = driverId;
+  // Re-assign form already has the booking's vehicle. Don't clobber it on mount.
+  if (isFirstRun && defaultVehicleId) return;
+
+  let cancelled = false;
+  const assignableIds = new Set(vehicles.map((v) => v.id));
+  void getPairedVehicleAction({ driverId }).then((result) => {
+   if (cancelled) return;
+   if (!result.ok || !result.data.vehicleId) return;
+   if (!assignableIds.has(result.data.vehicleId)) return;
+   setValue("vehicleId", result.data.vehicleId);
+  });
+  return () => {
+   cancelled = true;
+  };
+ }, [driverId, setValue, vehicles, defaultVehicleId]);
 
  const onSubmit = (values: AssignDriverFormValues) => {
   startTransition(async () => {
@@ -102,6 +128,7 @@ export function BookingAssignForm({
     required
     error={errors.vehicleId?.message}
     placeholder="Select a vehicle"
+    hint="Paired roster vehicle is suggested when the driver has one."
     options={vehicles.map((v) => ({
      value: v.id,
      label: `${v.registrationNumber} — ${v.make} ${v.model}`,

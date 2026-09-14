@@ -8,6 +8,7 @@ import { DataTableToolbar } from "@/components/common/DataTableToolbar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { parsePageParams } from "@/lib/utils/page-params";
 import { listBookings } from "@/modules/bookings/queries/booking";
+import { BookingStatusChips } from "@/modules/bookings/components/BookingStatusChips";
 import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import type { BookingListRow } from "@/modules/bookings/types";
 
@@ -96,6 +97,7 @@ export default async function BookingsPage({
   <div>
    <PageBreadcrumb pageTitle="Bookings" />
    <div className="space-y-4">
+    <BookingStatusChips current={statusFilter} q={q} />
     <DataTableToolbar
      searchPlaceholder="Search by address or customer..."
      total={total}

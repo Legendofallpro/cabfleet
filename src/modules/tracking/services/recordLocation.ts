@@ -62,6 +62,13 @@ export type RecordLocationOutput = {
 export async function recordLocation(
   input: RecordLocationInput,
 ): Promise<Result<RecordLocationOutput>> {
+  if (!env.REALTIME_TRACKING_ENABLED) {
+    return err({
+      code: "FORBIDDEN",
+      message: "Live tracking is not enabled.",
+    });
+  }
+
   const booking = await db.booking.findFirst({
     where: { id: input.bookingId, deletedAt: null },
     select: {

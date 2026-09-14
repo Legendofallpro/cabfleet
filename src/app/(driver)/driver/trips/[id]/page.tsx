@@ -7,10 +7,13 @@ import { getDriverBookingDetail } from "@/modules/bookings/queries/driver";
 import {
   BOOKING_STATUS_LABEL,
   DRIVER_NEXT_ACTIONS,
+  IN_TRIP_STATUSES,
   type DriverNextAction,
 } from "@/modules/bookings/booking.constants";
 import { TripActionBar } from "@/app/(driver)/_components/TripActionBar";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
+import { DriverLocationPublisher } from "@/modules/tracking/components/DriverLocationPublisher";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Trip Detail | CabFleet Driver" };
 
@@ -44,6 +47,10 @@ export default async function TripDetailPage({
   }
 
   const nextActions: DriverNextAction[] = DRIVER_NEXT_ACTIONS[booking.status] ?? [];
+  const publishLocation =
+    env.REALTIME_TRACKING_ENABLED &&
+    Boolean(booking.locationConsentAt) &&
+    IN_TRIP_STATUSES.includes(booking.status);
   const navigateAddress =
     booking.status === "IN_PROGRESS"
       ? [booking.dropAddress, booking.dropLandmark].filter(Boolean).join(", ")
@@ -51,6 +58,7 @@ export default async function TripDetailPage({
 
   return (
     <div className="space-y-4 pb-40">
+      <DriverLocationPublisher bookingId={booking.id} enabled={publishLocation} />
       <SurfaceCard padding="sm">
         <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">Status</div>
         <div className="text-lg font-semibold text-default">

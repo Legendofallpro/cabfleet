@@ -17,6 +17,7 @@ export type TemplateId =
   | "BOOKING_CLAIMED"
   | "BOOKING_ASSIGNED"
   | "BOOKING_STARTED"
+  | "BOOKING_IN_PROGRESS"
   | "BOOKING_COMPLETED"
   | "BOOKING_CANCELLED";
 
@@ -104,11 +105,35 @@ export const TEMPLATES: Record<TemplateId, TemplateDefinition> = {
   },
 
   BOOKING_STARTED: {
-    channels: ["WHATSAPP"],
+    channels: ["EMAIL", "WHATSAPP"],
     urgent: false,
-    renderEmail: () => ({ subject: "", html: "" }),
+    renderEmail: (v) => ({
+      subject: `Your driver is on the way — #${strOrEmpty(v.bookingRef)}`,
+      html: emailShell(
+        "Driver on the way",
+        `<p>Hi ${strOrEmpty(v.customerName)},</p>
+         <p><strong>${strOrEmpty(v.driverName)}</strong> is on the way for trip
+         <strong>#${strOrEmpty(v.bookingRef)}</strong>.</p>`,
+      ),
+    }),
     renderWhatsApp: (v) =>
-      `Booking #${strOrEmpty(v.bookingRef)}: your trip has started. Driver ${strOrEmpty(v.driverName)} is on the way.`,
+      `Booking #${strOrEmpty(v.bookingRef)}: ${strOrEmpty(v.driverName)} is on the way.`,
+  },
+
+  BOOKING_IN_PROGRESS: {
+    channels: ["EMAIL", "WHATSAPP"],
+    urgent: false,
+    renderEmail: (v) => ({
+      subject: `Your trip has started — #${strOrEmpty(v.bookingRef)}`,
+      html: emailShell(
+        "Trip started",
+        `<p>Hi ${strOrEmpty(v.customerName)},</p>
+         <p>Trip <strong>#${strOrEmpty(v.bookingRef)}</strong> has started.
+         Driver: <strong>${strOrEmpty(v.driverName)}</strong>.</p>`,
+      ),
+    }),
+    renderWhatsApp: (v) =>
+      `Booking #${strOrEmpty(v.bookingRef)} has started. Driver ${strOrEmpty(v.driverName)}.`,
   },
 
   BOOKING_COMPLETED: {

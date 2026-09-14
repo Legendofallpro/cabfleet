@@ -25,11 +25,12 @@ const TRANSITION_TEMPLATES: TransitionLog[] = [
   { prev: BookingStatus.OPEN_FOR_CLAIM, next: BookingStatus.CLAIMED, templateId: "BOOKING_CLAIMED" },
   { prev: BookingStatus.PENDING, next: BookingStatus.ASSIGNED, templateId: "BOOKING_ASSIGNED" },
   { prev: BookingStatus.CLAIMED, next: BookingStatus.ASSIGNED, templateId: "BOOKING_ASSIGNED" },
-  { prev: BookingStatus.ASSIGNED, next: BookingStatus.IN_PROGRESS, templateId: "BOOKING_STARTED" },
+  { prev: BookingStatus.ASSIGNED, next: BookingStatus.DRIVER_EN_ROUTE, templateId: "BOOKING_STARTED" },
+  { prev: BookingStatus.DRIVER_EN_ROUTE, next: BookingStatus.IN_PROGRESS, templateId: "BOOKING_IN_PROGRESS" },
   { prev: BookingStatus.IN_PROGRESS, next: BookingStatus.COMPLETED, templateId: "BOOKING_COMPLETED" },
 ];
 
-function pickTemplateId(
+export function templateIdForTransition(
   prev: BookingStatus,
   next: BookingStatus,
 ): TemplateId | null {
@@ -69,7 +70,7 @@ export async function notifyOnTransition(
     reason?: string;
   },
 ): Promise<void> {
-  const templateId = pickTemplateId(args.prev, args.next);
+  const templateId = templateIdForTransition(args.prev, args.next);
   if (!templateId) return;
 
   const customerEmail = args.booking.customer.profile.email ?? null;

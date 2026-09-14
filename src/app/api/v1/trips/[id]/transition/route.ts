@@ -21,6 +21,7 @@ import { withApiHandler } from "@/lib/auth/withApiHandler";
 import { transitionBookingStatus } from "@/modules/bookings/services/transitionBookingStatus";
 import { DRIVER_ALLOWED_TARGETS } from "@/modules/bookings/booking.constants";
 import { getDriverForProfile } from "@/modules/drivers/services/eligibility";
+import { maybeGenerateInvoiceOnComplete } from "@/modules/invoices/services/maybeGenerateOnComplete";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,11 @@ export const POST = withApiHandler<Body, Params>({
       reason: body.reason,
     });
     if (!result.ok) return result;
+    if (body.toStatus === BookingStatus.COMPLETED) {
+      await maybeGenerateInvoiceOnComplete(params.id, {
+        id: user.profile.id,
+      });
+    }
     return ok({ id: result.data.id, status: result.data.status });
   },
 });

@@ -37,6 +37,7 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
   const [pending, startTransition] = useTransition();
   const [knownCustomer, setKnownCustomer] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<number | null>(null);
+  const [estimateKm, setEstimateKm] = useState<number | null>(null);
 
   const form = useForm<CreateDeskBookingFormValues>({
     resolver: zodResolver(createDeskBookingSchema),
@@ -72,6 +73,8 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
   const branchId = useWatch({ control, name: "branchId" });
   const bookingTypeId = useWatch({ control, name: "bookingTypeId" });
   const distanceKm = useWatch({ control, name: "distanceKm" });
+  const pickupAddress = useWatch({ control, name: "pickupAddress" });
+  const dropAddress = useWatch({ control, name: "dropAddress" });
 
   async function lookupPhone() {
     if (!phone || String(phone).replace(/\D/g, "").length < 10) {
@@ -89,14 +92,22 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
 
   useEffect(() => {
     if (!branchId || !bookingTypeId) return;
-    void estimateFareAction({
-      bookingTypeId: String(bookingTypeId),
-      branchId: String(branchId),
-      distanceKm: distanceKm ? Number(distanceKm) : null,
-    }).then((result) => {
-      if (result.ok) setEstimate(result.data.total);
-    });
-  }, [branchId, bookingTypeId, distanceKm]);
+    const timer = window.setTimeout(() => {
+      void estimateFareAction({
+        bookingTypeId: String(bookingTypeId),
+        branchId: String(branchId),
+        distanceKm: distanceKm ? Number(distanceKm) : null,
+        pickupAddress: pickupAddress ? String(pickupAddress) : undefined,
+        dropAddress: dropAddress ? String(dropAddress) : undefined,
+      }).then((result) => {
+        if (result.ok) {
+          setEstimate(result.data.total);
+          setEstimateKm(result.data.distanceKm ?? null);
+        }
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [branchId, bookingTypeId, distanceKm, pickupAddress, dropAddress]);
 
   const onSubmit = (values: CreateDeskBookingFormValues) => {
     startTransition(async () => {
@@ -208,11 +219,14 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
       </div>
 
       <p className="text-sm text-default">
-        Estimate:{" "}
         {estimate != null ? (
-          <span className="font-semibold">₹{Math.round(estimate)}</span>
+          <>
+            Approx. <span className="font-semibold">₹{Math.round(estimate)}</span>
+            {estimateKm != null ? ` for ${estimateKm} km` : ""}
+            {". Staff quoted fare below overrides this."}
+          </>
         ) : (
-          <span className="text-muted">Add type (and km) to estimate</span>
+          <span className="text-muted">Add type (and km or addresses) to estimate</span>
         )}
       </p>
       <TextField

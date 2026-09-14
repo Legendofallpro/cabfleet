@@ -4,25 +4,25 @@ overview: "Architecture and phased implementation plan for the CabFleet operatio
 todos:
   - id: phase0
     content: "Phase 0 - Foundation: Prisma, Supabase wiring, Profile sync, middleware/RBAC, route groups, tooling, CI"
-    status: pending
+    status: completed
   - id: phase1
     content: "Phase 1 - Admin Core: branches, vehicles, drivers, staff, customer directory, DataTable + form patterns, audit log"
-    status: pending
+    status: completed
   - id: phase2
     content: "Phase 2 - Booking Lifecycle (Manual): schema, state machine, staff create/assign/transition, pricing engine, assignment history"
-    status: pending
+    status: completed
   - id: phase3
     content: "Phase 3 - Customer Portal: landing, signup, multi-step booking form, my-bookings, invoice stub"
-    status: pending
+    status: completed
   - id: phase4
     content: "Phase 4 - Dispatch + Driver Claim: driver portal, DispatchRule + resolver, locked claim transaction, hybrid timer cron, load test"
-    status: pending
+    status: completed
   - id: phase5
     content: "Phase 5 - Payments + Invoices: payment records, PDF invoices, email send, payment provider abstraction"
-    status: pending
+    status: completed
   - id: phase6
     content: "Phase 6 - Staff Ops + Reports + Polish: attendance, shifts, fuel/expense/maintenance logs, reports, a11y/perf pass"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -315,10 +315,10 @@ prisma/
 
 ## 7. UI/UX Strategy
 
-- **Admin/Staff**: keep the current TailAdmin chrome (`[src/app/(admin)/layout.tsx](src/app/(admin)/layout.tsx)`, `[src/layout/AppSidebar.tsx](src/layout/AppSidebar.tsx)`). It is already production-grade. Standardize on shadcn/ui for new components (Dialog, Table, Form, Select, Toast). Keep existing TailAdmin tables/forms — do not rewrite them.
+- **Admin/Staff**: keep the current TailAdmin chrome (`[src/app/(admin)/layout.tsx](src/app/(admin)/layout.tsx)`, `[src/layout/AppSidebar.tsx](src/layout/AppSidebar.tsx)`). New feature UI uses semantic tokens plus shared primitives in `src/components/common/` and `src/components/ui/` — not shadcn/ui.
 - **Driver portal**: minimal one-column mobile-first layout. Big touch targets. Bottom nav: "Open Trips", "My Trips", "Profile". Built mobile-first because drivers will use it from phones from day one.
-- **Customer portal**: full marketing landing → auth → booking form (multi-step) → "My Bookings". Use shadcn primitives; don't reuse the admin shell.
-- **Tables**: a single `<DataTable>` wrapper around shadcn's table that takes columns + a server-side `fetcher`. Built once; reused everywhere. Server pagination + search.
+- **Customer portal**: full marketing landing → auth → booking form (multi-step) → "My Bookings". Do not reuse the admin shell.
+- **Tables**: a single `<DataTable>` wrapper in `src/components/common/DataTable.tsx`. Server pagination + search via `nuqs`.
 - **Forms**: `react-hook-form` + `zod` + a shared `<FormField>` wrapper. The same `zod` schema used in the server action.
 - **Status badges**: one `<BookingStatusBadge>` component that maps every enum value to a color. Single import everywhere.
 - **Notifications**: `sonner` for toasts. Email/SMS via Supabase Edge Functions or Resend in Phase 5. WhatsApp is a Phase 6+ integration.
@@ -328,7 +328,7 @@ prisma/
 ## 8. State Management
 
 - **Server state by default**: RSC + Server Actions + `revalidatePath`. This covers 90% of pages.
-- **TanStack Query** only where you need polling, infinite scroll, or aggressive optimistic UI — namely the driver "Open Trips" screen and the admin booking queue. Don't sprinkle it elsewhere.
+- **Live queues**: the staff desk (`/dashboard`) uses RSC + a 20s `router.refresh()`. Do not add TanStack Query, Zustand, or Redux.
 - **Zustand**: not needed for MVP. The two existing React Contexts (`SidebarContext`, `ThemeContext`) cover UI state. Re-evaluate only if a feature demands cross-tree client state.
 - **Forms**: `react-hook-form` + `@hookform/resolvers/zod`. Server actions receive `FormData` or typed object, re-validate with the same schema.
 - **URL state**: `nuqs` for filter/search/pagination state on tables. Survives refresh, shareable, no extra store.
@@ -403,7 +403,7 @@ prisma/
 - Supabase trigger: `auth.users insert → Profile insert`.
 - Root `middleware.ts` + `requireRole` + permission map.
 - Add `(driver)` and `(customer)` route groups with empty layouts.
-- T3-env, sonner, shadcn init, react-hook-form, zod, vitest, playwright skeleton.
+- T3-env, sonner, react-hook-form, zod, vitest, playwright skeleton.
 - CI pipeline live.
 **Risk**: Supabase + Prisma cohabitation. **Mitigation**: deny-PostgREST RLS is **required** (ENABLE + FORCE + `deny_direct_api_access` in Prisma migrations). Prisma remains the only writer (superuser bypasses RLS). Keeping RLS off is obsolete and unsafe — the public anon key is in the browser bundle.
 **Deliverable**: deploy preview where you can sign up, see role-correct shell, and nothing else.

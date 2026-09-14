@@ -22,6 +22,16 @@ vi.mock("@/modules/pricing/services/fareCalculator", () => ({
   estimateFare: vi.fn(),
 }));
 
+vi.mock("@/modules/geo/services/geocode", () => ({
+  resolveBookingRoute: vi.fn(async () => ({
+    pickupLat: null,
+    pickupLng: null,
+    dropLat: null,
+    dropLng: null,
+    distanceKm: null,
+  })),
+}));
+
 vi.mock("@/modules/bookings/includes", () => ({
   bookingDetailInclude: {},
 }));
