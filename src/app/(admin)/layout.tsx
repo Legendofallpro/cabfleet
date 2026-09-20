@@ -8,6 +8,7 @@ import { staffMustChallengeAal2 } from "@/lib/auth/aal-paths";
 import { getRoleHome } from "@/lib/auth/redirects";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import AdminShell from "@/app/(admin)/_components/AdminShell";
 import type { HeaderUser } from "@/layout/header-user";
 import { getHeaderNotificationSummary } from "@/modules/notifications/queries/notification";
@@ -27,6 +28,11 @@ export default async function AdminLayout({
 }) {
  const session = await getSessionUser();
  if (!session) redirect("/signin?redirectTo=/dashboard");
+
+ if (env.INSTALL_GATE) {
+  const settings = await getInstallSettings();
+  if (!settings?.setupCompletedAt) redirect("/setup");
+ }
 
  switch (session.profile.role) {
   case "SUPER_ADMIN":

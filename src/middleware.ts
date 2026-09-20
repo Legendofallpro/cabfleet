@@ -4,7 +4,7 @@ import { checkLimit, getClientIp, LIMITS } from "@/lib/rate-limit";
 import { isPublicPath } from "@/lib/auth/public-paths";
 
 /** Paths that should be IP rate-limited at the edge (anti brute-force). */
-const AUTH_PATHS = ["/signin", "/signup", "/reset-password", "/auth/callback"];
+const AUTH_PATHS = ["/setup", "/signin", "/signup", "/reset-password", "/auth/callback"];
 
 const isAuthPath = (pathname: string) =>
   AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -1,8 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/sign-out";
+import { env } from "@/lib/env";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getOrCreateCustomer } from "@/modules/customers/services/customer.service";
 import { CustomerBottomNav } from "@/app/(customer)/_components/CustomerBottomNav";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
@@ -11,6 +14,11 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionUser();
+
+  if (session && env.INSTALL_GATE) {
+    const settings = await getInstallSettings();
+    if (!settings?.setupCompletedAt) redirect("/setup");
+  }
 
   if (session?.profile.role === "CUSTOMER") {
     const customer = await getOrCreateCustomer(session.profile.id);

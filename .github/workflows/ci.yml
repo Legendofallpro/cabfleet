@@ -19,6 +19,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder"
       SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
       STAFF_AAL2_REQUIRED: "false"
+      INSTALL_GATE: "false"
 
     steps:
       - uses: actions/checkout@v4

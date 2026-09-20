@@ -23,4 +23,8 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/error-404")).toBe(true);
     expect(isPublicPath("/auth-error")).toBe(true);
   });
+
+  it("allows /setup", () => {
+    expect(isPublicPath("/setup")).toBe(true);
+  });
 });

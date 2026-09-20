@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { getSessionUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Settings | CabFleet Admin",
@@ -41,12 +42,25 @@ const settingsSections = [
   },
 ];
 
-export default function SettingsPage() {
+const installSection = {
+  title: "Install",
+  description: "Country, currency, timezone for this deployment.",
+  href: "/setup",
+};
+
+export default async function SettingsPage() {
+  const session = await getSessionUser();
+  const role = session?.profile.role;
+  const sections =
+    role === "ADMIN" || role === "SUPER_ADMIN"
+      ? [installSection, ...settingsSections]
+      : settingsSections;
+
   return (
     <div>
       <PageBreadcrumb pageTitle="Settings" />
       <div className="space-y-4">
-        {settingsSections.map((section) => (
+        {sections.map((section) => (
           <div
             key={section.title}
             className="flex items-center justify-between rounded-2xl border border-default bg-surface-elevated px-6 py-5"

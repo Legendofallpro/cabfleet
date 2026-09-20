@@ -3,6 +3,7 @@
  * it as a prefix, or every route would become public.
  */
 export const PUBLIC_PATH_PREFIXES = [
+  "/setup",
   "/signin",
   "/signup",
   "/reset-password",

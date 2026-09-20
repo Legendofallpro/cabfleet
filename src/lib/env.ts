@@ -62,6 +62,19 @@ export const env = createEnv({
       .pipe(z.boolean())
       .default(true),
 
+    /**
+     * When true (default), incomplete install settings redirect to /setup.
+     * CI sets false so Playwright landing/CSP specs run without Postgres.
+     */
+    INSTALL_GATE: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => {
+        if (typeof v === "boolean") return v;
+        return ["true", "1", "yes", "on"].includes(v.toLowerCase());
+      })
+      .pipe(z.boolean())
+      .default(true),
+
     // ── Phase 7 W2: Twilio (WhatsApp) ────────────────────────────────────
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
@@ -189,6 +202,7 @@ export const env = createEnv({
     API_V1_ENABLED: process.env.API_V1_ENABLED,
     REALTIME_TRACKING_ENABLED: process.env.REALTIME_TRACKING_ENABLED,
     STAFF_AAL2_REQUIRED: process.env.STAFF_AAL2_REQUIRED,
+    INSTALL_GATE: process.env.INSTALL_GATE,
     TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
     TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
