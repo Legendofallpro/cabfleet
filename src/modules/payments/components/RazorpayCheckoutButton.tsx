@@ -137,10 +137,10 @@ export function RazorpayCheckoutButton({
   children?: React.ReactNode;
 }) {
   const settings = useInstallSettings();
-  if (settings?.country !== "IN") return null;
-
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+
+  if (settings?.country !== "IN") return null;
 
   async function onClick() {
     setBusy(true);
