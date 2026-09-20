@@ -13,6 +13,8 @@ import { listExpenses } from "@/modules/expenses/queries/expense";
 import { FuelLogForm } from "@/modules/fuel/components/FuelLogForm";
 import { MaintenanceLogForm } from "@/modules/maintenance/components/MaintenanceLogForm";
 import { ExpenseForm } from "@/modules/expenses/components/ExpenseForm";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Edit Vehicle | CabFleet Admin" };
 
@@ -22,6 +24,9 @@ export default async function EditVehiclePage({
  params: Promise<{ id: string }>;
 }) {
  const { id } = await params;
+ const settings = await requireInstallSettings();
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
 
  const [vehicle, { rows: branches }, { rows: drivers }, { rows: fuelLogs }, { rows: maintenanceLogs }, { rows: expenses }] =
   await Promise.all([
@@ -106,7 +111,7 @@ export default async function EditVehiclePage({
            {Number(log.litres).toFixed(2)} L
           </td>
           <td className="py-2 pr-4 text-default/80">
-           ₹{Number(log.amount).toFixed(2)}
+           {money(Number(log.amount))}
           </td>
           <td className="py-2 pr-4 text-muted">
            {log.odometer.toLocaleString()} km
@@ -159,7 +164,7 @@ export default async function EditVehiclePage({
            {log.type.replace(/_/g, " ")}
           </td>
           <td className="py-2 pr-4 text-default/80">
-           ₹{Number(log.cost).toFixed(2)}
+           {money(Number(log.cost))}
           </td>
           <td className="py-2 pr-4 text-muted">
            {log.odometer.toLocaleString()} km
@@ -204,7 +209,7 @@ export default async function EditVehiclePage({
           </td>
           <td className="py-2 pr-4 text-default">{exp.category.replace(/_/g, " ")}</td>
           <td className="py-2 pr-4 font-medium text-on-error-subtle">
-           ₹{Number(exp.amount).toFixed(2)}
+           {money(Number(exp.amount))}
           </td>
           <td className="max-w-xs truncate py-2 text-muted">{exp.notes ?? "—"}</td>
          </tr>

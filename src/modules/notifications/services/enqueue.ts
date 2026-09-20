@@ -12,6 +12,7 @@
  *   - Retries + exponential backoff need durable state.
  */
 import type { Prisma, NotificationChannel } from "@prisma/client";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { TEMPLATES, isKnownTemplate } from "@/modules/notifications/services/templates";
 
 export type EnqueueInput = {
@@ -39,6 +40,9 @@ export async function enqueueNotification(
     throw new Error(`enqueueNotification: unknown template ${input.templateId}`);
   }
 
+  const locale =
+    input.locale ?? (await getInstallSettings())?.locale ?? "en-US";
+
   await tx.notificationOutbox.create({
     data: {
       orgId: input.orgId,
@@ -48,7 +52,7 @@ export async function enqueueNotification(
       recipient: input.recipient,
       payload: {
         variables: input.variables,
-        locale: input.locale ?? "en-IN",
+        locale,
         urgent: input.urgent ?? TEMPLATES[input.templateId].urgent,
       },
       // PENDING + nextAttemptAt = now → cron picks it up immediately.

@@ -22,6 +22,10 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
+vi.mock("@/modules/install/queries/install", () => ({
+  getInstallSettings: vi.fn(async () => ({ phoneRegion: "IN" })),
+}));
+
 import { db } from "@/lib/db";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findOrCreateStaffCustomer, prepareCustomerSignup } from "./customer.service";

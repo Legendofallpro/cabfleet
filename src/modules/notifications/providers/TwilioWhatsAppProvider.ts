@@ -7,12 +7,13 @@ import {
   isKnownTemplate,
   TEMPLATES,
 } from "@/modules/notifications/services/templates";
-import { toE164 } from "@/lib/utils/phone";
+import { toE164, resolvePhoneRegion } from "@/lib/utils/phone";
 import type {
   NotificationMessage,
   NotificationProvider,
   NotificationSendResult,
 } from "@/modules/notifications/providers/NotificationProvider";
+import { getInstallSettings } from "@/modules/install/queries/install";
 
 /**
  * §7.4 S8: parse "max:windowSeconds" env into limiter options once at module
@@ -35,16 +36,29 @@ function parseRecipientLimit(raw: string | undefined): { max: number; windowMs: 
 
 const RECIPIENT_LIMIT = parseRecipientLimit(env.TWILIO_PER_RECIPIENT_LIMIT);
 
-/** Parse comma-separated ISO-3166-1 alpha-2 list. Empty disables the check. */
-function parseAllowedCountries(raw: string | undefined): Set<string> | null {
-  const cleaned = (raw ?? "IN")
+/** Schema default in env.ts. Treated as unset when install country is known. */
+const TWILIO_ALLOWED_COUNTRIES_DEFAULT = "IN";
+
+/**
+ * Resolve the WhatsApp country allow-list.
+ * Explicit TWILIO_ALLOWED_COUNTRIES wins; the schema default `"IN"` yields to
+ * install country when that is set.
+ */
+export function resolveTwilioAllowedCountries(
+  envValue: string,
+  installCountry: string | null | undefined,
+): Set<string> | null {
+  const trimmed = envValue.trim();
+  const useInstall =
+    trimmed.toUpperCase() === TWILIO_ALLOWED_COUNTRIES_DEFAULT &&
+    Boolean(installCountry);
+  const raw = useInstall ? String(installCountry) : envValue;
+  const cleaned = raw
     .split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   return cleaned.length === 0 ? null : new Set(cleaned);
 }
-
-const ALLOWED_COUNTRIES = parseAllowedCountries(env.TWILIO_ALLOWED_COUNTRIES);
 
 /**
  * Twilio WhatsApp provider.
@@ -91,7 +105,8 @@ export class TwilioWhatsAppProvider implements NotificationProvider {
       return { providerMessageId: "noop:no_twilio_credentials", noop: true };
     }
 
-    const parsed = toE164(msg.to, "IN");
+    const install = await getInstallSettings();
+    const parsed = toE164(msg.to, resolvePhoneRegion(install?.phoneRegion));
     if (!parsed.ok) {
       logger.warn(
         { templateId: msg.templateId, reason: parsed.reason },
@@ -103,12 +118,16 @@ export class TwilioWhatsAppProvider implements NotificationProvider {
     // §7.4 S8: country allow-list check. parsed.country is null for
     // numbers that libphonenumber-js can't attribute (rare; we still got
     // a valid E.164 string, just no geo).
-    if (ALLOWED_COUNTRIES && parsed.country && !ALLOWED_COUNTRIES.has(parsed.country)) {
+    const allowedCountries = resolveTwilioAllowedCountries(
+      env.TWILIO_ALLOWED_COUNTRIES,
+      install?.country,
+    );
+    if (allowedCountries && parsed.country && !allowedCountries.has(parsed.country)) {
       logger.warn(
         {
           templateId: msg.templateId,
           country: parsed.country,
-          allowed: Array.from(ALLOWED_COUNTRIES),
+          allowed: Array.from(allowedCountries),
         },
         "notification.whatsapp.country_not_allowed",
       );

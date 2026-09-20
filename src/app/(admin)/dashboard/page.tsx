@@ -14,6 +14,8 @@ import {
 import { getDeskQueue } from "@/modules/bookings/queries/desk-queue";
 import { DeskQueue } from "@/modules/bookings/components/DeskQueue";
 import { DashboardAutoRefresh } from "./DashboardAutoRefresh";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,7 @@ const quickLinks = [
 ];
 
 export default async function DashboardPage() {
+ const settings = await requireInstallSettings();
  const [
   todayBookings,
   activeRides,
@@ -59,7 +62,7 @@ export default async function DashboardPage() {
      <StatCard label="Available Vehicles" value={availableVehicles.toString()} tone="warning" />
      <StatCard
       label="Revenue Today"
-      value={`₹${todayRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+      value={formatMoney(todayRevenue, { locale: settings.locale, currency: settings.currency })}
       tone="success"
      />
      <StatCard label="Active Drivers" value={activeDrivers.toString()} tone="info" />

@@ -17,6 +17,8 @@ import {
  topCustomersBySpend,
  type ReportPeriod,
 } from "@/modules/reports/queries/report";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = {
  title: "Reports | CabFleet Admin",
@@ -32,6 +34,9 @@ interface Props {
 }
 
 export default async function ReportsPage({ searchParams }: Props) {
+ const settings = await requireInstallSettings();
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
  const params = await searchParams;
  const period = (params.period as ReportPeriod | undefined) ?? "day";
 
@@ -84,7 +89,7 @@ export default async function ReportsPage({ searchParams }: Props) {
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
      <StatCard
       label="Total Revenue"
-      value={`₹${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+      value={money(totalRevenue)}
       tone="success"
      />
      <StatCard label="Total Trips"   value={totalTrips.toString()}   tone="info" />
@@ -111,7 +116,7 @@ export default async function ReportsPage({ searchParams }: Props) {
            <td className="py-2 pr-4 text-default">{row.period}</td>
            <td className="py-2 pr-4 text-default">{row.count}</td>
            <td className="py-2 font-medium text-on-success-subtle">
-            ₹{row.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {money(row.total)}
            </td>
           </tr>
          ))}
@@ -156,7 +161,7 @@ export default async function ReportsPage({ searchParams }: Props) {
            <p className="text-xs text-muted">{row.bookingCount} bookings</p>
           </div>
           <span className="text-sm font-semibold text-on-success-subtle">
-           ₹{row.totalSpend.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+           {money(row.totalSpend)}
           </span>
          </li>
         ))}

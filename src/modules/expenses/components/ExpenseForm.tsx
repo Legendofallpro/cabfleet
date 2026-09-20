@@ -9,6 +9,7 @@ import { TextField } from "@/components/common/form/TextField";
 import { SelectField } from "@/components/common/form/SelectField";
 import { TextareaField } from "@/components/common/form/TextareaField";
 import { createExpenseAction } from "@/modules/expenses/actions/expense.actions";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 import {
  createExpenseSchema,
  EXPENSE_CATEGORIES,
@@ -32,6 +33,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function ExpenseForm({ vehicleId, profileId, onSuccess }: Props) {
+ const settings = useRequiredInstallSettings();
  const [submitting, setSubmitting] = useState(false);
 
  const {
@@ -80,7 +82,7 @@ export function ExpenseForm({ vehicleId, profileId, onSuccess }: Props) {
      {...register("category")}
     />
     <TextField
-     label="Amount (₹)"
+     label={`Amount (${settings.currency})`}
      type="number"
      step="0.01"
      min="0.01"

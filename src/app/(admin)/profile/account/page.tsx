@@ -10,6 +10,7 @@ import { LocaleForm } from "@/modules/profile/components/LocaleForm";
 import { MfaSettingsPanel } from "@/modules/profile/components/MfaSettingsPanel";
 import { NotificationPrefsForm } from "@/modules/profile/components/NotificationPrefsForm";
 import { parseNotificationPrefsFormValues } from "@/modules/profile/profile.constants";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = {
   title: "Account Settings | CabFleet Admin",
@@ -27,8 +28,10 @@ export default async function AdminAccountSettingsPage({
   const { mfa } = await searchParams;
   const mfaRequired = mfa === "required";
 
+  const settings = await requireInstallSettings();
   const notificationDefaults = parseNotificationPrefsFormValues(
     session.profile.notificationPrefs,
+    settings.timezone,
   );
 
   return (

@@ -8,6 +8,8 @@ import {
 import { AttendanceSelfCard } from "@/modules/attendance/components/AttendanceSelfCard";
 import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
 import { StatCard } from "@/components/common/StatCard";
+import { formatDateTime } from "@/lib/format/datetime";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = {
   title: "Attendance | CabFleet Driver",
@@ -39,6 +41,19 @@ export default async function DriverAttendancePage() {
     getAttendanceForDate(session.profile.id, today),
     listAttendance({ profileId: session.profile.id, pageSize: 30 }),
   ]);
+  const settings = await requireInstallSettings();
+  const dayLabel = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "medium",
+    });
+  const timeLabel = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      timeStyle: "short",
+    });
 
   const presentCount = history.filter((r) => r.status === "PRESENT").length;
   const halfDayCount = history.filter((r) => r.status === "HALF_DAY").length;
@@ -74,15 +89,11 @@ export default async function DriverAttendancePage() {
               <li key={row.id} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-default">
-                    {new Date(row.date).toLocaleDateString("en-IN", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    })}
+                    {dayLabel(new Date(row.date))}
                   </p>
                   <p className="mt-0.5 text-xs text-muted">
-                    {row.checkIn ? `In: ${new Date(row.checkIn).toLocaleTimeString()}` : "No check-in"}
-                    {row.checkOut ? ` · Out: ${new Date(row.checkOut).toLocaleTimeString()}` : ""}
+                    {row.checkIn ? `In: ${timeLabel(new Date(row.checkIn))}` : "No check-in"}
+                    {row.checkOut ? ` · Out: ${timeLabel(new Date(row.checkOut))}` : ""}
                   </p>
                 </div>
                 <StatusBadge tone={ATTENDANCE_STATUS_TONE[row.status] ?? "neutral"}>

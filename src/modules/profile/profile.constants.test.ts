@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_NOTIFICATION_PREFS,
+  defaultNotificationPrefs,
   formatQuietHoursPreview,
   parseNotificationPrefsFormValues,
 } from "@/modules/profile/profile.constants";
@@ -37,9 +38,13 @@ describe("profile validators", () => {
 });
 
 describe("profile.constants", () => {
+  it("defaultNotificationPrefs uses the supplied timezone", () => {
+    expect(defaultNotificationPrefs("UTC").timezone).toBe("UTC");
+  });
+
   it("applies defaults for missing prefs", () => {
-    const values = parseNotificationPrefsFormValues({});
-    expect(values.timezone).toBe("Asia/Kolkata");
+    const values = parseNotificationPrefsFormValues({}, "UTC");
+    expect(values.timezone).toBe("UTC");
     expect(values.email).toBe(true);
   });
 

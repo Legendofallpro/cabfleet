@@ -14,15 +14,21 @@ import {
   CUSTOMER_STATUS_LABEL,
   BOOKING_STATUS_TONE,
 } from "@/modules/bookings/booking.constants";
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export default async function CustomerPortalPage() {
+  const settings = await requireInstallSettings();
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal");
   if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
@@ -53,7 +59,7 @@ export default async function CustomerPortalPage() {
           <p className="mt-3 text-sm font-medium text-default">{activeTrip.pickupAddress}</p>
           <p className="mt-0.5 text-sm text-muted">→ {activeTrip.dropAddress}</p>
           <div className="mt-3 flex items-center justify-between text-xs text-muted">
-            <span>{dtFmt.format(new Date(activeTrip.pickupAt))}</span>
+            <span>{when(new Date(activeTrip.pickupAt))}</span>
             <span className="font-medium text-primary">View trip</span>
           </div>
         </Link>
@@ -96,7 +102,7 @@ export default async function CustomerPortalPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm text-default">{booking.pickupAddress}</p>
                     <p className="mt-0.5 text-xs text-muted">
-                      {booking.bookingType.name} · {dtFmt.format(new Date(booking.pickupAt))}
+                      {booking.bookingType.name} · {when(new Date(booking.pickupAt))}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -104,7 +110,7 @@ export default async function CustomerPortalPage() {
                       {CUSTOMER_STATUS_LABEL[status]}
                     </StatusBadge>
                     {fare != null && (
-                      <p className="mt-1 text-xs text-muted">{currency.format(fare)}</p>
+                      <p className="mt-1 text-xs text-muted">{money(Number(fare))}</p>
                     )}
                   </div>
                 </Link>

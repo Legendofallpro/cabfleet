@@ -8,20 +8,36 @@ import { parsePageParams } from "@/lib/utils/page-params";
 import { getSessionUser } from "@/lib/auth/session";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { listAuditLogs, type AuditRow } from "@/modules/audit/queries/audit";
+import { formatDateTime } from "@/lib/format/datetime";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Audit log | CabFleet Admin" };
 export const dynamic = "force-dynamic";
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+export default async function AuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const session = await getSessionUser();
+  if (!session || !hasPermission(session.profile.role, PERMISSIONS.AUDIT_VIEW)) {
+    redirect("/dashboard");
+  }
 
-const columns: Column<AuditRow>[] = [
-  {
-    header: "When",
-    cell: (r) => dtFmt.format(new Date(r.at)),
-  },
+  const settings = await requireInstallSettings();
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+  const columns: Column<AuditRow>[] = [
+    {
+      header: "When",
+      cell: (r) => when(new Date(r.at)),
+    },
   {
     header: "Actor",
     cell: (r) => r.byProfile?.fullName ?? r.byProfile?.email ?? "System",
@@ -39,18 +55,8 @@ const columns: Column<AuditRow>[] = [
   {
     header: "Action",
     cell: (r) => r.action,
-  },
-];
-
-export default async function AuditPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const session = await getSessionUser();
-  if (!session || !hasPermission(session.profile.role, PERMISSIONS.AUDIT_VIEW)) {
-    redirect("/dashboard");
-  }
+    },
+  ];
 
   const { q, page, pageSize } = parsePageParams(await searchParams);
   const { rows, total } = await listAuditLogs({ q, page, pageSize });

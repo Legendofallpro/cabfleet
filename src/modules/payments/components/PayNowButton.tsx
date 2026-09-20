@@ -6,6 +6,8 @@ import { toast } from "sonner";
 
 import { createCustomerCheckoutAction } from "@/modules/payments/actions/payment.actions";
 import { openRazorpayCheckout } from "@/modules/payments/components/RazorpayCheckoutButton";
+import { formatMoney } from "@/lib/format/money";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Props = {
   bookingId: string;
@@ -22,6 +24,7 @@ export function PayNowButton({
   customerEmail,
   customerPhone,
 }: Props) {
+  const settings = useRequiredInstallSettings();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -56,7 +59,12 @@ export function PayNowButton({
       disabled={busy}
       className="inline-flex h-11 min-w-28 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
     >
-      {busy ? "Opening…" : `Pay now · ₹${Math.round(amountRupees)}`}
+      {busy
+        ? "Opening…"
+        : `Pay now · ${formatMoney(amountRupees, {
+            locale: settings.locale,
+            currency: settings.currency,
+          })}`}
     </button>
   );
 }

@@ -11,10 +11,11 @@ import { TextField } from "@/components/common/form/TextField";
 import { updateNotificationPrefsAction } from "@/modules/profile/actions/profile.actions";
 import { formatQuietHoursPreview } from "@/modules/profile/profile.constants";
 import {
-  TIMEZONE_OPTIONS,
+  buildTimezoneOptions,
   updateNotificationPrefsSchema,
   type UpdateNotificationPrefsFormValues,
 } from "@/modules/profile/validators/profile";
+import { useInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Props = {
   defaultValues: UpdateNotificationPrefsFormValues;
@@ -22,6 +23,8 @@ type Props = {
 };
 
 export function NotificationPrefsForm({ defaultValues, cancelHref = "/profile/account" }: Props) {
+  const installTimezone = useInstallSettings()?.timezone ?? "UTC";
+  const timezoneOptions = buildTimezoneOptions(installTimezone);
   const {
     register,
     control,
@@ -51,7 +54,12 @@ export function NotificationPrefsForm({ defaultValues, cancelHref = "/profile/ac
     toast.success("Notification preferences saved.");
   }
 
-  const quietPreview = formatQuietHoursPreview(quietStart, quietEnd, timezone);
+  const quietPreview = formatQuietHoursPreview(
+    quietStart,
+    quietEnd,
+    timezone,
+    installTimezone,
+  );
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -82,7 +90,7 @@ export function NotificationPrefsForm({ defaultValues, cancelHref = "/profile/ac
       <SelectField
         label="Timezone"
         required
-        options={TIMEZONE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        options={timezoneOptions.map((o) => ({ value: o.value, label: o.label }))}
         {...register("timezone")}
         error={errors.timezone?.message}
       />

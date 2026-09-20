@@ -6,13 +6,16 @@ import { listActiveBranchesFlat } from "@/modules/branches/queries/branch";
 import { listActiveBookingTypesFlat } from "@/modules/bookings/queries/booking";
 import { CreatePricingRuleForm } from "@/modules/pricing/components/CreatePricingRuleForm";
 import { DeletePricingRuleButton } from "@/modules/pricing/components/DeletePricingRuleButton";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Pricing | CabFleet Admin" };
 export const dynamic = "force-dynamic";
 
-const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 });
-
 export default async function PricingSettingsPage() {
+  const settings = await requireInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
   const [rules, branches, bookingTypes] = await Promise.all([
     listPricingRules(),
     listActiveBranchesFlat(),
@@ -46,9 +49,9 @@ export default async function PricingSettingsPage() {
               <tr key={rule.id} className="border-b border-default">
                 <td className="px-4 py-3">{rule.bookingType.name}</td>
                 <td className="px-4 py-3 text-muted">{rule.branch?.name ?? "All"}</td>
-                <td className="px-4 py-3">{inr.format(Number(rule.baseFare))}</td>
-                <td className="px-4 py-3">{inr.format(Number(rule.perKm))}</td>
-                <td className="px-4 py-3">{inr.format(Number(rule.perMin))}</td>
+                <td className="px-4 py-3">{money(Number(rule.baseFare))}</td>
+                <td className="px-4 py-3">{money(Number(rule.perKm))}</td>
+                <td className="px-4 py-3">{money(Number(rule.perMin))}</td>
                 <td className="px-4 py-3 text-right">
                   <DeletePricingRuleButton id={rule.id} />
                 </td>

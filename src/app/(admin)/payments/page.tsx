@@ -6,6 +6,9 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { listPayments } from "@/modules/payments/queries/payment";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,15 +31,16 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
  REFUNDED: "Refunded",
 };
 
-const currency = new Intl.NumberFormat("en-IN", {
- style: "currency",
- currency: "INR",
- maximumFractionDigits: 0,
-});
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" });
-
 export default async function PaymentsPage() {
+ const settings = await requireInstallSettings();
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+  });
  const { rows, total } = await listPayments({ pageSize: 50 });
 
  type Row = (typeof rows)[0];
@@ -57,7 +61,7 @@ export default async function PaymentsPage() {
      {[
       {
        label: "Total Revenue",
-       value: currency.format(totalRevenue),
+       value: money(totalRevenue),
        color: "bg-success-subtle",
       },
       {
@@ -140,7 +144,7 @@ export default async function PaymentsPage() {
              p.booking.customer.profile.email}
            </td>
            <td className="px-5 py-3.5 font-medium text-default">
-            {currency.format(Number(p.amount))}
+            {money(Number(p.amount))}
            </td>
            <td className="px-5 py-3.5 text-muted ">
             {p.method}
@@ -151,7 +155,7 @@ export default async function PaymentsPage() {
             </StatusBadge>
            </td>
            <td className="px-5 py-3.5 text-muted">
-            {dtFmt.format(new Date(p.createdAt))}
+            {when(new Date(p.createdAt))}
            </td>
            <td className="px-5 py-3.5 text-right">
             <Link

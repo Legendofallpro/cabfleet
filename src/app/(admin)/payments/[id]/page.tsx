@@ -11,6 +11,9 @@ import { listRefundsForPayment } from "@/modules/payments/queries/refund";
 import { RefundRequestForm } from "@/modules/payments/components/RefundRequestForm";
 import { DetailRow } from "@/components/common/DetailRow";
 import type { RefundStatus } from "@prisma/client";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Payment Detail | CabFleet Admin" };
@@ -31,18 +34,21 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
  REFUNDED: "Refunded",
 };
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
- style: "currency",
- currency: "INR",
- maximumFractionDigits: 0,
-});
-
 export default async function PaymentDetailPage({
  params,
 }: {
  params: Promise<{ id: string }>;
 }) {
+ const settings = await requireInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "long",
+   timeStyle: "short",
+  });
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
  const { id } = await params;
  const payment = await getPayment(id);
  if (!payment) notFound();
@@ -88,14 +94,14 @@ export default async function PaymentDetailPage({
        label="Customer"
        value={payment.booking.customer.profile.fullName ?? payment.booking.customer.profile.email}
       />
-      <DetailRow label="Amount" value={currency.format(Number(payment.amount))} />
+      <DetailRow label="Amount" value={money(Number(payment.amount))} />
       <DetailRow label="Method" value={payment.method} />
       <DetailRow label="Transaction ref" value={payment.txnRef} />
       <DetailRow
        label="Captured at"
-       value={payment.capturedAt ? dtFmt.format(new Date(payment.capturedAt)) : null}
+       value={payment.capturedAt ? when(new Date(payment.capturedAt)) : null}
       />
-      <DetailRow label="Recorded at" value={dtFmt.format(new Date(payment.createdAt))} />
+      <DetailRow label="Recorded at" value={when(new Date(payment.createdAt))} />
      <DetailRow label="Recorded by" value={payment.createdBy?.fullName ?? payment.createdBy?.email} />
     </dl>
    </SurfaceCard>
@@ -107,7 +113,7 @@ export default async function PaymentDetailPage({
        {refunds.map((r) => (
         <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
          <StatusBadge tone={REFUND_STATUS_TONE[r.status]}>{r.status}</StatusBadge>
-         <span className="text-default text-sm">{currency.format(Number(r.amount))}</span>
+         <span className="text-default text-sm">{money(Number(r.amount))}</span>
          <span className="text-caption text-muted">{r.reason}</span>
          <span className="ml-auto text-caption text-muted">
           requested by {r.requestedBy?.fullName ?? r.requestedBy?.email}

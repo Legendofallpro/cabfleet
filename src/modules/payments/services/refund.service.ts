@@ -20,6 +20,7 @@ import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
 import { getInstallSettings } from "@/modules/install/queries/install";
 import { getPaymentProvider } from "@/modules/payments/providers";
+import { formatMoney } from "@/lib/format/money";
 import type {
   RequestRefundInput,
   RejectRefundInput,
@@ -65,9 +66,14 @@ export async function requestRefund(
     );
     const remaining = Number(payment.amount) - refundedSoFar;
     if (input.amount > remaining + 0.005) {
+      const settings = await getInstallSettings();
+      const remainingLabel = formatMoney(remaining, {
+        locale: settings?.locale ?? "en-US",
+        currency: settings?.currency ?? "USD",
+      });
       throw new AppError(
         "VALIDATION",
-        `Refund exceeds the remaining capturable amount (₹${remaining.toFixed(2)}).`,
+        `Refund exceeds the remaining capturable amount (${remainingLabel}).`,
         { fieldErrors: { amount: ["Exceeds remaining capturable amount"] } },
       );
     }
@@ -164,9 +170,14 @@ export async function approveRefund(
     );
     const remaining = Number(current.payment.amount) - refundedSoFar;
     if (Number(current.amount) > remaining + 0.005) {
+      const settings = await getInstallSettings();
+      const remainingLabel = formatMoney(remaining, {
+        locale: settings?.locale ?? "en-US",
+        currency: settings?.currency ?? "USD",
+      });
       throw new AppError(
         "VALIDATION",
-        `Refund exceeds the remaining capturable amount (₹${remaining.toFixed(2)}).`,
+        `Refund exceeds the remaining capturable amount (${remainingLabel}).`,
       );
     }
 

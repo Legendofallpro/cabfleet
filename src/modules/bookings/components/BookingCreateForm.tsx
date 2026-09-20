@@ -16,6 +16,9 @@ import {
 } from "@/modules/bookings/validators/booking";
 import { createDeskBookingAction, estimateFareAction } from "@/modules/bookings/actions/booking.actions";
 import { lookupCustomerByPhoneAction } from "@/modules/customers/actions/customer.actions";
+import { formatMoney } from "@/lib/format/money";
+import { phonePlaceholder } from "@/lib/utils/phone";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Branch = { id: string; name: string; code: string };
 type BookingType = { id: string; name: string };
@@ -33,6 +36,9 @@ function defaultPickupAt() {
 }
 
 export function BookingCreateForm({ branches, bookingTypes }: Props) {
+  const settings = useRequiredInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [knownCustomer, setKnownCustomer] = useState<string | null>(null);
@@ -132,7 +138,7 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
         label="Mobile"
         required
         inputMode="tel"
-        placeholder="10-digit mobile"
+        placeholder={phonePlaceholder(settings.phoneRegion)}
         error={errors.phone?.message}
         {...register("phone")}
         onBlur={() => {
@@ -221,7 +227,7 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
       <p className="text-sm text-default">
         {estimate != null ? (
           <>
-            Approx. <span className="font-semibold">₹{Math.round(estimate)}</span>
+            Approx. <span className="font-semibold">{money(Math.round(estimate))}</span>
             {estimateKm != null ? ` for ${estimateKm} km` : ""}
             {". Staff quoted fare below overrides this."}
           </>
@@ -230,7 +236,7 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
         )}
       </p>
       <TextField
-        label="Quoted ₹"
+        label={`Quoted fare (${settings.currency})`}
         type="number"
         min={0}
         hint="Leave blank to use the estimate"
@@ -239,14 +245,14 @@ export function BookingCreateForm({ branches, bookingTypes }: Props) {
       />
       <div className="grid grid-cols-2 gap-4">
         <TextField
-          label="Toll ₹"
+          label={`Toll (${settings.currency})`}
           type="number"
           min={0}
           error={errors.tollAmount?.message}
           {...register("tollAmount")}
         />
         <TextField
-          label="Parking ₹"
+          label={`Parking (${settings.currency})`}
           type="number"
           min={0}
           error={errors.parkingAmount?.message}

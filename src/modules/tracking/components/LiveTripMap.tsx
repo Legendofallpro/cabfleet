@@ -24,6 +24,8 @@ import maplibregl, { type Map as MapLibreMap, type Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { createBrowserClient } from "@supabase/ssr";
+import { formatDateTime } from "@/lib/format/datetime";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 export type LiveTripPoint = {
   lat: number;
@@ -53,6 +55,7 @@ export default function LiveTripMap({
   supabaseUrl,
   supabaseAnonKey,
 }: LiveTripMapProps) {
+  const settings = useRequiredInstallSettings();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const driverMarkerRef = useRef<Marker | null>(null);
@@ -192,9 +195,11 @@ export default function LiveTripMap({
       {latest && (
         <p className="text-xs text-muted">
           Last update:{" "}
-          {new Intl.DateTimeFormat("en-IN", { timeStyle: "medium" }).format(
-            new Date(latest.recordedAt),
-          )}
+          {formatDateTime(latest.recordedAt, {
+            locale: settings.locale,
+            timeZone: settings.timezone,
+            timeStyle: "medium",
+          })}
         </p>
       )}
     </div>

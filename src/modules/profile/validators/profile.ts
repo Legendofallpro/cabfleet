@@ -49,14 +49,63 @@ export const changePasswordSchema = z
 
 export type ChangePasswordFormValues = z.input<typeof changePasswordSchema>;
 
-export const LOCALE_OPTIONS = [
-  { value: "en-IN", label: "English (India)" },
-  { value: "hi-IN", label: "Hindi (India)" },
-] as const;
+const LOCALE_LABELS: Record<string, string> = {
+  "en-US": "English (US)",
+  "en-GB": "English (UK)",
+  "en-IN": "English (India)",
+  "hi-IN": "Hindi (India)",
+};
 
-export const TIMEZONE_OPTIONS = [
-  { value: "Asia/Kolkata", label: "Asia/Kolkata (IST)" },
-  { value: "Asia/Dubai", label: "Asia/Dubai (GST)" },
-  { value: "Europe/London", label: "Europe/London (GMT/BST)" },
-  { value: "America/New_York", label: "America/New_York (ET)" },
-] as const;
+const TIMEZONE_LABELS: Record<string, string> = {
+  UTC: "UTC",
+  "Asia/Kolkata": "Asia/Kolkata (IST)",
+  "Asia/Dubai": "Asia/Dubai (GST)",
+  "Europe/London": "Europe/London (GMT/BST)",
+  "America/New_York": "America/New_York (ET)",
+};
+
+function dedupeOptions(
+  options: readonly { value: string; label: string }[],
+): { value: string; label: string }[] {
+  const seen = new Set<string>();
+  return options.filter((o) => {
+    if (seen.has(o.value)) return false;
+    seen.add(o.value);
+    return true;
+  });
+}
+
+export function buildLocaleOptions(installLocale: string) {
+  const fallbackLabel = installLocale;
+  return dedupeOptions([
+    {
+      value: installLocale,
+      label: LOCALE_LABELS[installLocale] ?? fallbackLabel,
+    },
+    { value: "en-US", label: LOCALE_LABELS["en-US"] },
+    { value: "en-GB", label: LOCALE_LABELS["en-GB"] },
+    { value: "en-IN", label: LOCALE_LABELS["en-IN"] },
+    { value: "hi-IN", label: LOCALE_LABELS["hi-IN"] },
+  ]);
+}
+
+export function buildTimezoneOptions(installTimezone: string) {
+  const fallbackLabel = installTimezone;
+  return dedupeOptions([
+    {
+      value: installTimezone,
+      label: TIMEZONE_LABELS[installTimezone] ?? fallbackLabel,
+    },
+    { value: "UTC", label: TIMEZONE_LABELS.UTC },
+    { value: "Asia/Kolkata", label: TIMEZONE_LABELS["Asia/Kolkata"] },
+    { value: "Asia/Dubai", label: TIMEZONE_LABELS["Asia/Dubai"] },
+    { value: "Europe/London", label: TIMEZONE_LABELS["Europe/London"] },
+    { value: "America/New_York", label: TIMEZONE_LABELS["America/New_York"] },
+  ]);
+}
+
+/** @deprecated Use `buildLocaleOptions(installLocale)` in client forms. */
+export const LOCALE_OPTIONS = buildLocaleOptions("en-US");
+
+/** @deprecated Use `buildTimezoneOptions(installTimezone)` in client forms. */
+export const TIMEZONE_OPTIONS = buildTimezoneOptions("UTC");

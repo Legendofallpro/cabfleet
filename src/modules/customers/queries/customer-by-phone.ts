@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { rawSqlOrgId } from "@/lib/org-context";
-import { toE164 } from "@/lib/utils/phone";
+import { resolvePhoneRegion, toE164 } from "@/lib/utils/phone";
+import { getInstallSettings } from "@/modules/install/queries/install";
 
 export type CustomerPhoneHit = {
   id: string;
@@ -9,7 +10,8 @@ export type CustomerPhoneHit = {
 };
 
 export async function findCustomerByPhone(phone: string): Promise<CustomerPhoneHit | null> {
-  const parsed = toE164(phone, "IN");
+  const settings = await getInstallSettings();
+  const parsed = toE164(phone, resolvePhoneRegion(settings?.phoneRegion));
   if (!parsed.ok) return null;
 
   const orgId = await rawSqlOrgId();

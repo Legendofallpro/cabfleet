@@ -13,7 +13,8 @@ import { BookingStatus, type Prisma } from "@prisma/client";
 import type { BookingDetail } from "@/modules/bookings/types";
 import { enqueueForChannels } from "@/modules/notifications/services/enqueue";
 import type { TemplateId } from "@/modules/notifications/services/templates";
-import { toE164 } from "@/lib/utils/phone";
+import { resolvePhoneRegion, toE164 } from "@/lib/utils/phone";
+import { getInstallSettings } from "@/modules/install/queries/install";
 
 type TransitionLog = {
   prev: BookingStatus;
@@ -75,7 +76,10 @@ export async function notifyOnTransition(
 
   const customerEmail = args.booking.customer.profile.email ?? null;
   const rawPhone = args.booking.customer.profile.phone ?? null;
-  const parsedPhone = rawPhone ? toE164(rawPhone, "IN") : null;
+  const install = await getInstallSettings();
+  const parsedPhone = rawPhone
+    ? toE164(rawPhone, resolvePhoneRegion(install?.phoneRegion))
+    : null;
   const customerPhone =
     parsedPhone && parsedPhone.ok ? parsedPhone.e164 : null;
 
@@ -85,5 +89,6 @@ export async function notifyOnTransition(
     templateId,
     recipients: { email: customerEmail, phone: customerPhone },
     variables: buildVariables(args.booking, args.reason),
+    locale: install?.locale,
   });
 }

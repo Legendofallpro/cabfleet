@@ -9,10 +9,11 @@ import { FormActions } from "@/components/common/FormActions";
 import { SelectField } from "@/components/common/form/SelectField";
 import { updateLocaleAction } from "@/modules/profile/actions/profile.actions";
 import {
-  LOCALE_OPTIONS,
+  buildLocaleOptions,
   updateLocaleSchema,
   type UpdateLocaleFormValues,
 } from "@/modules/profile/validators/profile";
+import { useInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Props = {
   defaultValues: UpdateLocaleFormValues;
@@ -20,6 +21,8 @@ type Props = {
 };
 
 export function LocaleForm({ defaultValues, cancelHref = "/profile/account" }: Props) {
+  const installLocale = useInstallSettings()?.locale ?? "en-US";
+  const localeOptions = buildLocaleOptions(installLocale);
   const router = useRouter();
   const {
     register,
@@ -51,7 +54,7 @@ export function LocaleForm({ defaultValues, cancelHref = "/profile/account" }: P
       <SelectField
         label="Language"
         required
-        options={LOCALE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        options={localeOptions.map((o) => ({ value: o.value, label: o.label }))}
         {...register("locale")}
         error={errors.locale?.message}
         hint="Used for notifications and formatted dates."

@@ -10,6 +10,9 @@ import { VoidInvoiceButton } from "@/modules/invoices/components/VoidInvoiceButt
 import { DownloadInvoiceButton } from "@/modules/invoices/components/DownloadInvoiceButton";
 import { getInvoice } from "@/modules/invoices/queries/invoice";
 import { DetailRow } from "@/components/common/DetailRow";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Invoice Detail | CabFleet Admin" };
@@ -30,18 +33,21 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
  VOID: "Void",
 };
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
- style: "currency",
- currency: "INR",
- maximumFractionDigits: 0,
-});
-
 export default async function InvoiceDetailPage({
  params,
 }: {
  params: Promise<{ id: string }>;
 }) {
+ const settings = await requireInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "long",
+   timeStyle: "short",
+  });
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
  const { id } = await params;
  const invoice = await getInvoice(id);
  if (!invoice) notFound();
@@ -85,9 +91,9 @@ export default async function InvoiceDetailPage({
        />
        <DetailRow label="Email" value={invoice.booking.customer.profile.email} />
        <DetailRow label="Branch" value={invoice.booking.branch.name} />
-       <DetailRow label="Issued at" value={dtFmt.format(new Date(invoice.issuedAt))} />
-       <DetailRow label="Due at" value={invoice.dueAt ? dtFmt.format(new Date(invoice.dueAt)) : null} />
-       <DetailRow label="Amount" value={fare != null ? currency.format(Number(fare)) : null} />
+       <DetailRow label="Issued at" value={when(new Date(invoice.issuedAt))} />
+       <DetailRow label="Due at" value={invoice.dueAt ? when(new Date(invoice.dueAt)) : null} />
+       <DetailRow label="Amount" value={fare != null ? money(Number(fare)) : null} />
        <DetailRow label="Pickup" value={invoice.booking.pickupAddress} />
        <DetailRow label="Drop" value={invoice.booking.dropAddress} />
       </dl>

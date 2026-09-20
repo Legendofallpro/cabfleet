@@ -17,6 +17,7 @@ import type { NotificationChannel, PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { ResendEmailProvider } from "@/modules/notifications/providers/ResendEmailProvider";
 import { TwilioWhatsAppProvider } from "@/modules/notifications/providers/TwilioWhatsAppProvider";
 import type { NotificationProvider } from "@/modules/notifications/providers/NotificationProvider";
@@ -109,6 +110,7 @@ function applyPrefsGate(
   channel: NotificationChannel,
   prefs: NotificationPrefs | null,
   urgent: boolean,
+  defaultTimezone: string,
 ): string | null {
   if (!prefs) return null;
   const channelOptIn =
@@ -120,7 +122,7 @@ function applyPrefsGate(
   const end = parseHhmm(prefs.quietHoursEnd);
   if (start === null || end === null) return null;
 
-  const tz = prefs.timezone ?? "Asia/Kolkata";
+  const tz = prefs.timezone ?? defaultTimezone;
   if (isInsideQuietHours(new Date(), start, end, tz)) {
     return "quiet_hours";
   }
@@ -177,7 +179,13 @@ export async function dispatch(
     );
   }
 
-  const skipReason = applyPrefsGate(input.channel, prefs, urgent);
+  const install = await getInstallSettings();
+  const skipReason = applyPrefsGate(
+    input.channel,
+    prefs,
+    urgent,
+    install?.timezone ?? "UTC",
+  );
   if (skipReason) {
     logger.info(
       { templateId: input.templateId, channel: input.channel, skipReason },
@@ -195,7 +203,7 @@ export async function dispatch(
       to: input.recipient,
       templateId: input.templateId,
       variables: safeVars,
-      locale: input.locale ?? "en-IN",
+      locale: input.locale ?? install?.locale ?? "en-US",
     });
 
     await client.notificationLog.create({

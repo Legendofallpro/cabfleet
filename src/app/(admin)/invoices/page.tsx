@@ -6,6 +6,8 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { listInvoices } from "@/modules/invoices/queries/invoice";
+import { formatDateTime } from "@/lib/format/datetime";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,9 +30,14 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
  VOID: "Void",
 };
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" });
-
 export default async function InvoicesPage() {
+ const settings = await requireInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+  });
  const { rows, total } = await listInvoices({ pageSize: 50 });
 
  const issued = rows.filter((i: (typeof rows)[0]) => i.status === "ISSUED").length;
@@ -128,10 +135,10 @@ export default async function InvoicesPage() {
             </StatusBadge>
            </td>
            <td className="px-5 py-3.5 text-muted">
-            {dtFmt.format(new Date(inv.issuedAt))}
+            {when(new Date(inv.issuedAt))}
            </td>
            <td className="px-5 py-3.5 text-muted">
-            {inv.dueAt ? dtFmt.format(new Date(inv.dueAt)) : "—"}
+            {inv.dueAt ? when(new Date(inv.dueAt)) : "—"}
            </td>
            <td className="px-5 py-3.5 text-right">
             <Link

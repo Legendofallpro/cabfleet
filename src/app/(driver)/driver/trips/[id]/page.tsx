@@ -14,6 +14,8 @@ import { TripActionBar } from "@/app/(driver)/_components/TripActionBar";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { DriverLocationPublisher } from "@/modules/tracking/components/DriverLocationPublisher";
 import { env } from "@/lib/env";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Trip Detail | CabFleet Driver" };
 
@@ -55,6 +57,7 @@ export default async function TripDetailPage({
     booking.status === "IN_PROGRESS"
       ? [booking.dropAddress, booking.dropLandmark].filter(Boolean).join(", ")
       : [booking.pickupAddress, booking.pickupLandmark].filter(Boolean).join(", ");
+  const settings = await requireInstallSettings();
 
   return (
     <div className="space-y-4 pb-40">
@@ -99,7 +102,12 @@ export default async function TripDetailPage({
           {booking.fareEstimate && (
             <>
               <dt className="text-muted">Est. Fare</dt>
-              <dd className="font-medium text-default">₹{Number(booking.fareEstimate).toFixed(0)}</dd>
+              <dd className="font-medium text-default">
+                {formatMoney(Number(booking.fareEstimate), {
+                  locale: settings.locale,
+                  currency: settings.currency,
+                })}
+              </dd>
             </>
           )}
           {booking.distanceKm && (

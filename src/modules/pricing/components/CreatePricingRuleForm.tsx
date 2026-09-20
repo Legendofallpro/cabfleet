@@ -10,6 +10,7 @@ import {
   type CreatePricingRuleFormValues,
 } from "@/modules/pricing/validators/pricing-rule";
 import { createPricingRuleAction } from "@/modules/pricing/actions/pricing-rule.actions";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Props = {
   branches: { id: string; name: string; code: string }[];
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function CreatePricingRuleForm({ branches, bookingTypes }: Props) {
+  const settings = useRequiredInstallSettings();
   const {
     register,
     handleSubmit,
@@ -73,7 +75,7 @@ export function CreatePricingRuleForm({ branches, bookingTypes }: Props) {
       />
       <div className="grid grid-cols-3 gap-4">
         <TextField
-          label="Base ₹"
+          label={`Base (${settings.currency})`}
           type="number"
           min={0}
           required
@@ -81,7 +83,7 @@ export function CreatePricingRuleForm({ branches, bookingTypes }: Props) {
           {...register("baseFare")}
         />
         <TextField
-          label="Per km ₹"
+          label={`Per km (${settings.currency})`}
           type="number"
           min={0}
           required
@@ -89,7 +91,7 @@ export function CreatePricingRuleForm({ branches, bookingTypes }: Props) {
           {...register("perKm")}
         />
         <TextField
-          label="Per min ₹"
+          label={`Per min (${settings.currency})`}
           type="number"
           min={0}
           required

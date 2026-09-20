@@ -8,6 +8,9 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { listExpenses } from "@/modules/expenses/queries/expense";
 import { ExpenseForm } from "@/modules/expenses/components/ExpenseForm";
 import { EXPENSE_CATEGORIES } from "@/modules/expenses/validators/expense";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,16 @@ interface Props {
 
 export default async function ExpensesPage({ searchParams }: Props) {
  await requirePermission(PERMISSIONS.EXPENSE_VIEW);
+ const settings = await requireInstallSettings();
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+   timeStyle: "short",
+  });
 
  const params = await searchParams;
  const now = new Date();
@@ -63,8 +76,6 @@ export default async function ExpensesPage({ searchParams }: Props) {
   spendByCategory[row.category] = (spendByCategory[row.category] ?? 0) + Number(row.amount);
  }
 
- const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
  return (
   <div>
    <PageBreadcrumb pageTitle="Expenses" />
@@ -90,7 +101,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
      <StatCard
       label="Total Spend"
-      value={`₹${totalSpend.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+      value={money(totalSpend)}
       tone="error"
      />
      <StatCard label="Records" value={total.toString()} tone="info" />
@@ -98,7 +109,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
       label="Avg per Record"
       value={
        total > 0
-        ? `₹${(totalSpend / total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+        ? money(totalSpend / total)
         : "—"
       }
       tone="default"
@@ -113,7 +124,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
         <div key={cat} className="rounded-xl border border-default bg-surface-inset p-3">
          <p className="text-xs text-muted">{CATEGORY_LABELS[cat] ?? cat}</p>
          <p className="mt-1 text-base font-semibold text-default">
-          ₹{amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          {money(amount)}
          </p>
         </div>
        ))}
@@ -149,13 +160,13 @@ export default async function ExpensesPage({ searchParams }: Props) {
          {rows.map((row) => (
           <tr key={row.id} className="border-b border-default last:border-0">
            <td className="py-3 pr-4 text-default">
-            {dtFmt.format(new Date(row.at))}
+            {when(new Date(row.at))}
            </td>
            <td className="py-3 pr-4 text-default">
             {CATEGORY_LABELS[row.category] ?? row.category}
            </td>
            <td className="py-3 pr-4 font-medium text-on-error-subtle">
-            ₹{Number(row.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {money(Number(row.amount))}
            </td>
            <td className="py-3 pr-4 text-muted">
             {row.vehicle

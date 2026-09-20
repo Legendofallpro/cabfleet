@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import type { BookingStatus } from "@prisma/client";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "My Trips | CabFleet Driver" };
 
@@ -21,7 +23,13 @@ const COMPLETED_STATUSES = new Set<string>(["COMPLETED", "NO_SHOW", "CANCELLED",
 
 type TripRow = Awaited<ReturnType<typeof listMyTrips>>[number];
 
-function TripCard({ booking }: { booking: TripRow }) {
+function TripCard({
+  booking,
+  money,
+}: {
+  booking: TripRow;
+  money: (n: number) => string;
+}) {
   const status = booking.status as BookingStatus;
   const fare = booking.fareFinal ?? booking.fareEstimate;
   return (
@@ -43,7 +51,7 @@ function TripCard({ booking }: { booking: TripRow }) {
       </div>
       {fare != null && (
         <p className="shrink-0 text-sm font-semibold text-default">
-          ₹{Number(fare).toFixed(0)}
+          {money(Number(fare))}
         </p>
       )}
     </Link>
@@ -65,6 +73,9 @@ export default async function MyTripsPage() {
   }
 
   const bookings = await listMyTrips(driver.id);
+  const settings = await requireInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
 
   const active = bookings.filter((b) =>
     ACTIVE_BOOKING_STATUSES.includes(b.status as BookingStatus),
@@ -100,7 +111,7 @@ export default async function MyTripsPage() {
               <ul className="divide-y divide-default">
                 {active.map((b) => (
                   <li key={b.id}>
-                    <TripCard booking={b} />
+                    <TripCard booking={b} money={money} />
                   </li>
                 ))}
               </ul>
@@ -112,7 +123,7 @@ export default async function MyTripsPage() {
               <ul className="divide-y divide-default">
                 {completed.map((b) => (
                   <li key={b.id}>
-                    <TripCard booking={b} />
+                    <TripCard booking={b} money={money} />
                   </li>
                 ))}
               </ul>

@@ -17,6 +17,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import { listRefunds } from "@/modules/payments/queries/refund";
 import { RefundDecisionButtons } from "@/modules/payments/components/RefundDecisionButtons";
 import type { RefundStatus } from "@prisma/client";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Refunds | CabFleet Admin" };
 export const dynamic = "force-dynamic";
@@ -29,12 +31,6 @@ const STATUS_TONE: Record<RefundStatus, StatusTone> = {
   REJECTED: "neutral",
 };
 
-const inr = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 2,
-});
-
 type RefundRow = Awaited<ReturnType<typeof listRefunds>>["rows"][number];
 
 export default async function RefundsQueuePage() {
@@ -46,6 +42,10 @@ export default async function RefundsQueuePage() {
   ) {
     redirect("/dashboard");
   }
+
+  const settings = await requireInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
 
   const [{ rows: pending }, { rows: recent }] = await Promise.all([
     listRefunds({ status: "REQUESTED", pageSize: 50 }),
@@ -64,7 +64,7 @@ export default async function RefundsQueuePage() {
         </Link>
       ),
     },
-    { header: "Amount", cell: (r) => inr.format(Number(r.amount)) },
+    { header: "Amount", cell: (r) => money(Number(r.amount)) },
     { header: "Reason", cell: (r) => r.reason },
     {
       header: "Requested by",
@@ -106,7 +106,7 @@ export default async function RefundsQueuePage() {
         </Link>
       ),
     },
-    { header: "Amount", cell: (r) => inr.format(Number(r.amount)) },
+    { header: "Amount", cell: (r) => money(Number(r.amount)) },
     { header: "Reason", cell: (r) => r.reason },
     {
       header: "Approved by",

@@ -9,6 +9,7 @@ import { ChangePasswordForm } from "@/modules/profile/components/ChangePasswordF
 import { LocaleForm } from "@/modules/profile/components/LocaleForm";
 import { NotificationPrefsForm } from "@/modules/profile/components/NotificationPrefsForm";
 import { parseNotificationPrefsFormValues } from "@/modules/profile/profile.constants";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Account Settings | CabFleet Driver" };
 
@@ -17,8 +18,10 @@ export default async function DriverAccountSettingsPage() {
   if (!session) redirect("/signin?redirectTo=/driver/profile/account");
   if (session.profile.role !== "DRIVER") redirect(getRoleHome(session.profile.role));
 
+  const settings = await requireInstallSettings();
   const notificationDefaults = parseNotificationPrefsFormValues(
     session.profile.notificationPrefs,
+    settings.timezone,
   );
   const cancelHref = "/driver/profile/account";
 

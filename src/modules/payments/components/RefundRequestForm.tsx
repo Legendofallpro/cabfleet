@@ -11,6 +11,8 @@ import {
   type RequestRefundFormValues,
 } from "@/modules/payments/validators/refund";
 import { requestRefundAction } from "@/modules/payments/actions/refund.actions";
+import { formatMoney } from "@/lib/format/money";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type Props = {
   paymentId: string;
@@ -24,6 +26,9 @@ export function RefundRequestForm({
   capturedAmount,
   remainingAmount,
 }: Props) {
+  const settings = useRequiredInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
   const router = useRouter();
   const {
     register,
@@ -61,13 +66,13 @@ export function RefundRequestForm({
       <input type="hidden" {...register("paymentId")} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField
-          label="Amount (₹)"
+          label={`Amount (${settings.currency})`}
           type="number"
           step="0.01"
           required
           {...register("amount")}
           error={errors.amount?.message}
-          hint={`Captured ₹${capturedAmount.toFixed(2)} · Remaining ₹${remainingAmount.toFixed(2)}`}
+          hint={`Captured ${money(capturedAmount)} · Remaining ${money(remainingAmount)}`}
         />
         <TextField
           label="Reason"

@@ -1,7 +1,11 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
+import { formatMoney } from "@/lib/format/money";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 function ChevronRightIcon() {
   return (
@@ -24,6 +28,7 @@ interface RecentTripsListProps {
 }
 
 export function RecentTripsList({ trips }: RecentTripsListProps) {
+  const settings = useRequiredInstallSettings();
   return (
     <SurfaceCard padding="md" title="Recent Trips">
       {trips.length === 0 ? (
@@ -48,7 +53,10 @@ export function RecentTripsList({ trips }: RecentTripsListProps) {
                   </div>
                   {trip.fareFinal != null && (
                     <p className="shrink-0 text-sm font-semibold text-default">
-                      ₹{Number(trip.fareFinal).toFixed(0)}
+                      {formatMoney(Number(trip.fareFinal), {
+                        locale: settings.locale,
+                        currency: settings.currency,
+                      })}
                     </p>
                   )}
                   <ChevronRightIcon />

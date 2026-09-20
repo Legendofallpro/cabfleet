@@ -14,19 +14,25 @@ import {
   isTerminalStatus,
 } from "@/modules/bookings/booking.constants";
 import { CancelBookingButton } from "@/modules/bookings/components/CancelBookingButton";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 const CANCELLABLE = new Set<BookingStatus>(["PENDING", "OPEN_FOR_CLAIM"]);
 
 export const metadata: Metadata = { title: "My trips | CabFleet" };
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
 export default async function MyBookingsPage() {
+  const settings = await requireInstallSettings();
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
   const session = await getSessionUser();
   if (!session) redirect("/signin?redirectTo=/portal/bookings");
   if (session.profile.role !== "CUSTOMER") redirect(getRoleHome(session.profile.role));
@@ -58,7 +64,7 @@ export default async function MyBookingsPage() {
           </div>
         ) : (
           upcoming.map((booking) => (
-            <TripRow key={booking.id} booking={booking} />
+            <TripRow key={booking.id} booking={booking} when={when} money={money} />
           ))
         )}
       </section>
@@ -68,7 +74,9 @@ export default async function MyBookingsPage() {
         {past.length === 0 ? (
           <p className="text-sm text-muted">No past trips yet.</p>
         ) : (
-          past.map((booking) => <TripRow key={booking.id} booking={booking} />)
+          past.map((booking) => (
+            <TripRow key={booking.id} booking={booking} when={when} money={money} />
+          ))
         )}
       </section>
     </div>
@@ -77,8 +85,12 @@ export default async function MyBookingsPage() {
 
 function TripRow({
   booking,
+  when,
+  money,
 }: {
   booking: Awaited<ReturnType<typeof listCustomerBookings>>["rows"][number];
+  when: (d: Date) => string;
+  money: (n: number) => string;
 }) {
   const status = booking.status as BookingStatus;
   const fare = booking.fareFinal ?? booking.fareEstimate;
@@ -86,7 +98,7 @@ function TripRow({
     <div className="rounded-2xl border border-default bg-surface-elevated p-4">
       <Link href={`/portal/bookings/${booking.id}`} className="block">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs text-muted">{dtFmt.format(new Date(booking.pickupAt))}</span>
+          <span className="text-xs text-muted">{when(new Date(booking.pickupAt))}</span>
           <StatusBadge tone={BOOKING_STATUS_TONE[status]}>
             {CUSTOMER_STATUS_LABEL[status]}
           </StatusBadge>
@@ -94,7 +106,7 @@ function TripRow({
         <p className="truncate text-sm text-default">{booking.pickupAddress}</p>
         <p className="mt-0.5 truncate text-sm text-muted">→ {booking.dropAddress}</p>
         {fare != null && (
-          <p className="mt-2 text-sm font-medium text-default">{currency.format(fare)}</p>
+          <p className="mt-2 text-sm font-medium text-default">{money(Number(fare))}</p>
         )}
       </Link>
       {CANCELLABLE.has(status) && (

@@ -26,16 +26,12 @@ import { PayNowButton } from "@/modules/payments/components/PayNowButton";
 import { listRecentForBooking } from "@/modules/tracking/queries/location";
 import LiveTripMapLoader from "@/modules/tracking/components/LiveTripMapLoader";
 import { DetailRow } from "@/components/common/DetailRow";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Trip | CabFleet" };
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 const CANCELLABLE = new Set<BookingStatus>(["PENDING", "OPEN_FOR_CLAIM"]);
 const DRIVER_VISIBLE = new Set<BookingStatus>([
@@ -75,6 +71,16 @@ export default async function CustomerBookingDetailPage({
   const showDriver = DRIVER_VISIBLE.has(status) && Boolean(driverRecord);
   const driverPhone = driverRecord?.profile.phone ?? null;
   const extras = Number(booking.tollAmount ?? 0) + Number(booking.parkingAmount ?? 0);
+  const settings = await requireInstallSettings();
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
 
   return (
     <div className="space-y-5">
@@ -94,7 +100,7 @@ export default async function CustomerBookingDetailPage({
       >
         <p className="mb-4 text-lg font-semibold text-default">{CUSTOMER_STATUS_LABEL[status]}</p>
         <dl className="divide-y divide-default">
-          <DetailRow label="When" value={dtFmt.format(new Date(booking.pickupAt))} />
+          <DetailRow label="When" value={when(new Date(booking.pickupAt))} />
           <DetailRow label="From" value={booking.pickupAddress} />
           {booking.pickupLandmark ? (
             <DetailRow label="Pickup landmark" value={booking.pickupLandmark} />
@@ -104,17 +110,17 @@ export default async function CustomerBookingDetailPage({
             <DetailRow label="Drop landmark" value={booking.dropLandmark} />
           ) : null}
           {booking.fareEstimate != null && (
-            <DetailRow label="Fare estimate" value={currency.format(Number(booking.fareEstimate))} />
+            <DetailRow label="Fare estimate" value={money(Number(booking.fareEstimate))} />
           )}
           {extras > 0 && (
-            <DetailRow label="Toll and parking" value={currency.format(extras)} />
+            <DetailRow label="Toll and parking" value={money(extras)} />
           )}
           {booking.fareFinal != null && (
             <DetailRow
               label="Final fare"
               value={
                 <span className="font-semibold text-default">
-                  {currency.format(Number(booking.fareFinal))}
+                  {money(Number(booking.fareFinal))}
                 </span>
               }
             />
@@ -122,7 +128,7 @@ export default async function CustomerBookingDetailPage({
           {due && due.breakdown.gst > 0 && (
             <DetailRow
               label={`GST ${due.breakdown.gstRate}%`}
-              value={currency.format(due.breakdown.gst)}
+              value={money(due.breakdown.gst)}
             />
           )}
           {due && due.outstanding > 0 && (
@@ -130,7 +136,7 @@ export default async function CustomerBookingDetailPage({
               label="Amount due"
               value={
                 <span className="font-semibold text-default">
-                  {currency.format(due.outstanding)}
+                  {money(due.outstanding)}
                 </span>
               }
             />

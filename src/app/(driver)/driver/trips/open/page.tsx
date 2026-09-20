@@ -8,6 +8,8 @@ import { ClaimButton } from "@/app/(driver)/_components/ClaimButton";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatCard } from "@/components/common/StatCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Open Trips | CabFleet Driver" };
 
@@ -38,6 +40,7 @@ export default async function OpenTripsPage() {
   }
 
   const bookings = await listOpenForClaimBookings(driver.branchId);
+  const settings = await requireInstallSettings();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -74,7 +77,10 @@ export default async function OpenTripsPage() {
               <span>{booking.passengers} pax</span>
               {booking.fareEstimate && (
                 <span className="font-medium text-default">
-                  ₹{Number(booking.fareEstimate).toFixed(0)}
+                  {formatMoney(Number(booking.fareEstimate), {
+                    locale: settings.locale,
+                    currency: settings.currency,
+                  })}
                 </span>
               )}
             </div>

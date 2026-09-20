@@ -9,6 +9,7 @@ import { TextField } from "@/components/common/form/TextField";
 import { SelectField } from "@/components/common/form/SelectField";
 import { TextareaField } from "@/components/common/form/TextareaField";
 import { createMaintenanceLogAction } from "@/modules/maintenance/actions/maintenance.actions";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 import {
  createMaintenanceLogSchema,
  MAINTENANCE_TYPES,
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function MaintenanceLogForm({ vehicleId, onSuccess, cancelHref }: Props) {
+ const settings = useRequiredInstallSettings();
  const [submitting, setSubmitting] = useState(false);
 
  const {
@@ -74,7 +76,7 @@ export function MaintenanceLogForm({ vehicleId, onSuccess, cancelHref }: Props) 
      {...register("type")}
     />
     <TextField
-     label="Cost (₹)"
+     label={`Cost (${settings.currency})`}
      type="number"
      step="0.01"
      min="0"

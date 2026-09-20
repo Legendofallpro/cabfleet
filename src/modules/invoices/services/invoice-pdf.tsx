@@ -5,6 +5,9 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+
 const styles = StyleSheet.create({
  page: {
   fontFamily: "Helvetica",
@@ -126,13 +129,6 @@ const styles = StyleSheet.create({
  },
 });
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" });
-const currency = new Intl.NumberFormat("en-IN", {
- style: "currency",
- currency: "INR",
- maximumFractionDigits: 2,
-});
-
 export type InvoicePDFData = {
  invoiceNumber: string;
  issuedAt: Date;
@@ -154,10 +150,33 @@ export type InvoicePDFData = {
  parking: number;
  gst: number;
  total: number;
+ locale: string;
+ currency: string;
+ timezone: string;
 };
 
 export function InvoicePDF({ data }: { data: InvoicePDFData }) {
  const showGst = data.gstRate > 0 && data.gst > 0;
+ const money = (n: number) =>
+  formatMoney(n, { locale: data.locale, currency: data.currency });
+ const issued = formatDateTime(data.issuedAt, {
+  locale: data.locale,
+  timeZone: data.timezone,
+  dateStyle: "long",
+ });
+ const due = data.dueAt
+  ? formatDateTime(data.dueAt, {
+     locale: data.locale,
+     timeZone: data.timezone,
+     dateStyle: "long",
+    })
+  : null;
+ const pickup = formatDateTime(data.pickupAt, {
+  locale: data.locale,
+  timeZone: data.timezone,
+  dateStyle: "long",
+  timeStyle: "short",
+ });
 
  return (
   <Document>
@@ -173,9 +192,9 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      <View>
       <Text style={styles.invoiceTitle}>INVOICE</Text>
       <Text style={styles.invoiceMeta}>#{data.invoiceNumber}</Text>
-      <Text style={styles.invoiceMeta}>Issued: {dtFmt.format(data.issuedAt)}</Text>
-      {data.dueAt && (
-       <Text style={styles.invoiceMeta}>Due: {dtFmt.format(data.dueAt)}</Text>
+      <Text style={styles.invoiceMeta}>Issued: {issued}</Text>
+      {data.dueAt && due && (
+       <Text style={styles.invoiceMeta}>Due: {due}</Text>
       )}
      </View>
     </View>
@@ -203,12 +222,7 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      </View>
      <View style={styles.row}>
       <Text style={styles.label}>Pickup Date &amp; Time</Text>
-      <Text style={styles.value}>
-       {new Intl.DateTimeFormat("en-IN", {
-        dateStyle: "long",
-        timeStyle: "short",
-       }).format(data.pickupAt)}
-      </Text>
+      <Text style={styles.value}>{pickup}</Text>
      </View>
      <View style={styles.row}>
       <Text style={styles.label}>Pickup Address</Text>
@@ -230,34 +244,34 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      <View style={styles.tableRow}>
       <Text style={styles.col1}>Passenger transport</Text>
       <Text style={styles.col2}>{data.sacCode}</Text>
-      <Text style={styles.col3}>{currency.format(data.transport)}</Text>
+      <Text style={styles.col3}>{money(data.transport)}</Text>
      </View>
      {data.toll > 0 && (
       <View style={styles.tableRow}>
        <Text style={styles.col1}>Toll</Text>
        <Text style={styles.col2}>—</Text>
-       <Text style={styles.col3}>{currency.format(data.toll)}</Text>
+       <Text style={styles.col3}>{money(data.toll)}</Text>
       </View>
      )}
      {data.parking > 0 && (
       <View style={styles.tableRow}>
        <Text style={styles.col1}>Parking</Text>
        <Text style={styles.col2}>—</Text>
-       <Text style={styles.col3}>{currency.format(data.parking)}</Text>
+       <Text style={styles.col3}>{money(data.parking)}</Text>
       </View>
      )}
      {showGst && (
       <View style={styles.tableRow}>
        <Text style={styles.col1}>GST {data.gstRate}%</Text>
        <Text style={styles.col2}>—</Text>
-       <Text style={styles.col3}>{currency.format(data.gst)}</Text>
+       <Text style={styles.col3}>{money(data.gst)}</Text>
       </View>
      )}
     </View>
 
     <View style={styles.totalBox}>
      <Text style={styles.totalLabel}>Total</Text>
-     <Text style={styles.totalValue}>{currency.format(data.total)}</Text>
+     <Text style={styles.totalValue}>{money(data.total)}</Text>
     </View>
 
     <View style={styles.footer}>

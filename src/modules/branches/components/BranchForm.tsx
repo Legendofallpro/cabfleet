@@ -92,7 +92,7 @@ export function BranchForm({ mode, defaultValues }: Props) {
     />
     <TextField
      label="Timezone"
-     placeholder="Asia/Kolkata"
+     placeholder="IANA timezone"
      {...register("timezone")}
      error={errors.timezone?.message}
     />

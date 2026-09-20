@@ -24,7 +24,7 @@ export type NotificationMessage = {
   templateId: string;
   /** Interpolated variables. Already sanitized via `sanitizeTemplateVar`. */
   variables: Record<string, string | number>;
-  /** BCP-47 locale ("en-IN" by default). */
+  /** BCP-47 locale from install settings (or the enqueue caller). */
   locale: string;
 };
 

@@ -10,6 +10,8 @@ import { listBranches } from "@/modules/branches/queries/branch";
 import { listStaff } from "@/modules/staff/queries/staff";
 import { ShiftForm } from "@/modules/shifts/components/ShiftForm";
 import { DeleteShiftButton } from "@/modules/shifts/components/DeleteShiftButton";
+import { formatDateTime } from "@/lib/format/datetime";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,16 @@ interface Props {
  }>;
 }
 
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" });
-
 export default async function ShiftsPage({ searchParams }: Props) {
  await requirePermission(PERMISSIONS.SHIFT_VIEW);
+ const settings = await requireInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+   timeStyle: "short",
+  });
 
  const params = await searchParams;
  const now = new Date();
@@ -137,10 +145,10 @@ export default async function ShiftsPage({ searchParams }: Props) {
               : "Unassigned"}
             </td>
             <td className="py-3 pr-4 text-default">
-             {dtFmt.format(new Date(shift.startsAt))}
+             {when(new Date(shift.startsAt))}
             </td>
             <td className="py-3 pr-4 text-default">
-             {dtFmt.format(new Date(shift.endsAt))}
+             {when(new Date(shift.endsAt))}
             </td>
             <td className="py-3 pr-4 text-muted">{durationH.toFixed(1)} h</td>
             <td className="py-3">

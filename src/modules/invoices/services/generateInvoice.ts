@@ -19,6 +19,7 @@ import type { GenerateInvoiceInput } from "@/modules/invoices/validators/invoice
 import { GST_SAC_CODE, gstBreakdown } from "@/modules/invoices/gst";
 import { INVOICE_BUCKET, invoiceStoragePath } from "@/modules/invoices/invoice-storage";
 import type { Invoice } from "@prisma/client";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 type Actor = { id: string };
 
@@ -70,6 +71,7 @@ export async function generateInvoice(
   }
 
   const supabase = getSupabaseAdminClient();
+  const install = await requireInstallSettings();
 
   // 6. Write Invoice row + AuditLog in a single transaction
   let invoiceNumber = "";
@@ -141,6 +143,9 @@ export async function generateInvoice(
       parking: breakdown.parking,
       gst: breakdown.gst,
       total: breakdown.total,
+      locale: install.locale,
+      currency: install.currency,
+      timezone: install.timezone,
     };
 
     const orgId = booking.orgId;

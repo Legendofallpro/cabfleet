@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { toE164 } from "@/lib/utils/phone";
+import {
+  invalidPhoneMessage,
+  resolvePhoneRegion,
+  toE164,
+} from "@/lib/utils/phone";
 
 /**
  * Shared client-side schemas for auth forms. Server-side trust still flows
@@ -32,22 +36,25 @@ export type SignInValues = z.input<typeof signInSchema>;
 // Sign up
 // ────────────────────────────────────────────────────────────────────────────
 
-export const signUpSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").max(80),
-  lastName: z.string().trim().min(1, "Last name is required").max(80),
-  phone: z
-    .string()
-    .trim()
-    .min(1, "Mobile number is required")
-    .refine((v) => toE164(v, "IN").ok, "Enter a valid 10-digit Indian mobile number"),
-  email: emailSchema.refine(
-    (v) => !v.toLowerCase().endsWith(".invalid"),
-    "Use a real email address",
-  ),
-  password: passwordSchema,
-  agreed: z.literal(true, { message: "Please accept the terms" }),
-});
-export type SignUpValues = z.input<typeof signUpSchema>;
+export function createSignUpSchema(phoneRegion: string) {
+  const region = resolvePhoneRegion(phoneRegion);
+  return z.object({
+    firstName: z.string().trim().min(1, "First name is required").max(80),
+    lastName: z.string().trim().min(1, "Last name is required").max(80),
+    phone: z
+      .string()
+      .trim()
+      .min(1, "Mobile number is required")
+      .refine((v) => toE164(v, region).ok, invalidPhoneMessage(region)),
+    email: emailSchema.refine(
+      (v) => !v.toLowerCase().endsWith(".invalid"),
+      "Use a real email address",
+    ),
+    password: passwordSchema,
+    agreed: z.literal(true, { message: "Please accept the terms" }),
+  });
+}
+export type SignUpValues = z.input<ReturnType<typeof createSignUpSchema>>;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Reset password (request link)

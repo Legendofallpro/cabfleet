@@ -26,21 +26,28 @@ import { InviteCustomerToPortalButton } from "@/modules/customers/components/Inv
 import { BookingPendingEditForm } from "@/modules/bookings/components/BookingPendingEditForm";
 import { DetailRow } from "@/components/common/DetailRow";
 import { env } from "@/lib/env";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Booking Detail | CabFleet Admin" };
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
- style: "currency",
- currency: "INR",
- maximumFractionDigits: 0,
-});
 
 export default async function BookingDetailPage({
  params,
 }: {
  params: Promise<{ id: string }>;
 }) {
+ const settings = await requireInstallSettings();
+ const dtFmt = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "long",
+   timeStyle: "short",
+  });
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
+
  const { id } = await params;
 
  const booking = await getBooking(id);
@@ -88,9 +95,9 @@ export default async function BookingDetailPage({
             phone={booking.customer.profile.phone}
             text={[
               `CabFleet booking ${bookingRef}`,
-              dtFmt.format(new Date(booking.pickupAt)),
+              dtFmt(new Date(booking.pickupAt)),
               `${booking.pickupAddress} → ${booking.dropAddress}`,
-              booking.fareEstimate != null ? `Fare ₹${Math.round(Number(booking.fareEstimate))}` : null,
+              booking.fareEstimate != null ? `Fare ${money(Number(booking.fareEstimate))}` : null,
               booking.customer.staffManaged
                 ? null
                 : `Track: ${env.NEXT_PUBLIC_APP_URL}/portal/bookings/${booking.id}`,
@@ -125,7 +132,7 @@ export default async function BookingDetailPage({
        <DetailRow label="Branch" value={`${booking.branch.name} (${booking.branch.code})`} />
        <DetailRow label="Booking type" value={booking.bookingType.name} />
        <DetailRow label="Dispatch mode" value={DISPATCH_MODE_LABEL[booking.dispatchMode]} />
-       <DetailRow label="Pickup at" value={dtFmt.format(new Date(booking.pickupAt))} />
+       <DetailRow label="Pickup at" value={dtFmt(new Date(booking.pickupAt))} />
        <DetailRow label="Pickup address" value={booking.pickupAddress} />
        <DetailRow label="Pickup landmark" value={booking.pickupLandmark} />
        <DetailRow label="Drop address" value={booking.dropAddress} />
@@ -137,19 +144,19 @@ export default async function BookingDetailPage({
        />
        <DetailRow
         label="Fare estimate"
-        value={booking.fareEstimate != null ? currency.format(Number(booking.fareEstimate)) : null}
+        value={booking.fareEstimate != null ? money(Number(booking.fareEstimate)) : null}
        />
        <DetailRow
         label="Toll"
-        value={Number(booking.tollAmount) > 0 ? currency.format(Number(booking.tollAmount)) : null}
+        value={Number(booking.tollAmount) > 0 ? money(Number(booking.tollAmount)) : null}
        />
        <DetailRow
         label="Parking"
-        value={Number(booking.parkingAmount) > 0 ? currency.format(Number(booking.parkingAmount)) : null}
+        value={Number(booking.parkingAmount) > 0 ? money(Number(booking.parkingAmount)) : null}
        />
        <DetailRow
         label="Final fare"
-        value={booking.fareFinal != null ? currency.format(Number(booking.fareFinal)) : null}
+        value={booking.fareFinal != null ? money(Number(booking.fareFinal)) : null}
        />
        <DetailRow label="Notes" value={booking.notes} />
       </dl>
@@ -202,7 +209,7 @@ export default async function BookingDetailPage({
          />
         )}
         {booking.assignedAt && (
-         <DetailRow label="Assigned at" value={dtFmt.format(new Date(booking.assignedAt))} />
+         <DetailRow label="Assigned at" value={dtFmt(new Date(booking.assignedAt))} />
         )}
         {booking.assignedBy && (
          <DetailRow label="Assigned by" value={booking.assignedBy.fullName ?? booking.assignedBy.email} />
@@ -283,7 +290,7 @@ export default async function BookingDetailPage({
      >
       {due && due.outstanding > 0 && (
        <p className="mb-2 text-xs text-muted">
-        Outstanding {currency.format(due.outstanding)}
+        Outstanding {money(due.outstanding)}
         {due.breakdown.gst > 0 ? ` (incl. GST ${due.breakdown.gstRate}%)` : ""}
        </p>
       )}
@@ -295,7 +302,7 @@ export default async function BookingDetailPage({
          <li key={p.id} className="flex items-center justify-between py-2">
           <span className="text-xs text-muted">{p.method} · {p.status}</span>
           <Link href={`/payments/${p.id}`} className="text-xs font-medium text-default hover:underline">
-           {currency.format(Number(p.amount))}
+           {money(Number(p.amount))}
           </Link>
          </li>
         ))}

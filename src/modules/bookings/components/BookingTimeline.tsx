@@ -1,6 +1,10 @@
+"use client";
+
 import { type BookingDetail } from "@/modules/bookings/types";
 import { BOOKING_STATUS_LABEL } from "@/modules/bookings/booking.constants";
 import type { AuditAction } from "@prisma/client";
+import { formatDateTime } from "@/lib/format/datetime";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type HistoryEntry = BookingDetail["assignmentHistory"][number];
 
@@ -24,12 +28,15 @@ const ACTION_COLOR: Partial<Record<AuditAction, string>> = {
  CLAIM: "bg-primary",
 };
 
-const fmt = new Intl.DateTimeFormat("en-IN", {
- dateStyle: "medium",
- timeStyle: "short",
-});
-
 function TimelineRow({ entry }: { entry: HistoryEntry }) {
+ const settings = useRequiredInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+   timeStyle: "short",
+  });
  const icon = ACTION_ICON[entry.action] ?? "●";
  const color = ACTION_COLOR[entry.action] ?? "bg-surface-inset";
  const actor = entry.byProfile?.fullName ?? entry.byProfile?.email ?? "System";
@@ -61,7 +68,7 @@ function TimelineRow({ entry }: { entry: HistoryEntry }) {
      <p className="mt-0.5 text-xs italic text-muted">&ldquo;{entry.reason}&rdquo;</p>
     )}
     <p className="mt-1 text-xs text-muted">
-     {fmt.format(new Date(entry.at))} &middot; {actor}
+     {when(new Date(entry.at))} &middot; {actor}
     </p>
    </div>
   </li>
@@ -74,6 +81,14 @@ type Props = {
 
 export function BookingTimeline({ booking }: Props) {
  const { assignmentHistory, createdAt, createdBy, status } = booking;
+ const settings = useRequiredInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+   timeStyle: "short",
+  });
 
  return (
   <div>
@@ -109,7 +124,7 @@ export function BookingTimeline({ booking }: Props) {
      <div className="text-sm">
       <p className="font-medium text-default">Booking created</p>
       <p className="text-xs text-muted">
-       {fmt.format(new Date(createdAt))}
+       {when(new Date(createdAt))}
        {createdBy && ` · ${createdBy.fullName ?? createdBy.email}`}
       </p>
      </div>

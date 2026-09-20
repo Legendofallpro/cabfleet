@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createSignUpSchema,
   resetPasswordRequestSchema,
   setPasswordSchema,
-  signUpSchema,
 } from "@/lib/auth/validators";
 
 describe("resetPasswordRequestSchema", () => {
@@ -50,6 +50,7 @@ describe("setPasswordSchema", () => {
 });
 
 describe("signUpSchema", () => {
+  const schema = createSignUpSchema("IN");
   const valid = {
     firstName: "Priya",
     lastName: "Nair",
@@ -60,16 +61,16 @@ describe("signUpSchema", () => {
   };
 
   it("accepts name, Indian mobile, email, and password", () => {
-    expect(signUpSchema.safeParse(valid).success).toBe(true);
+    expect(schema.safeParse(valid).success).toBe(true);
   });
 
   it("rejects a non-Indian mobile", () => {
-    expect(signUpSchema.safeParse({ ...valid, phone: "123" }).success).toBe(false);
+    expect(schema.safeParse({ ...valid, phone: "123" }).success).toBe(false);
   });
 
   it("rejects .invalid emails", () => {
     expect(
-      signUpSchema.safeParse({ ...valid, email: "x@staff.cabfleet.invalid" }).success,
+      schema.safeParse({ ...valid, email: "x@staff.cabfleet.invalid" }).success,
     ).toBe(false);
   });
 });

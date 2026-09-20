@@ -23,3 +23,12 @@ export function InstallSettingsProvider({
 export function useInstallSettings(): InstallSettingsView | null {
   return useContext(InstallSettingsContext);
 }
+
+/** Gated layouts should already have redirected if setup is incomplete. */
+export function useRequiredInstallSettings(): InstallSettingsView {
+  const settings = useInstallSettings();
+  if (!settings) {
+    throw new Error("Install settings missing");
+  }
+  return settings;
+}

@@ -9,6 +9,8 @@ import { ActiveTripBanner } from "@/app/(driver)/_components/ActiveTripBanner";
 import { VehicleSummaryCard } from "@/app/(driver)/_components/VehicleSummaryCard";
 import { RecentTripsList } from "@/app/(driver)/_components/RecentTripsList";
 import { AttendanceQuickStatus } from "@/app/(driver)/_components/AttendanceQuickStatus";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Home | CabFleet Driver" };
 
@@ -29,6 +31,7 @@ export default async function DriverHomePage() {
   }
 
   const data = await getDriverSelfOverview(driver.id, session.profile.id);
+  const settings = await requireInstallSettings();
 
   if (!data.driver) {
     return (
@@ -57,7 +60,12 @@ export default async function DriverHomePage() {
         <OverviewHeader driver={data.driver} />
         <p className="mt-4 text-sm text-muted">
           Today&apos;s earnings{" "}
-          <span className="font-semibold text-default">₹{data.today.earnings.toFixed(0)}</span>
+          <span className="font-semibold text-default">
+            {formatMoney(data.today.earnings, {
+              locale: settings.locale,
+              currency: settings.currency,
+            })}
+          </span>
         </p>
       </SurfaceCard>
 

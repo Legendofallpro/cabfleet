@@ -1,7 +1,11 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { StatusBadge, type StatusTone } from "@/components/common/StatusBadge";
+import { formatDateTime } from "@/lib/format/datetime";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 interface AttendanceRecord {
   status: string;
@@ -27,12 +31,18 @@ const TONE: Record<string, StatusTone> = {
   ON_LEAVE: "info",
 };
 
-function fmt(d: Date | null) {
+function fmt(d: Date | null, locale: string, timeZone: string) {
   if (!d) return "—";
-  return new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return formatDateTime(d, {
+    locale,
+    timeZone,
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export function AttendanceQuickStatus({ today }: AttendanceQuickStatusProps) {
+  const settings = useRequiredInstallSettings();
   return (
     <SurfaceCard padding="md">
       <div className="flex items-center justify-between">
@@ -44,7 +54,7 @@ export function AttendanceQuickStatus({ today }: AttendanceQuickStatusProps) {
                 {LABEL[today.status] ?? today.status}
               </StatusBadge>
               <span className="text-xs text-muted">
-                In: {fmt(today.checkIn)} · Out: {fmt(today.checkOut)}
+                In: {fmt(today.checkIn, settings.locale, settings.timezone)} · Out: {fmt(today.checkOut, settings.locale, settings.timezone)}
               </span>
             </div>
           ) : (

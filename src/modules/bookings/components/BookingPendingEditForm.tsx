@@ -12,6 +12,7 @@ import {
   type UpdatePendingBookingFormValues,
 } from "@/modules/bookings/validators/booking";
 import { updatePendingBookingAction } from "@/modules/bookings/actions/booking.actions";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 function toDatetimeLocal(iso: string) {
   const d = new Date(iso);
@@ -43,6 +44,7 @@ export function BookingPendingEditForm({
   cancelHref: string;
   variant: "staff" | "customer";
 }) {
+  const settings = useRequiredInstallSettings();
   const router = useRouter();
   const {
     register,
@@ -137,7 +139,7 @@ export function BookingPendingEditForm({
       {variant === "staff" && (
         <>
           <TextField
-            label="Quoted ₹"
+            label={`Quoted fare (${settings.currency})`}
             type="number"
             min={0}
             error={errors.quotedFare?.message}
@@ -145,14 +147,14 @@ export function BookingPendingEditForm({
           />
           <div className="grid grid-cols-2 gap-4">
             <TextField
-              label="Toll ₹"
+              label={`Toll (${settings.currency})`}
               type="number"
               min={0}
               error={errors.tollAmount?.message}
               {...register("tollAmount")}
             />
             <TextField
-              label="Parking ₹"
+              label={`Parking (${settings.currency})`}
               type="number"
               min={0}
               error={errors.parkingAmount?.message}

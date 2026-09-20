@@ -11,16 +11,29 @@ import { listBookings } from "@/modules/bookings/queries/booking";
 import { BookingStatusChips } from "@/modules/bookings/components/BookingStatusChips";
 import { BOOKING_STATUS_LABEL, BOOKING_STATUS_TONE } from "@/modules/bookings/booking.constants";
 import type { BookingListRow } from "@/modules/bookings/types";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { requireInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = { title: "Bookings | CabFleet Admin" };
 
-const fmt = new Intl.DateTimeFormat("en-IN", {
- dateStyle: "medium",
- timeStyle: "short",
-});
-const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+export default async function BookingsPage({
+ searchParams,
+}: {
+ searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+ const settings = await requireInstallSettings();
+ const when = (d: Date) =>
+  formatDateTime(d, {
+   locale: settings.locale,
+   timeZone: settings.timezone,
+   dateStyle: "medium",
+   timeStyle: "short",
+  });
+ const money = (n: number) =>
+  formatMoney(n, { locale: settings.locale, currency: settings.currency });
 
-const columns: Column<BookingListRow>[] = [
+ const columns: Column<BookingListRow>[] = [
  {
   header: "ID / Route",
   cell: (b) => (
@@ -48,7 +61,7 @@ const columns: Column<BookingListRow>[] = [
  {
   header: "Pickup",
   cell: (b) => (
-   <span className="whitespace-nowrap text-xs">{fmt.format(new Date(b.pickupAt))}</span>
+   <span className="whitespace-nowrap text-xs">{when(new Date(b.pickupAt))}</span>
   ),
  },
  {
@@ -64,7 +77,7 @@ const columns: Column<BookingListRow>[] = [
   header: "Fare Est.",
   cell: (b) =>
    b.fareEstimate != null ? (
-    <span className="text-xs">{currency.format(Number(b.fareEstimate))}</span>
+    <span className="text-xs">{money(Number(b.fareEstimate))}</span>
    ) : (
     <span className="text-xs text-muted">—</span>
    ),
@@ -77,13 +90,8 @@ const columns: Column<BookingListRow>[] = [
    </StatusBadge>
   ),
  },
-];
+ ];
 
-export default async function BookingsPage({
- searchParams,
-}: {
- searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
  const raw = await searchParams;
  const { q, page, pageSize } = parsePageParams(raw);
  const statusFilter =

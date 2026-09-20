@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
@@ -6,11 +8,8 @@ import {
   BOOKING_STATUS_TONE,
 } from "@/modules/bookings/booking.constants";
 import type { DeskQueueRow } from "@/modules/bookings/queries/desk-queue";
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+import { formatDateTime } from "@/lib/format/datetime";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 function QueueList({
   title,
@@ -23,6 +22,14 @@ function QueueList({
   rows: DeskQueueRow[];
   empty: string;
 }) {
+  const settings = useRequiredInstallSettings();
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   return (
     <SurfaceCard title={title}>
       {hint ? <p className="mb-3 text-sm text-muted">{hint}</p> : null}
@@ -47,7 +54,7 @@ function QueueList({
                 <p className="mt-1 truncate text-sm text-muted">
                   {row.pickupAddress} → {row.dropAddress}
                 </p>
-                <p className="text-xs text-muted">{dtFmt.format(row.pickupAt)}</p>
+                <p className="text-xs text-muted">{when(row.pickupAt)}</p>
               </Link>
             </li>
           ))}

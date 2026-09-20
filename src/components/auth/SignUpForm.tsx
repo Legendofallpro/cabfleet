@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
@@ -11,13 +11,16 @@ import Checkbox from "@/components/form/input/Checkbox";
 import { TextField } from "@/components/common/form/TextField";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { signUpSchema, type SignUpValues } from "@/lib/auth/validators";
+import { createSignUpSchema, type SignUpValues } from "@/lib/auth/validators";
 import { prepareCustomerSignupAction } from "@/modules/customers/actions/signup.actions";
-import { toE164 } from "@/lib/utils/phone";
+import { phonePlaceholder, resolvePhoneRegion, toE164 } from "@/lib/utils/phone";
+import { useInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 export default function SignUpForm() {
  const router = useRouter();
  const [showPassword, setShowPassword] = useState(false);
+ const phoneRegion = useInstallSettings()?.phoneRegion ?? "US";
+ const schema = useMemo(() => createSignUpSchema(phoneRegion), [phoneRegion]);
 
  const {
   register,
@@ -25,7 +28,7 @@ export default function SignUpForm() {
   control,
   formState: { errors, isSubmitting },
  } = useForm<SignUpValues>({
-  resolver: zodResolver(signUpSchema),
+  resolver: zodResolver(schema),
   defaultValues: {
    firstName: "",
    lastName: "",
@@ -38,7 +41,7 @@ export default function SignUpForm() {
 
  async function onSubmit(values: SignUpValues) {
   const fullName = `${values.firstName} ${values.lastName}`.trim();
-  const parsedPhone = toE164(values.phone, "IN");
+  const parsedPhone = toE164(values.phone, resolvePhoneRegion(phoneRegion));
   const phone = parsedPhone.ok ? parsedPhone.e164 : values.phone;
   const prepared = await prepareCustomerSignupAction({
    email: values.email,
@@ -140,7 +143,7 @@ export default function SignUpForm() {
         type="tel"
         required
         inputMode="numeric"
-        placeholder="10-digit Indian mobile"
+        placeholder={phonePlaceholder(phoneRegion)}
         autoComplete="tel"
         {...register("phone")}
         error={errors.phone?.message}

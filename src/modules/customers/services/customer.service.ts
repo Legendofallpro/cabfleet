@@ -5,7 +5,8 @@ import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
-import { toE164 } from "@/lib/utils/phone";
+import { toE164, resolvePhoneRegion, invalidPhoneMessage } from "@/lib/utils/phone";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createPortalClaimToken,
@@ -84,16 +85,18 @@ export async function getOrCreateCustomer(profileId: string): Promise<CustomerRo
 }
 
 /**
- * Desk path: find a customer by Indian mobile, or create a staff-managed
+ * Desk path: find a customer by mobile, or create a staff-managed
  * guest (synthetic email, no invite, no portal).
  */
 export async function findOrCreateStaffCustomer(
   input: FindOrCreateStaffCustomerInput,
   actor: Actor,
 ): Promise<Result<CustomerRow>> {
-  const parsed = toE164(input.phone, "IN");
+  const settings = await getInstallSettings();
+  const region = resolvePhoneRegion(settings?.phoneRegion);
+  const parsed = toE164(input.phone, region);
   if (!parsed.ok) {
-    throw new AppError("VALIDATION", "Enter a valid 10-digit Indian mobile number.", {
+    throw new AppError("VALIDATION", `${invalidPhoneMessage(region)}.`, {
       fieldErrors: { phone: ["Invalid mobile number"] },
     });
   }
@@ -197,9 +200,11 @@ export async function prepareCustomerSignup(input: {
     });
   }
 
-  const parsed = toE164(input.phone, "IN");
+  const settings = await getInstallSettings();
+  const region = resolvePhoneRegion(settings?.phoneRegion);
+  const parsed = toE164(input.phone, region);
   if (!parsed.ok) {
-    throw new AppError("VALIDATION", "Enter a valid 10-digit Indian mobile number.", {
+    throw new AppError("VALIDATION", `${invalidPhoneMessage(region)}.`, {
       fieldErrors: { phone: ["Invalid mobile number"] },
     });
   }

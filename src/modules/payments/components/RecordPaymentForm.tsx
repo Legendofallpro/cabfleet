@@ -10,6 +10,7 @@ import { TextField } from "@/components/common/form/TextField";
 import { SelectField } from "@/components/common/form/SelectField";
 import { FormActions } from "@/components/common/FormActions";
 import { createPaymentAction } from "@/modules/payments/actions/payment.actions";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 import {
  createPaymentSchema,
  type PaymentFormValues,
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function RecordPaymentForm({ bookingId, defaultAmount }: Props) {
+ const settings = useRequiredInstallSettings();
  const router = useRouter();
  const [submitting, setSubmitting] = useState(false);
 
@@ -72,7 +74,7 @@ export function RecordPaymentForm({ bookingId, defaultAmount }: Props) {
    <input type="hidden" {...register("bookingId")} />
 
    <TextField
-    label="Amount (₹)"
+    label={`Amount (${settings.currency})`}
     type="number"
     step="0.01"
     min="0.01"

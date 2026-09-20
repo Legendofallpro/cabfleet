@@ -22,6 +22,24 @@ export type ParsedPhone = {
   reason: "EMPTY" | "INVALID";
 };
 
+/** Fallback region when install settings are missing (never implicit IN). */
+export function resolvePhoneRegion(
+  region: string | null | undefined,
+): CountryCode {
+  const code = (region ?? "US").trim().toUpperCase();
+  return (code.length === 2 ? code : "US") as CountryCode;
+}
+
+export function phonePlaceholder(phoneRegion: string): string {
+  return phoneRegion === "IN" ? "10-digit mobile" : "Phone number";
+}
+
+export function invalidPhoneMessage(phoneRegion: string): string {
+  return phoneRegion === "IN"
+    ? "Enter a valid 10-digit Indian mobile number"
+    : "Enter a valid phone number";
+}
+
 /**
  * Parse a free-text phone number and return the E.164 form. Returns a typed
  * `{ ok: false, reason }` instead of throwing so callers (notification

@@ -9,6 +9,9 @@ import { TextField } from "@/components/common/form/TextField";
 import { TextareaField } from "@/components/common/form/TextareaField";
 import { createBookingSchema, type CreateBookingFormValues } from "@/modules/bookings/validators/booking";
 import { createBookingAction, estimateFareAction } from "@/modules/bookings/actions/booking.actions";
+import { formatDateTime } from "@/lib/format/datetime";
+import { formatMoney } from "@/lib/format/money";
+import { useRequiredInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 type BookingType = { id: string; name: string; description?: string | null };
 
@@ -33,13 +36,6 @@ function defaultPickupAt() {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
-const dtFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "long", timeStyle: "short" });
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 function RideTypeGlyph({ name }: { name: string }) {
   const common = "h-6 w-6 text-primary";
@@ -159,6 +155,16 @@ export function CustomerBookingForm({
   defaultBranchId,
   defaultCustomerId,
 }: Props) {
+  const settings = useRequiredInstallSettings();
+  const money = (n: number) =>
+    formatMoney(n, { locale: settings.locale, currency: settings.currency });
+  const when = (d: Date) =>
+    formatDateTime(d, {
+      locale: settings.locale,
+      timeZone: settings.timezone,
+      dateStyle: "long",
+      timeStyle: "short",
+    });
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [step, setStep] = useState(0);
@@ -264,7 +270,7 @@ export function CustomerBookingForm({
   };
 
   const selectedType = bookingTypes.find((bt) => bt.id === bookingTypeId);
-  const pickupLabel = reviewPickupAt ? dtFmt.format(new Date(reviewPickupAt)) : "—";
+  const pickupLabel = reviewPickupAt ? when(new Date(reviewPickupAt)) : "—";
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -371,8 +377,8 @@ export function CustomerBookingForm({
           <p className="text-base font-semibold text-default">
             {estimate != null
               ? estimateKm != null
-                ? `Approx. ${currency.format(estimate)} for ${estimateKm} km`
-                : `Approx. ${currency.format(estimate)}`
+                ? `Approx. ${money(estimate)} for ${estimateKm} km`
+                : `Approx. ${money(estimate)}`
               : "Operator will confirm the fare."}
           </p>
           <label className="flex items-start gap-3 rounded-xl border border-default bg-surface-inset p-4 text-sm text-default">
