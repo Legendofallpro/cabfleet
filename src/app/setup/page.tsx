@@ -3,25 +3,27 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { SetupWizard } from "@/modules/install/components/SetupWizard";
-import { getInstallSettings } from "@/modules/install/queries/install";
+import { getInstallSettings, toView } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
-  if (env.INSTALL_GATE) {
-    const settings = await getInstallSettings();
-    if (settings?.setupCompletedAt) {
-      const session = await getSessionUser();
-      const role = session?.profile.role;
-      if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
-        redirect("/signin");
-      }
-    }
+  const settings = await getInstallSettings();
+  const setupCompleted = Boolean(settings?.setupCompletedAt);
+  const session = setupCompleted ? await getSessionUser() : null;
+  const role = session?.profile.role;
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+
+  if (env.INSTALL_GATE && setupCompleted && !isAdmin) {
+    redirect("/signin");
   }
 
+  const initialSettings =
+    setupCompleted && isAdmin && settings ? toView(settings) : undefined;
+
   return (
-    <div className="flex min-h-[60vh] flex-col justify-center">
-      <SetupWizard />
+    <div className="flex flex-1 flex-col justify-center">
+      <SetupWizard initialSettings={initialSettings} />
     </div>
   );
 }

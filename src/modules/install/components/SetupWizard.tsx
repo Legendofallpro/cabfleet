@@ -14,6 +14,7 @@ import {
   DEFAULT_COUNTRY,
   defaultsForCountry,
 } from "@/modules/install/country-defaults";
+import type { InstallSettingsView } from "@/modules/install/install.constants";
 import {
   completeSetupSchema,
   type CompleteSetupFormValues,
@@ -33,7 +34,29 @@ function buildDefaults(country: string): CompleteSetupFormValues {
   };
 }
 
-export function SetupWizard() {
+function buildInitialDefaults(
+  initial?: InstallSettingsView,
+): CompleteSetupFormValues {
+  if (initial) {
+    return {
+      country: initial.country,
+      currency: initial.currency,
+      locale: initial.locale,
+      timezone: initial.timezone,
+      phoneRegion: initial.phoneRegion,
+      taxIdLabel: initial.taxIdLabel,
+      taxRate: initial.taxRate,
+      setupSecret: "",
+    };
+  }
+  return buildDefaults(DEFAULT_COUNTRY);
+}
+
+type SetupWizardProps = {
+  initialSettings?: InstallSettingsView;
+};
+
+export function SetupWizard({ initialSettings }: SetupWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -47,7 +70,7 @@ export function SetupWizard() {
     formState: { errors, isSubmitting },
   } = useForm<CompleteSetupFormValues>({
     resolver: zodResolver(completeSetupSchema),
-    defaultValues: buildDefaults(DEFAULT_COUNTRY),
+    defaultValues: buildInitialDefaults(initialSettings),
   });
 
   const country = useWatch({ control, name: "country" });
