@@ -4,7 +4,7 @@ Conventions for AI-assisted edits in this repo. **Read this in full before makin
 
 ## 1. Architecture in one paragraph
 
-Next.js 15 App Router monolith. Supabase Auth + Postgres. Prisma 7 (with `@prisma/adapter-pg`) is the only writer. Four role groups under `src/app`: `(admin)`, `(driver)`, `(customer)`, `(full-width-pages)` for auth. Domain logic lives in `src/modules/<feature>/`. **Server Components + Server Actions are the default.** Route handlers only for webhooks and the future mobile/external REST surface.
+Next.js 16 App Router monolith. Supabase Auth + Postgres. Prisma 7 (with `@prisma/adapter-pg`) is the only writer. Four role groups under `src/app`: `(admin)`, `(driver)`, `(customer)`, `(full-width-pages)` for auth. Domain logic lives in `src/modules/<feature>/`. **Server Components + Server Actions are the default.** Route handlers only for webhooks and the future mobile/external REST surface.
 
 ## 2. Module shape
 
@@ -106,7 +106,7 @@ Use `SELECT FOR UPDATE SKIP LOCKED` inside `db.$transaction` against `OPEN_FOR_C
 
 ## 8. Page dynamics
 
-Every route group layout that hits the DB must export `dynamic = "force-dynamic"`. See `src/app/(admin)/layout.tsx` for the pattern. Otherwise Next 15 will try to prerender pages and fail because the DB is unreachable at build time.
+Every route group layout that hits the DB must export `dynamic = "force-dynamic"`. See `src/app/(admin)/layout.tsx` for the pattern. Otherwise Next 16 will try to prerender pages and fail because the DB is unreachable at build time.
 
 ## 9. Adding a new mutation — the 5-step checklist
 
@@ -163,7 +163,7 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 - **Don't introduce shadcn/ui.** TailAdmin's existing primitives in `src/components/ui/`, `src/components/form/`, and `src/components/common/` cover everything. Adding shadcn means a globals.css conflict and a design-system fork.
 - **Don't switch server actions to route handlers** unless it's specifically for a mobile or external API.
 - **Don't add Zustand, Redux, or React Context** for filter/pagination state. Use `nuqs` — already wired in `src/app/layout.tsx`.
-- **Don't add Calendar, ApexCharts, FullCalendar, jvectormap, react-dnd, swiper, react-dropzone** UI for the MVP. They're still in `package.json` from the TailAdmin baseline but should be removed once their last reference is gone.
+- **Don't add Calendar, ApexCharts, FullCalendar, jvectormap, react-dnd, swiper, react-dropzone** UI for the MVP.
 - **Don't bump Prisma, Next.js, React, or TailwindCSS versions** mid-phase.
 - **Don't `db.booking.update({ status: ... })` outside `transitionBookingStatus`.** This is the single most important rule for Phase 2+.
 - **Don't omit `deletedAt: null` from queries** on soft-deleted entities (`Branch`, `Vehicle`, `Driver`, `Staff`, `Customer`, `Booking`, `PricingRule`, `DispatchRule`).
@@ -174,7 +174,8 @@ These are real foot-guns this codebase has paid for. Don't undo them:
 - **Don't put pure UI constants (status labels, tone maps) in server-only modules.** If a constant is needed in a `"use client"` component, put it in a `*.constants.ts` file with no server imports (no `db`, no `@/lib/auth/*`, no `next/headers`). See `src/modules/bookings/booking.constants.ts` as the canonical example. Importing from a server module into a client component drags `pg`/Prisma into the browser bundle and breaks the build.
 - **Don't use duplicate keys in Prisma `where` objects.** If you need two `OR` conditions, wrap them: `AND: [{ OR: [...] }, { OR: [...] }]`. Duplicate keys silently drop the first condition at runtime — TypeScript will now catch this as a compile error.
 - **Don't use `watch()` from `useForm()` in components.** Use `useWatch({ control, name })` instead — it subscribes only to the named field and is React Compiler-friendly.
-- **Don't export `parsePageParams` from a `"use client"` file** and call it from an RSC. Server-safe utilities must live in plain `.ts` files (e.g., `src/lib/utils/page-params.ts`) so Next 15 can call them during server render.
+- **Don't export `parsePageParams` from a `"use client"` file** and call it from an RSC. Server-safe utilities must live in plain `.ts` files (e.g., `src/lib/utils/page-params.ts`) so Next 16 can call them during server render.
+- **Don't hardcode `en-IN`, `INR`, or `toE164` default `"IN"`** in `src/app/**` or `src/modules/**`. Read `InstallSettings` (see `src/modules/install/`).
 - **Don't add a new Prisma model / database table without enabling RLS.** Every new model must be accompanied by a corresponding SQL block in `prisma/sql/04_rls_lockdown_all_tables.sql` (or a new numbered file) that does `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and creates a `deny_direct_api_access` restrictive policy before the migration reaches production. See [`docs/security/rls-lockdown.md`](docs/security/rls-lockdown.md) for the pattern.
 
 ## 13. UI & theming — **read before writing any JSX**

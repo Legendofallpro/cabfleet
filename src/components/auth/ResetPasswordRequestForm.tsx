@@ -72,7 +72,7 @@ export default function ResetPasswordRequestForm() {
        label="Email"
        type="email"
        required
-       placeholder="you@cabfleet.com"
+       placeholder="you@example.com"
        {...register("email")}
        error={errors.email?.message}
       />

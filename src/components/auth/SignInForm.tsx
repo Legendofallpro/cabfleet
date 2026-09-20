@@ -172,7 +172,7 @@ export default function SignInForm() {
               label="Email"
               type="email"
               required
-              placeholder="you@cabfleet.com"
+              placeholder="you@example.com"
               autoComplete="email"
               {...register("email")}
               error={errors.email?.message}
