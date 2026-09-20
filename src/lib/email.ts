@@ -31,7 +31,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
   }
 
   const { error } = await client.emails.send({
-    from: "CabFleet <noreply@cabfleet.app>",
+    from: env.MAIL_FROM,
     to: params.to,
     subject: params.subject,
     html: params.html,

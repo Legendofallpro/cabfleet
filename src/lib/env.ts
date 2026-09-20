@@ -154,6 +154,11 @@ export const env = createEnv({
 
     /** Platform support contact shown on /support when org has no admin email. */
     SUPPORT_EMAIL: z.string().email().optional(),
+
+    /** First-run setup secret. Optional locally; set in production to protect /setup. */
+    SETUP_SECRET: z.string().min(1).optional(),
+    /** Invoice / notification From header. */
+    MAIL_FROM: z.string().min(1).default("CabFleet <noreply@localhost>"),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -208,6 +213,8 @@ export const env = createEnv({
     LOCATION_SUSPICIOUS_THRESHOLD: process.env.LOCATION_SUSPICIOUS_THRESHOLD,
     MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN,
     SUPPORT_EMAIL: process.env.SUPPORT_EMAIL,
+    SETUP_SECRET: process.env.SETUP_SECRET,
+    MAIL_FROM: process.env.MAIL_FROM,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
