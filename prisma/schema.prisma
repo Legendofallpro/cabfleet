@@ -128,7 +128,7 @@ model Organization {
   name      String
   /// Indian GSTIN. Optional — invoices omit the GSTIN line when null.
   gstin     String?
-  /// Snapshot source for invoices. Allowed values: 0, 5, 12. Rate 0 hides tax lines.
+  /// Snapshot source for invoices. Allowed 0–100; 0 hides tax lines.
   gstRate   Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -160,6 +160,20 @@ model Organization {
   notificationLogs   NotificationLog[]
 
   @@index([deletedAt])
+}
+
+model InstallSettings {
+  id               String    @id @default("default")
+  country          String
+  currency         String
+  locale           String
+  timezone         String
+  phoneRegion      String
+  taxIdLabel       String
+  taxRate          Int       @default(0)
+  setupCompletedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Branch {

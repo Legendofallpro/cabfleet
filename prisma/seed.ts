@@ -15,6 +15,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { DispatchMode, PrismaClient } from "@prisma/client";
 import { config as loadEnv } from "dotenv";
+import { defaultsForCountry } from "../src/modules/install/country-defaults";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
@@ -46,7 +47,7 @@ async function main() {
     create: {
       code: "HQ",
       name: "Headquarters",
-      timezone: "Asia/Kolkata",
+      timezone: "UTC",
       defaultDispatch: DispatchMode.MANUAL,
       active: true,
       orgId: org.id,
@@ -113,6 +114,45 @@ async function main() {
     console.log("  -> Created");
   } else {
     console.log("  -> Already exists");
+  }
+
+  const installCountry = process.env.INSTALL_COUNTRY;
+  if (installCountry) {
+    const defaults = defaultsForCountry(installCountry);
+    const timezone = process.env.INSTALL_TIMEZONE ?? defaults.timezone;
+
+    console.log("Seeding InstallSettings from INSTALL_* env...");
+    await db.installSettings.upsert({
+      where: { id: "default" },
+      update: {
+        country: installCountry,
+        currency: process.env.INSTALL_CURRENCY ?? defaults.currency,
+        locale: process.env.INSTALL_LOCALE ?? defaults.locale,
+        timezone,
+        phoneRegion: process.env.INSTALL_PHONE_REGION ?? defaults.phoneRegion,
+        taxIdLabel: process.env.INSTALL_TAX_ID_LABEL ?? defaults.taxIdLabel,
+        taxRate: Number(process.env.INSTALL_TAX_RATE ?? defaults.taxRate),
+        setupCompletedAt: new Date(),
+      },
+      create: {
+        id: "default",
+        country: installCountry,
+        currency: process.env.INSTALL_CURRENCY ?? defaults.currency,
+        locale: process.env.INSTALL_LOCALE ?? defaults.locale,
+        timezone,
+        phoneRegion: process.env.INSTALL_PHONE_REGION ?? defaults.phoneRegion,
+        taxIdLabel: process.env.INSTALL_TAX_ID_LABEL ?? defaults.taxIdLabel,
+        taxRate: Number(process.env.INSTALL_TAX_RATE ?? defaults.taxRate),
+        setupCompletedAt: new Date(),
+      },
+    });
+    console.log(`  -> InstallSettings completed for ${installCountry}`);
+
+    await db.branch.update({
+      where: { code: "HQ" },
+      data: { timezone },
+    });
+    console.log(`  -> HQ branch timezone set to ${timezone}`);
   }
 
   console.log("Done.");
