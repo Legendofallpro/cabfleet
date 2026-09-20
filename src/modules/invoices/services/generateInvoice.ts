@@ -115,6 +115,7 @@ export async function generateInvoice(
     const issuedAt = new Date();
     const gstin = booking.org?.gstin ?? null;
     const gstRate = booking.org?.gstRate ?? 0;
+    const sacCode = install.country === "IN" ? GST_SAC_CODE : "";
     const breakdown = gstBreakdown({
       fareEstimate: booking.fareEstimate != null ? Number(booking.fareEstimate) : null,
       fareFinal: booking.fareFinal != null ? Number(booking.fareFinal) : null,
@@ -129,7 +130,9 @@ export async function generateInvoice(
       orgName: booking.org?.name ?? "CabFleet",
       gstin,
       gstRate: breakdown.gstRate,
-      sacCode: GST_SAC_CODE,
+      taxIdLabel: install.taxIdLabel,
+      country: install.country,
+      sacCode,
       customerName: booking.customer.profile.fullName ?? booking.customer.profile.email,
       customerEmail: booking.customer.profile.email,
       customerPhone: booking.customer.profile.phone,
@@ -185,7 +188,7 @@ export async function generateInvoice(
           status: "ISSUED",
           gstin,
           gstRate: breakdown.gstRate,
-          sacCode: GST_SAC_CODE,
+          sacCode,
           updatedAt: new Date(),
         },
       });
@@ -227,7 +230,7 @@ export async function generateInvoice(
         status: "ISSUED",
         gstin,
         gstRate: breakdown.gstRate,
-        sacCode: GST_SAC_CODE,
+        sacCode,
       },
     });
 

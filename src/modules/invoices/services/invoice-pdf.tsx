@@ -136,6 +136,8 @@ export type InvoicePDFData = {
  orgName: string;
  gstin?: string | null;
  gstRate: number;
+ taxIdLabel: string;
+ country: string;
  sacCode: string;
  customerName: string;
  customerEmail: string;
@@ -157,6 +159,8 @@ export type InvoicePDFData = {
 
 export function InvoicePDF({ data }: { data: InvoicePDFData }) {
  const showGst = data.gstRate > 0 && data.gst > 0;
+ const showSac = data.country === "IN";
+ const sacValue = showSac ? data.sacCode : "—";
  const money = (n: number) =>
   formatMoney(n, { locale: data.locale, currency: data.currency });
  const issued = formatDateTime(data.issuedAt, {
@@ -186,7 +190,9 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
       <Text style={styles.companyName}>{data.orgName}</Text>
       <Text style={styles.companyTagline}>Fleet Management &amp; Transportation</Text>
       {data.gstin ? (
-       <Text style={styles.companyTagline}>GSTIN: {data.gstin}</Text>
+       <Text style={styles.companyTagline}>
+        {data.taxIdLabel}: {data.gstin}
+       </Text>
       ) : null}
      </View>
      <View>
@@ -243,7 +249,7 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      </View>
      <View style={styles.tableRow}>
       <Text style={styles.col1}>Passenger transport</Text>
-      <Text style={styles.col2}>{data.sacCode}</Text>
+      <Text style={styles.col2}>{sacValue}</Text>
       <Text style={styles.col3}>{money(data.transport)}</Text>
      </View>
      {data.toll > 0 && (
@@ -262,7 +268,9 @@ export function InvoicePDF({ data }: { data: InvoicePDFData }) {
      )}
      {showGst && (
       <View style={styles.tableRow}>
-       <Text style={styles.col1}>GST {data.gstRate}%</Text>
+       <Text style={styles.col1}>
+        {data.taxIdLabel} {data.gstRate}%
+       </Text>
        <Text style={styles.col2}>—</Text>
        <Text style={styles.col3}>{money(data.gst)}</Text>
       </View>

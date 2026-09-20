@@ -42,7 +42,7 @@ describe("gstBreakdown", () => {
     expect(b.total).toBe(956);
   });
 
-  it("treats an unknown rate as 0", () => {
+  it("charges 18% of transport 100", () => {
     const b = gstBreakdown({
       fareEstimate: 100,
       fareFinal: null,
@@ -50,8 +50,24 @@ describe("gstBreakdown", () => {
       parkingAmount: 0,
       gstRate: 18,
     });
-    expect(b.gstRate).toBe(0);
-    expect(b.gst).toBe(0);
+    expect(b.gstRate).toBe(18);
+    expect(b.gst).toBe(18);
+    expect(b.total).toBe(118);
+  });
+
+  it("coerces out-of-range rates to 0", () => {
+    for (const gstRate of [101, -1]) {
+      const b = gstBreakdown({
+        fareEstimate: 100,
+        fareFinal: null,
+        tollAmount: 0,
+        parkingAmount: 0,
+        gstRate,
+      });
+      expect(b.gstRate).toBe(0);
+      expect(b.gst).toBe(0);
+      expect(b.total).toBe(100);
+    }
   });
 });
 

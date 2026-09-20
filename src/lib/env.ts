@@ -239,6 +239,23 @@ export const env = createEnv({
   emptyStringAsUndefined: true,
 });
 
+/**
+ * Install-gate flag, read from the raw env var — not `env.INSTALL_GATE`.
+ *
+ * `@t3-oss/env-core` returns `runtimeEnv` unchanged when
+ * `SKIP_ENV_VALIDATION=true`, so `env.INSTALL_GATE` stays the string
+ * `"false"` (truthy). CI sets both flags so Playwright can boot without
+ * Postgres; this helper is the only safe check.
+ *
+ * Unset / empty → on. `true` / `1` / `yes` / `on` (any case) → on.
+ * Anything else, including `"false"`, → off.
+ */
+export function isInstallGateEnabled(): boolean {
+  const raw = process.env.INSTALL_GATE;
+  if (raw == null || raw === "") return true;
+  return ["true", "1", "yes", "on"].includes(raw.toLowerCase());
+}
+
 // Fail-closed runtime check: production must set CRON_SECRET. We don't enforce
 // this in the schema above because `createEnv` does not support cross-field
 // refinement without losing inferred types.

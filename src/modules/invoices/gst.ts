@@ -25,11 +25,18 @@ export type GstBreakdown = {
   toll: number;
   parking: number;
   extras: number;
-  gstRate: GstRate;
+  gstRate: number;
   gst: number;
   subtotal: number;
   total: number;
 };
+
+/** Integer 0–100 inclusive. Anything else (NaN, 18.5, 101, -1) → 0. */
+export function coerceGstRate(n: number): number {
+  const rate = Number(n);
+  if (!Number.isInteger(rate) || rate < 0 || rate > 100) return 0;
+  return rate;
+}
 
 /**
  * Transport is the quoted / estimated fare. `fareFinal` is stored as
@@ -49,7 +56,7 @@ export function gstBreakdown(input: GstBreakdownInput): GstBreakdown {
       : Math.max(0, Number(input.fareEstimate) || 0),
   );
 
-  const gstRate: GstRate = isGstRate(input.gstRate) ? input.gstRate : 0;
+  const gstRate = coerceGstRate(input.gstRate);
   const gst = gstRate > 0 ? roundMoney(transport * (gstRate / 100)) : 0;
   const subtotal = roundMoney(transport + extras);
   const total = roundMoney(subtotal + gst);

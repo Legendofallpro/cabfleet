@@ -7,7 +7,7 @@ import { getCurrentAal } from "@/lib/auth/aal";
 import { staffMustChallengeAal2 } from "@/lib/auth/aal-paths";
 import { getRoleHome } from "@/lib/auth/redirects";
 import { logger } from "@/lib/logger";
-import { env } from "@/lib/env";
+import { env, isInstallGateEnabled } from "@/lib/env";
 import { getInstallSettings } from "@/modules/install/queries/install";
 import AdminShell from "@/app/(admin)/_components/AdminShell";
 import type { HeaderUser } from "@/layout/header-user";
@@ -29,7 +29,7 @@ export default async function AdminLayout({
  const session = await getSessionUser();
  if (!session) redirect("/signin?redirectTo=/dashboard");
 
- if (env.INSTALL_GATE) {
+ if (isInstallGateEnabled()) {
   const settings = await getInstallSettings();
   if (!settings?.setupCompletedAt) redirect("/setup");
  }

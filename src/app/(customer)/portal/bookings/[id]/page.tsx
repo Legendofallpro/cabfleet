@@ -231,7 +231,10 @@ export default async function CustomerBookingDetailPage({
         </SurfaceCard>
       )}
 
-      {env.PAYMENT_GATEWAY === "RAZORPAY" && due && due.outstanding > 0 && (
+      {env.PAYMENT_GATEWAY === "RAZORPAY" &&
+        settings.country === "IN" &&
+        due &&
+        due.outstanding > 0 && (
         <PayNowButton
           bookingId={booking.id}
           amountRupees={due.outstanding}

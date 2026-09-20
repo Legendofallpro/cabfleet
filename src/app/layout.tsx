@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { env } from "@/lib/env";
+import { isInstallGateEnabled } from "@/lib/env";
 import { InstallSettingsProvider } from "@/modules/install/components/InstallSettingsProvider";
 import { getInstallSettings, toView } from "@/modules/install/queries/install";
 
@@ -20,7 +20,7 @@ export default async function RootLayout({
  children: React.ReactNode;
 }>) {
  let settingsForProvider = null;
- if (env.INSTALL_GATE) {
+ if (isInstallGateEnabled()) {
   const row = await getInstallSettings();
   settingsForProvider = row ? toView(row) : null;
  }

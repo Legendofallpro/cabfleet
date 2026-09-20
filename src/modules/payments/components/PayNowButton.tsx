@@ -28,7 +28,10 @@ export function PayNowButton({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
+  if (settings.country !== "IN") return null;
+
   async function onClick() {
+    if (settings.country !== "IN") return;
     setBusy(true);
     try {
       const result = await createCustomerCheckoutAction({ bookingId });

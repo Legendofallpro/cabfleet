@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { getRoleHome } from "@/lib/auth/redirects";
-import { env } from "@/lib/env";
+import { isInstallGateEnabled } from "@/lib/env";
 import { getInstallSettings } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LandingPage() {
-  if (env.INSTALL_GATE) {
+  if (isInstallGateEnabled()) {
     const settings = await getInstallSettings();
     if (!settings?.setupCompletedAt) {
       redirect("/setup");

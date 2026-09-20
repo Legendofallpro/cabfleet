@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
-import { env } from "@/lib/env";
+import { isInstallGateEnabled } from "@/lib/env";
 import { SetupWizard } from "@/modules/install/components/SetupWizard";
 import { getInstallSettings, toView } from "@/modules/install/queries/install";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
-  if (!env.INSTALL_GATE) {
+  if (!isInstallGateEnabled()) {
     return (
       <div className="flex flex-1 flex-col justify-center">
         <SetupWizard />
