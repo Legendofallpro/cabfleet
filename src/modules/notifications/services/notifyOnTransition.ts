@@ -75,7 +75,7 @@ export async function notifyOnTransition(
 
   const customerEmail = args.booking.customer.profile.email ?? null;
   const rawPhone = args.booking.customer.profile.phone ?? null;
-  const parsedPhone = rawPhone ? toE164(rawPhone) : null;
+  const parsedPhone = rawPhone ? toE164(rawPhone, "IN") : null;
   const customerPhone =
     parsedPhone && parsedPhone.ok ? parsedPhone.e164 : null;
 

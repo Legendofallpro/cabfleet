@@ -91,7 +91,7 @@ export class TwilioWhatsAppProvider implements NotificationProvider {
       return { providerMessageId: "noop:no_twilio_credentials", noop: true };
     }
 
-    const parsed = toE164(msg.to);
+    const parsed = toE164(msg.to, "IN");
     if (!parsed.ok) {
       logger.warn(
         { templateId: msg.templateId, reason: parsed.reason },

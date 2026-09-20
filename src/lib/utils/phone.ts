@@ -5,8 +5,8 @@
  * (the invite validator accepts `z.string().optional()`), so the
  * NotificationService must normalize before handing a number to a provider.
  *
- * `IN` is the default region — the platform is India-first — but callers may
- * pass another ISO country code for international customers.
+ * Callers must pass an explicit ISO country code (`defaultRegion`). Install
+ * `phoneRegion` settings (Task 10) will supply this at the call site.
  */
 import {
   parsePhoneNumberFromString,
@@ -29,7 +29,7 @@ export type ParsedPhone = {
  */
 export function toE164(
   input: string | null | undefined,
-  defaultRegion: CountryCode = "IN",
+  defaultRegion: CountryCode,
 ): ParsedPhone {
   if (!input) return { ok: false, reason: "EMPTY" };
   const trimmed = input.trim();
@@ -44,7 +44,7 @@ export function toE164(
 /** Convenience: `true` iff the input parses to a valid E.164 number. */
 export function isValidE164(
   input: string | null | undefined,
-  defaultRegion: CountryCode = "IN",
+  defaultRegion: CountryCode,
 ): boolean {
   return toE164(input, defaultRegion).ok;
 }
