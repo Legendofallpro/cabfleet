@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { ok, type Result } from "@/lib/result";
 import { logger } from "@/lib/logger";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getPaymentProvider } from "@/modules/payments/providers";
 import { ManualPaymentProvider } from "@/modules/payments/providers/ManualPaymentProvider";
 import type { ChargeStatus, PaymentProvider } from "@/modules/payments/providers/PaymentProvider";
@@ -64,8 +65,11 @@ export async function createPayment(
     throw new AppError("NOT_FOUND", "Booking not found.");
   }
 
+  const settings = await getInstallSettings();
   const provider: PaymentProvider =
-    mode === "desk" ? new ManualPaymentProvider() : getPaymentProvider();
+    mode === "desk"
+      ? new ManualPaymentProvider()
+      : getPaymentProvider(settings?.country ?? "");
 
   if (mode === "gateway" && provider.name !== "RAZORPAY") {
     throw new AppError("VALIDATION", "Online payment is not available.");

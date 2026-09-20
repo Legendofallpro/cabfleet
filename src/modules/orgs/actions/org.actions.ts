@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { action } from "@/lib/actions";
 import { requireRole } from "@/lib/auth/requireRole";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import {
   createOrgSchema,
+  makeUpdateOrgGstSchema,
   orgIdSchema,
-  updateOrgGstSchema,
   updateOrgSchema,
 } from "@/modules/orgs/validators/org";
 import {
@@ -60,18 +61,22 @@ export const deleteOrgAction = action(
   },
 );
 
-export const updateOrgGstAction = action(
-  "orgs.updateGst",
-  updateOrgGstSchema,
-  async (input) => {
-    const actor = await requireRole(["ADMIN", "SUPER_ADMIN"]);
-    const result = await updateOrgGst(input, {
-      id: actor.profile.id,
-      role: actor.profile.role,
-      orgId: actor.profile.orgId,
-    });
-    revalidatePath("/settings/gst");
-    revalidatePath("/settings");
-    return result;
-  },
-);
+export async function updateOrgGstAction(raw: unknown) {
+  const settings = await getInstallSettings();
+  const country = settings?.country ?? "";
+  return action(
+    "orgs.updateGst",
+    makeUpdateOrgGstSchema(country),
+    async (input) => {
+      const actor = await requireRole(["ADMIN", "SUPER_ADMIN"]);
+      const result = await updateOrgGst(input, {
+        id: actor.profile.id,
+        role: actor.profile.role,
+        orgId: actor.profile.orgId,
+      });
+      revalidatePath("/settings/gst");
+      revalidatePath("/settings");
+      return result;
+    },
+  )(raw);
+}

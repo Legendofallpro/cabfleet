@@ -27,20 +27,28 @@ describe("getPaymentProvider", () => {
   });
 
   it("returns Manual when the gateway is MANUAL", () => {
-    expect(getPaymentProvider().name).toBe("MANUAL");
+    expect(getPaymentProvider("IN").name).toBe("MANUAL");
+  });
+
+  it("returns Manual for non-IN even when Razorpay env is complete", () => {
+    envState.PAYMENT_GATEWAY = "RAZORPAY";
+    envState.RAZORPAY_KEY_ID = "rzp_test";
+    envState.RAZORPAY_KEY_SECRET = "secret";
+    envState.RAZORPAY_WEBHOOK_SECRET = "whsec";
+    expect(getPaymentProvider("US").name).toBe("MANUAL");
   });
 
   it("throws when Razorpay is selected with incomplete credentials", () => {
     envState.PAYMENT_GATEWAY = "RAZORPAY";
     envState.RAZORPAY_KEY_ID = "rzp_test";
-    expect(() => getPaymentProvider()).toThrow(AppError);
+    expect(() => getPaymentProvider("IN")).toThrow(AppError);
   });
 
-  it("returns Razorpay when all three secrets are set", () => {
+  it("returns Razorpay for IN when secrets are set", () => {
     envState.PAYMENT_GATEWAY = "RAZORPAY";
     envState.RAZORPAY_KEY_ID = "rzp_test";
     envState.RAZORPAY_KEY_SECRET = "secret";
     envState.RAZORPAY_WEBHOOK_SECRET = "whsec";
-    expect(getPaymentProvider().name).toBe("RAZORPAY");
+    expect(getPaymentProvider("IN").name).toBe("RAZORPAY");
   });
 });

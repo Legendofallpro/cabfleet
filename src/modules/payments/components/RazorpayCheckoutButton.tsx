@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { env } from "@/lib/env";
+import { useInstallSettings } from "@/modules/install/components/InstallSettingsProvider";
 
 const SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -135,6 +136,9 @@ export function RazorpayCheckoutButton({
   customerPhone?: string | null;
   children?: React.ReactNode;
 }) {
+  const settings = useInstallSettings();
+  if (settings?.country !== "IN") return null;
+
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 

@@ -4,11 +4,20 @@ import { redirect } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { SurfaceCard } from "@/components/common/SurfaceCard";
 import { getSessionUser } from "@/lib/auth/session";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getOrg } from "@/modules/orgs/queries/org";
 import { GstSettingsForm } from "@/modules/orgs/components/GstSettingsForm";
 
-export const metadata: Metadata = { title: "GST | CabFleet Admin" };
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getInstallSettings();
+  const isIndia = settings?.country === "IN";
+  const taxIdLabel = settings?.taxIdLabel ?? "Tax ID";
+  return {
+    title: isIndia ? "GST | CabFleet Admin" : `${taxIdLabel} | CabFleet Admin`,
+  };
+}
 
 export default async function GstSettingsPage() {
   const session = await getSessionUser();
@@ -16,14 +25,21 @@ export default async function GstSettingsPage() {
   if (session.profile.role !== "ADMIN" && session.profile.role !== "SUPER_ADMIN") {
     redirect("/settings");
   }
+
+  const settings = await getInstallSettings();
+  const country = settings?.country ?? "";
+  const isIndia = country === "IN";
+  const taxIdLabel = settings?.taxIdLabel ?? "Tax ID";
+  const pageTitle = isIndia ? "GST" : taxIdLabel;
+
   if (!session.profile.orgId) {
     return (
       <div className="space-y-6">
-        <PageBreadcrumb pageTitle="GST" />
-        <SurfaceCard title="GST">
+        <PageBreadcrumb pageTitle={pageTitle} />
+        <SurfaceCard title={pageTitle}>
           <p className="text-sm text-muted">
             This account is not attached to an organization. Open Organizations
-            to set GSTIN on a tenant, or sign in as a tenant admin.
+            to set {taxIdLabel} on a tenant, or sign in as a tenant admin.
           </p>
         </SurfaceCard>
       </div>
@@ -35,14 +51,26 @@ export default async function GstSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageBreadcrumb pageTitle="GST" />
-      <SurfaceCard title={<span className="text-base font-semibold">Invoice GST</span>}>
+      <PageBreadcrumb pageTitle={pageTitle} />
+      <SurfaceCard
+        title={
+          <span className="text-base font-semibold">
+            {isIndia ? "Invoice GST" : `Invoice ${taxIdLabel}`}
+          </span>
+        }
+      >
         <p className="mb-4 text-sm text-muted">
           These values are copied onto each invoice when it is issued. Changing
-          them does not rewrite invoices that already exist. SAC for passenger
-          transport is 9964.
+          them does not rewrite invoices that already exist.
+          {isIndia ? " SAC for passenger transport is 9964." : ""}
         </p>
-        <GstSettingsForm orgId={org.id} gstin={org.gstin} gstRate={org.gstRate} />
+        <GstSettingsForm
+          orgId={org.id}
+          gstin={org.gstin}
+          gstRate={org.gstRate}
+          country={country}
+          taxIdLabel={taxIdLabel}
+        />
       </SurfaceCard>
     </div>
   );

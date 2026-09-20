@@ -20,6 +20,7 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { writeAudit } from "@/lib/audit";
 import { runWithoutOrg } from "@/lib/org-context";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getPaymentProvider } from "@/modules/payments/providers";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,8 @@ async function handler(req: NextRequest) {
   const denied = cronAuthGuard(req, "/api/cron/reconcile-payments");
   if (denied) return denied;
 
-  const provider = getPaymentProvider();
+  const settings = await getInstallSettings();
+  const provider = getPaymentProvider(settings?.country ?? "");
   if (provider.name === "MANUAL") {
     return NextResponse.json({ skipped: "manual_provider" });
   }

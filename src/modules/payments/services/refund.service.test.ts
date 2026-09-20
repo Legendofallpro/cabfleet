@@ -14,6 +14,10 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 
+vi.mock("@/modules/install/queries/install", () => ({
+  getInstallSettings: vi.fn().mockResolvedValue({ country: "IN" }),
+}));
+
 vi.mock("@/modules/payments/providers", () => ({
   getPaymentProvider: vi.fn(),
 }));

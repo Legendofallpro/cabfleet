@@ -18,6 +18,7 @@ import { currentOrgId } from "@/lib/org-context";
 import { AppError } from "@/lib/errors";
 import { ok, type Result } from "@/lib/result";
 import { writeAudit } from "@/lib/audit";
+import { getInstallSettings } from "@/modules/install/queries/install";
 import { getPaymentProvider } from "@/modules/payments/providers";
 import type {
   RequestRefundInput,
@@ -202,7 +203,8 @@ export async function approveRefund(
     return ok(claimed);
   }
 
-  const provider = getPaymentProvider();
+  const settings = await getInstallSettings();
+  const provider = getPaymentProvider(settings?.country ?? "");
   try {
     const refundResult = await provider.refund({
       paymentId: claimed.paymentId,

@@ -31,21 +31,37 @@ export const orgIdSchema = z.object({ id: z.string().min(1) });
 /** 15-character Indian GSTIN. Empty string is allowed (stored as null). */
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
-export const updateOrgGstSchema = z.object({
-  orgId: z.string().min(1),
-  gstin: z
-    .string()
-    .trim()
-    .transform((v) => v.toUpperCase())
-    .refine((v) => v === "" || GSTIN_REGEX.test(v), {
-      message: "Enter a valid 15-character GSTIN, or leave blank",
-    }),
-  gstRate: z.coerce
-    .number()
-    .refine((n) => n === 0 || n === 5 || n === 12, {
-      message: "GST rate must be 0, 5, or 12",
-    }),
-});
+export function makeUpdateOrgGstSchema(country: string) {
+  const gstin =
+    country === "IN"
+      ? z
+          .string()
+          .trim()
+          .transform((v) => v.toUpperCase())
+          .refine((v) => v === "" || GSTIN_REGEX.test(v), {
+            message: "Enter a valid 15-character GSTIN, or leave blank",
+          })
+      : z
+          .string()
+          .trim()
+          .max(32, "Tax ID must be at most 32 characters");
 
-export type UpdateOrgGstFormValues = z.input<typeof updateOrgGstSchema>;
-export type UpdateOrgGstInput = z.infer<typeof updateOrgGstSchema>;
+  return z.object({
+    orgId: z.string().min(1),
+    gstin,
+    gstRate: z.coerce
+      .number()
+      .min(0, "Tax rate must be at least 0")
+      .max(100, "Tax rate must be at most 100"),
+  });
+}
+
+/** India defaults — kept for callers that assume the legacy export name. */
+export const updateOrgGstSchema = makeUpdateOrgGstSchema("IN");
+
+export type UpdateOrgGstFormValues = z.input<
+  ReturnType<typeof makeUpdateOrgGstSchema>
+>;
+export type UpdateOrgGstInput = z.infer<
+  ReturnType<typeof makeUpdateOrgGstSchema>
+>;

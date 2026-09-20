@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { getSessionUser } from "@/lib/auth/session";
+import { getInstallSettings } from "@/modules/install/queries/install";
 
 export const metadata: Metadata = {
   title: "Settings | CabFleet Admin",
@@ -31,11 +32,6 @@ const settingsSections = [
     href: "/settings/booking-types",
   },
   {
-    title: "GST",
-    description: "GSTIN and tax rate printed on invoices.",
-    href: "/settings/gst",
-  },
-  {
     title: "Account security",
     description: "Password and two-factor authentication.",
     href: "/profile/account",
@@ -51,10 +47,22 @@ const installSection = {
 export default async function SettingsPage() {
   const session = await getSessionUser();
   const role = session?.profile.role;
+  const settings = await getInstallSettings();
+  const isIndia = settings?.country === "IN";
+  const taxIdLabel = settings?.taxIdLabel ?? "Tax ID";
+
+  const taxSection = {
+    title: isIndia ? "GST" : taxIdLabel,
+    description: isIndia
+      ? "GSTIN and tax rate printed on invoices."
+      : `${taxIdLabel} and tax rate printed on invoices.`,
+    href: "/settings/gst",
+  };
+
   const sections =
     role === "ADMIN" || role === "SUPER_ADMIN"
-      ? [installSection, ...settingsSections]
-      : settingsSections;
+      ? [installSection, ...settingsSections.slice(0, 4), taxSection, ...settingsSections.slice(4)]
+      : [...settingsSections.slice(0, 4), taxSection, ...settingsSections.slice(4)];
 
   return (
     <div>
