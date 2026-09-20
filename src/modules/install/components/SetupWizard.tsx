@@ -191,7 +191,7 @@ export function SetupWizard() {
           type="button"
           onClick={() => {
             setStep(1);
-            setValue("country", country || INITIAL_COUNTRY);
+            setValue("country", country || DEFAULT_COUNTRY);
           }}
           className="flex h-12 w-full items-center justify-center rounded-xl border border-default bg-surface-elevated text-sm font-semibold text-default hover:bg-surface-inset"
         >
