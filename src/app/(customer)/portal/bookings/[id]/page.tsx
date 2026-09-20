@@ -127,7 +127,7 @@ export default async function CustomerBookingDetailPage({
           )}
           {due && due.breakdown.gst > 0 && (
             <DetailRow
-              label={`GST ${due.breakdown.gstRate}%`}
+              label={`${settings.taxIdLabel} ${due.breakdown.gstRate}%`}
               value={money(due.breakdown.gst)}
             />
           )}

@@ -291,7 +291,9 @@ export default async function BookingDetailPage({
       {due && due.outstanding > 0 && (
        <p className="mb-2 text-xs text-muted">
         Outstanding {money(due.outstanding)}
-        {due.breakdown.gst > 0 ? ` (incl. GST ${due.breakdown.gstRate}%)` : ""}
+        {due.breakdown.gst > 0
+         ? ` (incl. ${settings.taxIdLabel} ${due.breakdown.gstRate}%)`
+         : ""}
        </p>
       )}
       {payments.length === 0 ? (
