@@ -11,14 +11,13 @@ import { SelectField } from "@/components/common/form/SelectField";
 import { completeSetupAction } from "@/modules/install/actions/setup.actions";
 import {
   COUNTRY_OPTIONS,
+  DEFAULT_COUNTRY,
   defaultsForCountry,
 } from "@/modules/install/country-defaults";
 import {
   completeSetupSchema,
   type CompleteSetupFormValues,
 } from "@/modules/install/validators/setup";
-
-const INITIAL_COUNTRY = "IN";
 
 function buildDefaults(country: string): CompleteSetupFormValues {
   const d = defaultsForCountry(country);
@@ -48,7 +47,7 @@ export function SetupWizard() {
     formState: { errors, isSubmitting },
   } = useForm<CompleteSetupFormValues>({
     resolver: zodResolver(completeSetupSchema),
-    defaultValues: buildDefaults(INITIAL_COUNTRY),
+    defaultValues: buildDefaults(DEFAULT_COUNTRY),
   });
 
   const country = useWatch({ control, name: "country" });
@@ -56,7 +55,7 @@ export function SetupWizard() {
     COUNTRY_OPTIONS.find((o) => o.value === country)?.label ?? country;
 
   function goToStep2() {
-    const selected = country || INITIAL_COUNTRY;
+    const selected = country || DEFAULT_COUNTRY;
     reset(buildDefaults(selected));
     setStep(2);
   }

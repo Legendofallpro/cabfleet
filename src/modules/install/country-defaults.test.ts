@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { defaultsForCountry } from "./country-defaults";
+import { DEFAULT_COUNTRY, defaultsForCountry } from "./country-defaults";
+
+describe("DEFAULT_COUNTRY", () => {
+  it("matches the India catalog entry", () => {
+    expect(DEFAULT_COUNTRY).toBe("IN");
+    expect(defaultsForCountry(DEFAULT_COUNTRY).currency).toBe("INR");
+  });
+});
 
 describe("defaultsForCountry", () => {
   it("returns India GSTIN/INR/IST defaults", () => {

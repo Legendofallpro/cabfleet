@@ -16,6 +16,8 @@ const FALLBACK: CountryDefaults = {
   taxRate: 0,
 };
 
+export const DEFAULT_COUNTRY = "IN";
+
 const COUNTRY_DEFAULTS: Record<string, CountryDefaults> = {
   IN: {
     currency: "INR",

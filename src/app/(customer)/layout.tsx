@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionUser();
 
-  if (session && env.INSTALL_GATE) {
+  if (env.INSTALL_GATE) {
     const settings = await getInstallSettings();
     if (!settings?.setupCompletedAt) redirect("/setup");
   }
